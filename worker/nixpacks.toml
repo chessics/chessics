@@ -1,5 +1,0 @@
-[phases.setup]
-aptPkgs = ["stockfish"]
-
-[start]
-cmd = "node dist/start.js"

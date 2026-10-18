@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #1a1512;
+  --surface: #211b17;
+  --surface-2: #282219;
+  --surface-3: #2f281e;
+  --gold: #c9a55c;
+  --gold-dim: #8f7440;
+  --gold-bright: #dcbe7e;
+  --brass: #c9a55c;
+  --oxblood: #c0455a;
+  --text: #e8e0d0;
+  --text-muted: #a2977f;
+  --text-dim: #6a5f4e;
+  --blunder: #c0455a;
+  --mistake: #d07f3e;
+  --inaccuracy: #c9a55c;
+  --good: #7d9c6a;
+  --brilliant: #6a8fae;
+  --border: rgba(201, 165, 92, 0.18);
+  --border-strong: rgba(201, 165, 92, 0.38);
+  --radius: 0px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    ellipse 120% 90% at 50% 20%,
+    transparent 55%,
+    rgba(10, 7, 5, 0.5) 100%
+  );
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.font-logo,
+.font-headline {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hairline {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.cg-wrap cg-board {
+  background-color: #7a4f28;
+  background-image: repeating-conic-gradient(
+    #7a4f28 0% 25%,
+    #dfba85 0% 50%
+  );
+  background-size: 25% 25%;
+}
+
+cg-board square.last-move {
+  background-color: rgba(201, 165, 92, 0.42);
+  will-change: transform;
+}
+
+cg-board square.selected {
+  background-color: rgba(201, 165, 92, 0.55);
+}
+
+cg-board square.exhibit-root {
+  background-color: rgba(201, 165, 92, 0.55);
+}
+cg-board square.exhibit-blunder {
+  background-color: rgba(192, 69, 90, 0.55);
+}
+
+cg-board square.move-dest {
+  background: radial-gradient(
+    rgba(20, 85, 30, 0.5) 22%,
+    #208530 0,
+    rgba(0, 0, 0, 0.3) 0,
+    rgba(0, 0, 0, 0) 0
+  );
+}
+
+cg-board square.check {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(192, 57, 43, 1) 0%,
+    rgba(192, 57, 43, 0.75) 25%,
+    rgba(192, 57, 43, 0) 89%,
+    rgba(192, 57, 43, 0) 100%
+  );
+}
+
+.orientation-white .ranks :nth-child(odd),
+.orientation-white .files :nth-child(even),
+.orientation-black .ranks :nth-child(even),
+.orientation-black .files :nth-child(odd),
+coords.squares:nth-of-type(odd) :nth-child(even),
+coords.squares:nth-of-type(even) :nth-child(odd) {
+  color: rgba(60, 30, 10, 0.75);
+}
+
+.orientation-white .ranks :nth-child(even),
+.orientation-white .files :nth-child(odd),
+.orientation-black .ranks :nth-child(odd),
+.orientation-black .files :nth-child(even),
+coords.squares:nth-of-type(odd) :nth-child(odd),
+coords.squares:nth-of-type(even) :nth-child(even) {
+  color: rgba(220, 175, 110, 0.85);
+}

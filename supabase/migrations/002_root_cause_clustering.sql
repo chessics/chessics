@@ -1,0 +1,6 @@
+ALTER TABLE user_patterns
+  ADD COLUMN IF NOT EXISTS batch_history JSONB NOT NULL DEFAULT '[]';
+
+ALTER TABLE batch_reports
+  ADD COLUMN IF NOT EXISTS pattern_groups JSONB NOT NULL DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS game_ids UUID[] NOT NULL DEFAULT '{}';

@@ -9,6 +9,7 @@ import { generateBatchReport } from './claude-service.js'
 import type { BatchNarrativeInput } from './claude-service.js'
 import type { GameAnalysisData } from './analysis-processor.js'
 import { IDLE_POLL_MS, analyseEach, selectGamesForJob } from './job-games.js'
+import { JOB_STATUS_TTL_S, jobStatusRecord } from './job-status.js'
 
 const RECURRING_THRESHOLD = 3
 const MAX_HEADLINED = 3
@@ -174,8 +175,8 @@ async function updateJobStatus(
 ) {
   await redis.set(
     `job:${jobId}`,
-    JSON.stringify({ status, stage, progress, stageDetail, errorMessage }),
-    { ex: 3600 }
+    JSON.stringify(jobStatusRecord(status, stage, progress, stageDetail, errorMessage)),
+    { ex: JOB_STATUS_TTL_S }
   )
 }
 
@@ -439,6 +440,7 @@ async function runWorker() {
         if (retryCount < 2) {
           console.log(`Requeueing job ${job.jobId} (attempt ${retryCount + 1}/2)`)
           await redis.lpush('analysis:queue', JSON.stringify({ ...job, retryCount: retryCount + 1 }))
+          await updateJobStatus(job.jobId, 'queued', 1, 0, 'Waiting to retry...')
         } else {
           await updateJobStatus(
             job.jobId,

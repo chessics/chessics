@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
+import { jobIsLost } from '@/lib/sync/job-status'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -12,6 +13,7 @@ interface JobStatus {
   gameCount: number
   stage: 1 | 2 | 3 | 4
   stageDetail: string | null
+  updatedAt?: string
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -43,5 +45,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     gameCount: jobData.gameCount ?? 0,
     stage: jobData.stage ?? 1,
     stageDetail: jobData.stageDetail ?? null,
+    updatedAt: typeof jobData.updatedAt === 'string' ? jobData.updatedAt : null,
+    lost: jobIsLost(jobData, Date.now()),
   })
 }

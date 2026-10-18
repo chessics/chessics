@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
+import { jobIsLost } from '@/lib/sync/job-status'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -23,7 +24,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (jobId) {
     const raw = await redis.get(`job:${jobId}`)
     if (raw) {
-      const job = typeof raw === 'string' ? JSON.parse(raw) : raw as { status: string }
+      const job = typeof raw === 'string' ? JSON.parse(raw) : raw as { status: string; updatedAt?: string }
+      if (jobIsLost(job, Date.now())) {
+        return NextResponse.json({ status: 'lost' })
+      }
       if (job.status === 'complete') {
         return NextResponse.json({ status: 'ready' })
       }

@@ -58,7 +58,7 @@ export default function LandingPage() {
         if (session.jobId) params.set('jobId', session.jobId)
 
         const res = await fetch(`/api/guest/check?${params}`)
-        const { status } = (await res.json()) as { status: 'ready' | 'processing' | 'failed' | 'not_found' }
+        const { status } = (await res.json()) as { status: 'ready' | 'processing' | 'failed' | 'lost' | 'not_found' }
 
         if (status === 'ready') {
           setResumeSession(session)

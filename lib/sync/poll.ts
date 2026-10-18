@@ -15,6 +15,10 @@ export function pollVerdict(status: number | null, failures: number, notFound: n
   return 'continue'
 }
 
+export function statusSaysLost(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && (body as { lost?: unknown }).lost === true
+}
+
 export type GiveUpReason = 'analysis_lost' | 'status_unreachable'
 
 export interface StatusPoller<T> {
@@ -54,6 +58,11 @@ export function createStatusPoller<T>(p: StatusPoller<T>): () => Promise<void> {
     }
     failures = 0
     notFound = 0
+    if (statusSaysLost(body)) {
+      stopped = true
+      p.onGiveUp('analysis_lost')
+      return
+    }
     p.onStatus(body)
   }
 }

@@ -107,7 +107,7 @@ export default function LandingPage() {
     setResumeSession(null)
   }
 
-  if (resumeState === 'checking') return null
+  const showForm = resumeState === 'idle' || resumeState === 'checking'
 
   return (
     <main
@@ -193,7 +193,7 @@ export default function LandingPage() {
           </div>
         )}
 
-        {resumeState === 'idle' && (
+        {showForm && (
           <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
             <div
               className="flex rounded-lg p-1 gap-1"

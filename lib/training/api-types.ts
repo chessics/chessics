@@ -1,6 +1,7 @@
 import type { PublicPosition } from './position-payload'
 import type { SessionSummary } from './summary'
 import type { Grading } from './grading'
+import type { ReasonResult } from './reason'
 
 export type NextResponse =
   | { position: PublicPosition }
@@ -28,6 +29,7 @@ export interface CommitResponse {
   root_move_uci: string | null
   grading: Omit<Grading, 'correct'>
   recurrence: Recurrence | null
+  reason?: ReasonResult | null
   receipt: {
     engine: string | null
     depth: number | null

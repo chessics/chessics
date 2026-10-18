@@ -47,6 +47,7 @@ export interface Grading {
 export interface EngineEval {
   cp: number
   depth: number
+  pv?: string[]
 }
 
 export interface GradingEngine {

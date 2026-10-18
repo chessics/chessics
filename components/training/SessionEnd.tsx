@@ -1,6 +1,7 @@
 'use client'
 
 import { Chess } from 'chess.js'
+import { useFocusWhenLost } from './focus'
 import ChessBoard from '@/components/workbench/ChessBoard'
 import type { SessionSummary, StakesBar } from '@/lib/training/summary'
 import { stakesSentences } from '@/lib/training/summary'
@@ -44,10 +45,13 @@ interface SessionEndProps {
 export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndProps) {
   const locked = summary?.locked_in ?? []
   const stakes = summary?.stakes ?? null
+  const titleRef = useFocusWhenLost<HTMLHeadingElement>(openLoop)
 
   return (
     <div className="session-end">
-      <h1 className="training-title">Session done.</h1>
+      <h1 ref={titleRef} tabIndex={-1} className="training-title">
+        Session done.
+      </h1>
 
       {locked.length > 0 && (
         <section className="session-section">

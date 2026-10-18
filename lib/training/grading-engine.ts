@@ -32,19 +32,35 @@ export function parseEngineResponse(body: unknown): EngineEval | null {
   if (typeof d.debug === 'string' && /\b(lowerbound|upperbound)\b/.test(d.debug)) return null
 
   const mate = num(d.mate)
-  if (mate !== null && mate !== 0) return { cp: mate > 0 ? MATE_CP : -MATE_CP, depth }
+  const pv = pvOf(d)
+  if (mate !== null && mate !== 0) return { cp: mate > 0 ? MATE_CP : -MATE_CP, depth, ...(pv ? { pv } : {}) }
 
   const cp = num(d.centipawns)
   if (cp === null) return null
-  return { cp: Math.round(cp), depth }
+  return { cp: Math.round(cp), depth, ...(pv ? { pv } : {}) }
+}
+
+const UCI_MOVE = /^[a-h][1-8][a-h][1-8][qrbn]?$/
+
+function pvOf(d: Record<string, unknown>): string[] | null {
+  const move = typeof d.move === 'string' && UCI_MOVE.test(d.move) ? d.move : null
+  const raw = Array.isArray(d.continuationArr) ? d.continuationArr : []
+  const line: string[] = []
+  for (const m of raw) {
+    if (typeof m !== 'string' || !UCI_MOVE.test(m)) break
+    line.push(m)
+  }
+  if (move && line[0] !== move) line.unshift(move)
+  return line.length > 0 ? line : null
 }
 
 export function createGradingEngine(
   url: string = gradingEngineUrl(),
   fetchImpl: typeof fetch = fetch,
-  now: () => number = Date.now
+  now: () => number = Date.now,
+  budgetMs: number = GRADING_BUDGET_MS
 ): GradingEngine {
-  const deadline = now() + GRADING_BUDGET_MS
+  const deadline = now() + budgetMs
 
   const once = async (fen: string, depth: number): Promise<EngineEval | null> => {
     const remaining = deadline - now()

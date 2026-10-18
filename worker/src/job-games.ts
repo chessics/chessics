@@ -14,6 +14,7 @@ export interface JobGame {
   user_color: 'white' | 'black'
   result: 'win' | 'loss' | 'draw'
   opening_name: string | null
+  time_control: string | null
 }
 
 export async function selectGamesForJob(
@@ -23,7 +24,7 @@ export async function selectGamesForJob(
 ): Promise<JobGame[]> {
   let query = supabase
     .from('games')
-    .select('id, user_id, pgn, user_color, result, opening_name')
+    .select('id, user_id, pgn, user_color, result, opening_name, time_control')
     .eq('user_id', userId)
     .eq('is_analyzed', false)
 

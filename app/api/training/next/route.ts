@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
 import { TRAINING_QUEUE_SOURCE_TABLE } from '@/lib/training/queue'
 import { sessionSummary, type SummaryGame } from '@/lib/training/summary'
+import { reasonGateEnabled } from '@/lib/flags'
 import {
   clampStartedAt,
   fromQueueSelectRow,
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     at: Date.parse(i.created_at),
   }))
 
-  const body = nextStepBody(rows, interactions, sessionId, startedAt)
+  const body = nextStepBody(rows, interactions, sessionId, startedAt, { reasonGate: reasonGateEnabled('live') })
   if (!('done' in body) || !interactions.some(i => i.session_id === sessionId)) return json(body)
 
   const { data: games, error: gamesError } = await supabase

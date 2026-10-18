@@ -21,6 +21,33 @@ export function isMateMissWhileWinning(
   return before >= MATE_SCORE_CP && after >= STILL_WINNING_CP
 }
 
+export const OPENING_PHASE_TAGS: ReadonlySet<string> = new Set(['opening_preparation_gap'])
+
+export function parseTimeControl(
+  tc: string | null | undefined
+): { baseSeconds: number; incrementSeconds: number } | null {
+  if (!tc) return null
+  const m = tc.trim().match(/^(\d+)(?:\+(\d+))?$/)
+  if (!m) return null
+  return { baseSeconds: Number(m[1]), incrementSeconds: m[2] ? Number(m[2]) : 0 }
+}
+
+export function pgnTimeControl(pgn: string): string | null {
+  const m = pgn.match(/\[TimeControl\s+"([^"]*)"\]/)
+  return m ? m[1]! : null
+}
+
+export function isThreeZeroBlitz(timeControl: string | null | undefined, pgn: string): boolean {
+  const tc = parseTimeControl(timeControl) ?? parseTimeControl(pgnTimeControl(pgn))
+  return tc !== null && tc.baseSeconds === 180 && tc.incrementSeconds === 0
+}
+
+const NO_TAGS_WITHHELD: ReadonlySet<string> = new Set()
+
+export function withheldTagsFor(game: { time_control?: string | null; pgn: string }): ReadonlySet<string> {
+  return isThreeZeroBlitz(game.time_control, game.pgn) ? OPENING_PHASE_TAGS : NO_TAGS_WITHHELD
+}
+
 export function detectGamePatterns(
   moves: EvaluatedMove[],
   userColor: 'white' | 'black'
@@ -310,10 +337,11 @@ export function primaryTagForChainRoot(
   moves: EvaluatedMove[],
   userColor: 'white' | 'black',
   ctx: ChainRootContext,
-  gamePatterns: DetectedPattern[]
+  gamePatterns: DetectedPattern[],
+  withheld: ReadonlySet<string> = NO_TAGS_WITHHELD
 ): { tag: string; label: string } | null {
-  const rootSpecific = detectChainRootPatterns(moves, userColor, ctx)
-  const standalone = gamePatterns.filter(p => p.movesPly.includes(ctx.rootPly))
+  const rootSpecific = detectChainRootPatterns(moves, userColor, ctx).filter(p => !withheld.has(p.patternType))
+  const standalone = gamePatterns.filter(p => p.movesPly.includes(ctx.rootPly) && !withheld.has(p.patternType))
   const seen = new Set(rootSpecific.map(p => p.patternType))
   return bestByPriority([...rootSpecific, ...standalone.filter(p => !seen.has(p.patternType))])
 }

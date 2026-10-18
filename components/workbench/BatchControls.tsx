@@ -108,6 +108,15 @@ export default function BatchControls({
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           More games sharpen the pattern — confirm or clear your habits.
         </p>
+        {isGuest ? (
+          <a
+            href="/signup"
+            className="text-sm transition-opacity hover:opacity-80"
+            style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            Sign up to analyse 25, 50 or 100 games at a time.
+          </a>
+        ) : (
         <div className="flex gap-2">
           {[25, 50, 100].map((n) => (
             <button
@@ -127,6 +136,7 @@ export default function BatchControls({
             </button>
           ))}
         </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">

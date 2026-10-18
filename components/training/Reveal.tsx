@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useFocusWhenLost } from './focus'
 import { Chess } from 'chess.js'
 import ChessBoard, { type BoardShape } from '@/components/workbench/ChessBoard'
 import type { CommitResponse } from '@/lib/training/api-types'
@@ -12,7 +13,9 @@ import {
   squaresNamed,
   type RevealKind,
 } from '@/lib/training/reveal'
+import { withLitSquares } from '@/lib/board/squares'
 import { tagLabel } from '@/lib/training/session'
+import { GOAL_LABEL, reasonWords, type CheckStatus, type GoalCheck } from '@/lib/training/reason'
 
 interface RevealProps {
   fen: string
@@ -25,6 +28,7 @@ interface RevealProps {
   nextLabel: string
   onNext: () => void
   onWatch: () => void
+  onThreat?: () => void
 }
 
 const BRUSH = {
@@ -45,21 +49,46 @@ function sanOf(fen: string, uci: string | null): string | null {
   }
 }
 
+function sanAfter(fen: string, first: string, reply: string): string | null {
+  try {
+    const c = new Chess(fen)
+    c.move({ from: first.slice(0, 2), to: first.slice(2, 4), promotion: first[4] ?? 'q' })
+    return c.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] ?? 'q' })?.san ?? null
+  } catch {
+    return null
+  }
+}
+
 function capitalise(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export default function Reveal({ fen, orientation, kind, commit, chosenMove, size, watched, nextLabel, onNext, onWatch }: RevealProps) {
-  const chosenSan = sanOf(fen, chosenMove)
-  const lines = revealLines(kind, commit, chosenSan)
-
-  const arrows = revealArrows(kind, commit, chosenMove)
-  const shapes: BoardShape[] = arrows.map(a => ({ orig: a.from, dest: a.to, brush: BRUSH[a.role], hilite: true }))
-
-  const arrowheads = new Set(arrows.map(a => a.to))
-  for (const sq of squaresNamed(lines.join(' '))) {
-    if (!arrowheads.has(sq)) shapes.push({ orig: sq, brush: 'yellow' })
+function checkWords(c: GoalCheck): string {
+  const words: Record<CheckStatus, string> = {
+    served: 'does it',
+    not_served: "doesn't",
+    not_evaluable: `can't be tested${c.note ? ` (${c.note})` : ''}`,
+    unavailable: 'no engine answer',
   }
+  const numbers = c.detail ? ` · ${Object.entries(c.detail).map(([k, v]) => `${k.replace(/_/g, ' ')} ${v}`).join(', ')}` : ''
+  return `${words[c.status]}${numbers}`
+}
+
+export default function Reveal({ fen, orientation, kind, commit, chosenMove, size, watched, nextLabel, onNext, onWatch, onThreat }: RevealProps) {
+  const chosenSan = sanOf(fen, chosenMove)
+  const moveLines = revealLines(kind, commit, chosenSan)
+  const reason = commit.reason ?? null
+  const sameMove = chosenMove !== null && commit.best_move !== null && chosenMove.slice(0, 4) === commit.best_move.slice(0, 4)
+  const reasonText = reason ? reasonWords(reason, chosenSan, commit.best_move_san, sameMove) : null
+  const threat = reason?.checks?.threat ?? null
+  const threatSan = threat && chosenMove ? sanAfter(fen, chosenMove, threat.move) : null
+  const lines = [...(reasonText?.lines ?? []), ...moveLines]
+
+  const verdictRef = useFocusWhenLost<HTMLParagraphElement>(commit.position_id)
+  const arrows = revealArrows(kind, commit, chosenMove)
+  const arrowShapes: BoardShape[] = arrows.map(a => ({ orig: a.from, dest: a.to, brush: BRUSH[a.role], hilite: true }))
+
+  const shapes = withLitSquares(arrowShapes, squaresNamed(lines.join(' ')))
 
   const hasLine = commit.refutation_line.length > 0 && commit.root_move_uci !== null
   const watchFirst = hasLine && !watched && kind !== 'correct'
@@ -90,7 +119,18 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
       <ChessBoard fen={fen} orientation={orientation} shapes={shapes} size={size} />
 
       <div className="training-panel">
-        <p className={`training-verdict training-verdict-${kind}`}>{revealVerdict(kind)}</p>
+        <p ref={verdictRef} tabIndex={-1} className={`training-verdict training-verdict-${kind}`}>
+          {revealVerdict(kind)}
+        </p>
+
+        {reasonText?.declared && (
+          <div className="training-reason">
+            <p className="training-reason-declared">{reasonText.declared}</p>
+            {reasonText.lines.map(line => (
+              <p key={line} className="training-sentence">{line}</p>
+            ))}
+          </div>
+        )}
 
         <ul className="training-key" aria-label="What the arrows mean">
           {arrows.map(a => (
@@ -103,7 +143,7 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
         </ul>
 
         <div className="training-lines">
-          {lines.map(line => (
+          {moveLines.map(line => (
             <p key={line} className="training-sentence">{line}</p>
           ))}
         </div>
@@ -136,6 +176,11 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
                 </button>
               )}
             </>
+          )}
+          {threat && onThreat && (
+            <button className="training-btn training-btn-quiet" onClick={onThreat}>
+              See the threat{threatSan ? `: ${threatSan}` : ''}
+            </button>
           )}
         </div>
 
@@ -174,6 +219,38 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
               <>
                 <dt>Your move, checked</dt>
                 <dd>not checked: the engine gave no usable answer</dd>
+              </>
+            )}
+            {reason?.declared_goal && (
+              <>
+                <dt>Your reason</dt>
+                <dd>{GOAL_LABEL[reason.declared_goal]}</dd>
+              </>
+            )}
+            {reason?.checks && (
+              <>
+                <dt>Checked on {commit.best_move_san ?? 'the best move'}</dt>
+                <dd>{checkWords(reason.checks.best)}</dd>
+                {!sameMove && (
+                  <>
+                    <dt>Checked on {chosenSan ?? 'your move'}</dt>
+                    <dd>{checkWords(reason.checks.chosen)}</dd>
+                  </>
+                )}
+                <dt>Reason checked by</dt>
+                <dd>
+                  {reason.checks.engine}
+                  {reason.checks.depth ? `, depth ${reason.checks.depth}` : ''}; a free move counts above 50 cp
+                </dd>
+                {threat && (
+                  <>
+                    <dt>The threat</dt>
+                    <dd>
+                      {threatSan ?? threat.move}, then {threat.eval_after_cp > 0 ? '+' : ''}
+                      {threat.eval_after_cp} cp, your side
+                    </dd>
+                  </>
+                )}
               </>
             )}
             <dt>Your game</dt>

@@ -47,33 +47,37 @@ export default function LoginPage() {
           <Link href="/" className="font-logo" style={{ fontSize: 28, color: 'var(--text)' }}>
             chess<span style={{ color: 'var(--gold)' }}>ics</span>
           </Link>
-          <h2 className="mt-4 text-xl font-semibold" style={{ color: 'var(--text)' }}>Welcome back</h2>
+          <h1 className="mt-4 text-xl font-semibold" style={{ color: 'var(--text)' }}>Welcome back</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
             type="email"
             placeholder="Email"
+            aria-label="Email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={loading}
-            className="w-full px-4 py-3 rounded-lg text-sm outline-none"
+            className="w-full px-4 py-3 text-sm outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
           />
           <input
             type="password"
             placeholder="Password"
+            aria-label="Password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={loading}
-            className="w-full px-4 py-3 rounded-lg text-sm outline-none"
+            className="w-full px-4 py-3 text-sm outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
           />
 
           {error && (
-            <p className="text-xs px-1" style={{ color: 'var(--blunder)' }}>
+            <p role="alert" className="text-xs px-1" style={{ color: 'var(--text)', borderLeft: '1px solid var(--oxblood)', paddingLeft: 8 }}>
               {error}
             </p>
           )}
@@ -81,7 +85,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg text-sm font-medium transition-opacity"
+            className="w-full py-3 text-sm font-medium transition-opacity"
             style={{
               background: 'var(--gold)',
               color: '#1a1512',
@@ -110,7 +114,7 @@ export default function LoginPage() {
                   options: { redirectTo: window.location.origin + '/api/auth/callback' },
                 })
               }}
-              className="w-full py-3 rounded-lg text-sm font-medium flex items-center justify-center gap-3 transition-opacity hover:opacity-80"
+              className="w-full py-3 text-sm font-medium flex items-center justify-center gap-3 transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--surface-2)',
                 border: '1px solid var(--border-strong)',

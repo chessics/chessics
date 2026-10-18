@@ -34,7 +34,7 @@ const config: Config = {
         xl: '0',
         '2xl': '0',
         '3xl': '0',
-        full: '9999px',
+        full: '0',
       },
       fontFamily: {
         sans: ['DM Sans', 'sans-serif'],

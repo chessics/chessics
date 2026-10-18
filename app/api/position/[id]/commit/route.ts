@@ -3,8 +3,22 @@ import { Chess } from 'chess.js'
 import { createClient } from '@/lib/supabase/server'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
 import { isUnderFloor } from '@/lib/training/timing'
-import { gradeCommit, gradingColumns, gradingFromRow, legalUci, type Grading } from '@/lib/training/grading'
-import { createGradingEngine } from '@/lib/training/grading-engine'
+import { gradeCommit, gradingColumns, gradingFromRow, legalUci, type Grading, type StoredGrading } from '@/lib/training/grading'
+import { createGradingEngine, gradingEngineUrl } from '@/lib/training/grading-engine'
+import { reasonGateEnabled } from '@/lib/flags'
+import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
+import { SESSION_UUID } from '@/lib/training/next-step'
+import { checkReason, GOAL_BUDGET_MS } from '@/lib/training/goals'
+import {
+  asksForReason,
+  isGoal,
+  reasonColumns,
+  reasonFromRow,
+  REASON_SELECT,
+  type Goal,
+  type ReasonResult,
+  type StoredReason,
+} from '@/lib/training/reason'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -20,18 +34,29 @@ interface CommitBody {
   chosen_move: string | null
   drawn_moves: DrawnMove[]
   time_to_commit_ms: number
+  declared_goal: Goal | null
 }
+
+type ExistingInteraction = StoredGrading & {
+  id: string
+  presentation_index: number
+  prior_exposures: number
+  under_floor: boolean
+} & Partial<StoredReason>
+
+const MAX_DRAWN_MOVES = 64
 
 const SQUARE = /^[a-h][1-8]$/
 const UCI = /^[a-h][1-8][a-h][1-8][qrbn]?$/
 
-function parseBody(raw: unknown): CommitBody | string {
+function parseBody(raw: unknown, reasonGate: boolean): CommitBody | string {
   if (typeof raw !== 'object' || raw === null) return 'body must be an object'
   const b = raw as Record<string, unknown>
 
   if (typeof b.session_id !== 'string' || b.session_id.length === 0) {
     return 'session_id is required'
   }
+  if (!SESSION_UUID.test(b.session_id)) return 'session_id must be a UUID'
 
   if (b.chosen_move !== null && typeof b.chosen_move !== 'string') {
     return 'chosen_move must be a UCI string or null'
@@ -41,6 +66,7 @@ function parseBody(raw: unknown): CommitBody | string {
   }
 
   if (!Array.isArray(b.drawn_moves)) return 'drawn_moves must be an array'
+  if (b.drawn_moves.length > MAX_DRAWN_MOVES) return `drawn_moves holds at most ${MAX_DRAWN_MOVES} arrows`
   for (const m of b.drawn_moves) {
     if (
       typeof m !== 'object' ||
@@ -60,11 +86,16 @@ function parseBody(raw: unknown): CommitBody | string {
     return 'time_to_commit_ms must be a non-negative number'
   }
 
+  if (reasonGate && b.declared_goal !== undefined && b.declared_goal !== null && !isGoal(b.declared_goal)) {
+    return 'declared_goal must be one of the four reasons'
+  }
+
   return {
     session_id: b.session_id,
     chosen_move: b.chosen_move as string | null,
     drawn_moves: b.drawn_moves as DrawnMove[],
     time_to_commit_ms: b.time_to_commit_ms,
+    declared_goal: reasonGate && isGoal(b.declared_goal) ? b.declared_goal : null,
   }
 }
 
@@ -95,6 +126,16 @@ export async function POST(
     )
   }
 
+  const limited = await checkLimits([{ rule: RATE_LIMITS.commit, key: userKey(user.id) }])
+  if (!limited.allowed) return tooManyRequests(limited, NO_STORE_HEADERS)
+
+  if (!SESSION_UUID.test(params.id)) {
+    return NextResponse.json(
+      { error: 'Not found' },
+      { status: 404, headers: NO_STORE_HEADERS }
+    )
+  }
+
   let raw: unknown
   try {
     raw = await request.json()
@@ -105,7 +146,8 @@ export async function POST(
     )
   }
 
-  const body = parseBody(raw)
+  const reasonGate = reasonGateEnabled('live')
+  const body = parseBody(raw, reasonGate)
   if (typeof body === 'string') {
     return NextResponse.json(
       { error: body },
@@ -142,14 +184,14 @@ export async function POST(
 
   const gameMoveUci = sanToUci(position.fen, position.root_move_san)
 
-  const { data: existing, error: existingError } = await supabase
+  const existingColumns =
+    'id, presentation_index, prior_exposures, under_floor, correct, chosen_move, chosen_eval_cp, best_eval_cp, grading_engine, grading_depth'
+  const { data: existing, error: existingError } = (await supabase
     .from('interactions')
-    .select(
-      'id, presentation_index, prior_exposures, under_floor, correct, chosen_move, chosen_eval_cp, best_eval_cp, grading_engine, grading_depth'
-    )
+    .select(reasonGate ? `${existingColumns}, ${REASON_SELECT}` : existingColumns)
     .eq('session_id', body.session_id)
     .eq('position_id', params.id)
-    .maybeSingle()
+    .maybeSingle()) as { data: ExistingInteraction | null; error: { message: string } | null }
 
   if (existingError) {
     return NextResponse.json(
@@ -159,14 +201,6 @@ export async function POST(
   }
 
   const underFloor = existing ? existing.under_floor : isUnderFloor(body.time_to_commit_ms, position.time_floor_ms)
-
-  const grading: Grading = existing
-    ? gradingFromRow(existing, position, gameMoveUci)
-    : await gradeCommit(
-        { fen: position.fen, chosenMove, bestMove: position.best_move, gameMoveUci },
-        createGradingEngine()
-      )
-  const correct = grading.correct
 
   let presentationIndex: number
   let priorExposures: number
@@ -189,7 +223,34 @@ export async function POST(
 
     presentationIndex = sessionCount ?? 0
     priorExposures = exposureCount ?? 0
+  }
 
+  const asks = reasonGate && !existing && asksForReason(presentationIndex)
+  if (asks && chosenMove !== null && body.declared_goal === null) {
+    return NextResponse.json(
+      { error: 'declared_goal is required on this position' },
+      { status: 400, headers: NO_STORE_HEADERS }
+    )
+  }
+
+  const grading: Grading = existing
+    ? gradingFromRow(existing, position, gameMoveUci)
+    : await gradeCommit(
+        { fen: position.fen, chosenMove, bestMove: position.best_move, gameMoveUci },
+        createGradingEngine()
+      )
+  const correct = grading.correct
+
+  let reason: ReasonResult | null = null
+  if (reasonGate && existing) reason = reasonFromRow(existing as StoredReason)
+  else if (asks) {
+    reason = await checkReason(
+      { fen: position.fen, bestMove: position.best_move, chosenMove, declaredGoal: body.declared_goal, correct },
+      createGradingEngine(gradingEngineUrl(), fetch, Date.now, GOAL_BUDGET_MS)
+    )
+  }
+
+  if (!existing) {
     const { error: insertError } = await supabase.from('interactions').insert({
       user_id: user.id,
       session_id: body.session_id,
@@ -205,6 +266,7 @@ export async function POST(
       prior_exposures: priorExposures,
       correct,
       ...gradingColumns(grading),
+      ...(asks && reason ? reasonColumns(reason) : {}),
     })
 
     if (insertError) {
@@ -244,6 +306,8 @@ export async function POST(
       },
 
       recurrence,
+
+      ...(reasonGate ? { reason } : {}),
 
       receipt: {
         engine: position.engine,

@@ -5,6 +5,7 @@ import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import 'chessground/assets/chessground.base.css'
 import 'chessground/assets/chessground.cburnett.css'
+import { boardAnimation } from '@/lib/motion'
 
 export interface BoardShape {
   orig: string
@@ -28,6 +29,8 @@ interface ChessBoardProps {
   lastMove?: [string, string] | null
   shapes?: BoardShape[]
   size: number
+  coordinates?: boolean
+  onReady?: () => void
 }
 
 export default function ChessBoard({
@@ -36,6 +39,8 @@ export default function ChessBoard({
   lastMove = null,
   shapes = [],
   size,
+  coordinates = true,
+  onReady,
 }: ChessBoardProps) {
   const elRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +52,8 @@ export default function ChessBoard({
   latestFen.current = fen
   latestLastMove.current = lastMove
   latestShapes.current = shapes
+  const latestOnReady = useRef(onReady)
+  latestOnReady.current = onReady
 
   useEffect(() => {
     if (!elRef.current) return
@@ -59,10 +66,11 @@ export default function ChessBoard({
       cgRef.current = Chessground(elRef.current, {
         fen: latestFen.current,
         orientation,
+        coordinates,
         movable: { free: false, color: undefined },
         draggable: { enabled: false },
         selectable: { enabled: false },
-        animation: { enabled: true, duration: 200 },
+        animation: boardAnimation(200),
         highlight: { lastMove: true, check: false },
         lastMove: latestLastMove.current
           ? (latestLastMove.current as [Key, Key])
@@ -88,6 +96,7 @@ export default function ChessBoard({
           shapes: latestShapes.current.map(toDrawShape),
         },
       })
+      latestOnReady.current?.()
     })
 
     return () => {

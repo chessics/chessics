@@ -16,6 +16,7 @@ export default function Sidebar() {
 
   return (
     <aside
+      aria-label="Sections"
       className="w-14 flex flex-col items-center py-4 gap-2 shrink-0"
       style={{ borderRight: '1px solid var(--border)', background: 'var(--surface)' }}
     >
@@ -26,7 +27,9 @@ export default function Sidebar() {
             key={href}
             href={href}
             title={label}
-            className={clsx('w-9 h-9 rounded-lg flex items-center justify-center transition-colors')}
+            aria-label={label}
+            aria-current={isActive ? 'page' : undefined}
+            className={clsx('w-9 h-9 flex items-center justify-center transition-colors')}
             style={{
               background: isActive ? 'rgba(201,165,92,0.12)' : 'transparent',
               color: isActive ? 'var(--gold)' : 'var(--text-dim)',

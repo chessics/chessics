@@ -26,7 +26,10 @@ export interface PublicPosition {
   position_id: string
   fen: string
   side_to_move: 'white' | 'black'
+  ask_reason?: boolean
 }
+
+export const POSITION_REASON_KEY = 'ask_reason' as const
 
 export interface PublicPositionRow {
   id: string

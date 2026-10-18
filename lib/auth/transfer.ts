@@ -48,5 +48,5 @@ async function run(storage: SessionStorage | undefined, doFetch: typeof fetch): 
     }
     return 'transferred'
   }
-  return res.status === 404 ? 'not_ready' : 'failed'
+  return res.status === 404 || res.status === 409 || res.status === 429 ? 'not_ready' : 'failed'
 }

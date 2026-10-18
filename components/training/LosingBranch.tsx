@@ -6,6 +6,7 @@ import ChessBoard from '@/components/workbench/ChessBoard'
 import EvalBar from './EvalBar'
 import { buildReplay } from '@/lib/training/replay'
 import { standing } from '@/lib/training/reveal'
+import { useFocusWhenLost } from './focus'
 
 interface LosingBranchProps {
   fen: string
@@ -15,7 +16,7 @@ interface LosingBranchProps {
   evals: number[]
   startEvalCp: number
   size: number
-  context: 'same-move' | 'watch'
+  context: 'same-move' | 'watch' | 'threat'
   onDone: () => void
 }
 
@@ -48,6 +49,7 @@ export default function LosingBranch({
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(true)
   const doneRef = useRef(false)
+  const titleRef = useFocusWhenLost<HTMLParagraphElement>(context)
   const mountedAt = useRef(performance.now())
 
   const finish = useCallback(() => {
@@ -97,7 +99,7 @@ export default function LosingBranch({
 
   const shapes =
     index === 1 && frame.lastMove
-      ? [{ orig: frame.lastMove[0], dest: frame.lastMove[1], brush: 'mistake', hilite: true }]
+      ? [{ orig: frame.lastMove[0], dest: frame.lastMove[1], brush: context === 'threat' ? 'unchecked' : 'mistake', hilite: true }]
       : []
 
   return (
@@ -109,11 +111,15 @@ export default function LosingBranch({
 
       <div className="training-panel replay-panel">
         <div>
-          <p className="training-verdict">{context === 'same-move' ? 'Same move as your game.' : 'What happened in your game'}</p>
+          <p ref={titleRef} tabIndex={-1} className="training-verdict">
+            {context === 'same-move' ? 'Same move as your game.' : context === 'threat' ? 'The threat' : 'What happened in your game'}
+          </p>
           <p className="training-hint">
             {context === 'same-move'
               ? 'Here is what happened next, move by move.'
-              : 'Your game move, then how the game went from there.'}
+              : context === 'threat'
+                ? "Your move, then your opponent's reply as the engine plays it."
+                : 'Your game move, then how the game went from there.'}
           </p>
         </div>
 
@@ -135,7 +141,7 @@ export default function LosingBranch({
               </span>
             </li>
           ))}
-          {index === 0 && <li className="replay-waiting">Your game move is next.</li>}
+          {index === 0 && <li className="replay-waiting">{context === 'threat' ? 'Your move is next.' : 'Your game move is next.'}</li>}
         </ol>
 
         <div className="replay-controls">
@@ -156,7 +162,7 @@ export default function LosingBranch({
             className={`training-btn ${index >= last ? 'training-btn-primary' : ''}`}
             onClick={finish}
           >
-            {context === 'watch'
+            {context !== 'same-move'
               ? 'Back to the answer'
               : index >= last
                 ? 'See the answer'

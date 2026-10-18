@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import BatchReportSummary from '@/components/workbench/BatchReportSummary'
+import GuestTransferRetry from '@/components/auth/GuestTransferRetry'
 import type { BatchReport, Trajectory, UserPattern } from '@/lib/supabase/types'
 
 export default async function WorkbenchPage() {
@@ -45,6 +46,7 @@ export default async function WorkbenchPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+      <GuestTransferRetry signedIn={!!session} />
       <div>
         <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
           Workbench

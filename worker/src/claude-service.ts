@@ -1,9 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { EvaluatedMove } from './stockfish.js'
+import { attributesUserMoveToOpponent, finishSentence, isOneSentence, namesUngivenSquare, polishSentence } from './sentences.js'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const MODEL = 'claude-sonnet-5'
+export const MODEL = 'claude-haiku-5-5'
 
 const CALIBRATION_VOICES: Record<number, string> = {
   0: 'Use very simple language. No chess jargon. Example tone: "You left your king open and your opponent attacked it."',
@@ -13,23 +14,10 @@ const CALIBRATION_VOICES: Record<number, string> = {
   4: 'Assume strong pattern recognition. Focus on subtle positional causes, tempo, transformation of advantages.',
 }
 
+const NO_OTHER_SQUARES = 'Name no square except those inside the moves you are given.'
+
 function voiceFor(level: number): string {
   return CALIBRATION_VOICES[level] ?? CALIBRATION_VOICES[2]!
-}
-
-function sentenceCount(text: string): number {
-  const matches = text.trim().match(/[.!?](?=\s+[A-Z"']|$)/g)
-  return matches ? matches.length : (text.trim().length > 0 ? 1 : 0)
-}
-
-function truncateToOneSentence(text: string): string {
-  const t = text.trim()
-  const m = t.match(/^[\s\S]*?[.!?](?=\s+[A-Z"']|$)/)
-  return m ? m[0].trim() : t
-}
-
-function isOneSentence(text: string): boolean {
-  return text.trim().length > 0 && sentenceCount(text) === 1
 }
 
 async function jsonCall<T>(
@@ -48,7 +36,7 @@ async function jsonCall<T>(
       system:
         attempt === 0
           ? system
-          : `${system}\n\nYour previous answer violated the one-sentence rule. Every string field must be EXACTLY ONE sentence.`,
+          : `${system}\n\nYour previous answer broke one of the rules above. Every string field must be EXACTLY ONE sentence.`,
       messages: [{ role: 'user', content: JSON.stringify(userPayload) }],
     })
 
@@ -94,6 +82,19 @@ export async function generateGameReview(
   calibrationLevel: number
 ): Promise<GameReviewResult> {
   const moveNum = (ply: number) => Math.ceil(ply / 2)
+  const colour = gameData.userColor
+  const ownMoves = `The user played ${colour}; every move you are given was played by the user, never by the opponent. ${NO_OTHER_SQUARES}`
+  const accept = (text: unknown, sans: readonly string[]): string | null => {
+    const finished = finishSentence(text, sans)
+    return finished && !attributesUserMoveToOpponent(finished, colour, sans) && !namesUngivenSquare(finished, sans)
+      ? finished
+      : null
+  }
+  const valid = (text: unknown, sans: readonly string[]): boolean =>
+    typeof text === 'string' &&
+    isOneSentence(polishSentence(text, sans)) &&
+    !attributesUserMoveToOpponent(polishSentence(text, sans), colour, sans) &&
+    !namesUngivenSquare(polishSentence(text, sans), sans)
 
   if (causalChains.length === 0) {
     const worst = [...gameData.moves]
@@ -102,26 +103,30 @@ export async function generateGameReview(
     if (!worst || worst.eval_delta <= 50) {
       return { narrative: 'No significant mistakes detected in this game.', keyMomentExplanation: '' }
     }
+    const sans = [worst.san]
+    const template = `${worst.san} at move ${moveNum(worst.ply)} was the costliest move you played.`
     const { sentence } = await jsonCall<{ sentence: string }>(
-      `You are a chess coach. ${voiceFor(calibrationLevel)} Respond with JSON {"sentence": "..."} — EXACTLY ONE sentence describing the given mistake, position-specific, sentence case. You are given computed engine facts only; never invent moves or evaluations.`,
+      `You are a chess coach. ${voiceFor(calibrationLevel)} Respond with JSON {"sentence": "..."} — EXACTLY ONE sentence describing the given mistake, sentence case. ${ownMoves} You are given computed engine facts only; never invent moves or evaluations.`,
       {
         result: gameData.result,
         userPlayed: gameData.userColor,
         costliestMistake: {
           move: worst.san,
           moveNumber: moveNum(worst.ply),
-          pawnsLost: +(worst.eval_delta / 100).toFixed(1),
         },
       },
-      p => isOneSentence(p.sentence)
-    ).catch(() => ({ sentence: `${worst.san} at move ${moveNum(worst.ply)} cost ${(worst.eval_delta / 100).toFixed(1)} pawns.` }))
-    const s = truncateToOneSentence(sentence)
+      p => valid(p.sentence, sans)
+    ).catch(() => ({ sentence: template }))
+    const s = accept(sentence, sans) ?? template
     return { narrative: s, keyMomentExplanation: s }
   }
 
   const chains = causalChains.slice(0, 3)
+  const sans = chains.flatMap(c => [c.rootMoveSan, c.terminalBlunderSan])
+  const template = (c: CausalChainInput) =>
+    `${c.rootMoveSan} at move ${moveNum(c.rootMovePly)} led to the blunder ${c.terminalBlunderSan} at move ${moveNum(c.terminalBlunderPly)}.`
   const { insights } = await jsonCall<{ insights: string[] }>(
-    `You are a chess coach. ${voiceFor(calibrationLevel)} Respond with JSON {"insights": ["...", ...]} — EXACTLY ONE sentence per causal chain, in the given order, each explaining how the root move led to the blunder, position-specific, sentence case. You are given computed engine facts only; never invent moves or evaluations.`,
+    `You are a chess coach. ${voiceFor(calibrationLevel)} Respond with JSON {"insights": ["...", ...]} — EXACTLY ONE sentence per causal chain, in the given order, each explaining how the root move led to the blunder, sentence case. ${ownMoves} You are given computed engine facts only; never invent moves or evaluations.`,
     {
       result: gameData.result,
       userPlayed: gameData.userColor,
@@ -132,14 +137,13 @@ export async function generateGameReview(
         blunderMoveNumber: moveNum(c.terminalBlunderPly),
       })),
     },
-    p => Array.isArray(p.insights) && p.insights.length === chains.length && p.insights.every(isOneSentence)
-  ).catch(() => ({
-    insights: chains.map(
-      c => `${c.rootMoveSan} at move ${moveNum(c.rootMovePly)} led to the blunder ${c.terminalBlunderSan} at move ${moveNum(c.terminalBlunderPly)}.`
-    ),
-  }))
+    p =>
+      Array.isArray(p.insights) &&
+      p.insights.length === chains.length &&
+      p.insights.every(s => valid(s, sans))
+  ).catch(() => ({ insights: chains.map(template) }))
 
-  const clean = insights.map(truncateToOneSentence)
+  const clean = chains.map((c, i) => accept(Array.isArray(insights) ? insights[i] : undefined, sans) ?? template(c))
   return {
     narrative: clean.join(' '),
     keyMomentExplanation: clean[0] ?? '',
@@ -191,7 +195,7 @@ Rules — non-negotiable:
 - "additional": EXACTLY ${expectAdditional} strings, one per additional pattern, each EXACTLY ONE sentence.
 - ${wantTrajectory ? '"trajectory": EXACTLY ONE sentence on the direction of the headline habit vs the previous batch.' : '"trajectory": must be null — this is a first analysis, never invent a comparison.'}
 - Costs are pawns or centipawns, never Elo. Sentence case. No headers, no lists.
-You are given computed engine facts only; never invent moves, counts, or evaluations.`
+You are given computed engine facts only; never invent moves, counts, or evaluations. ${NO_OTHER_SQUARES}`
 
   const payload = {
     gamesAnalyzed: input.gameCount,
@@ -209,28 +213,44 @@ You are given computed engine facts only; never invent moves, counts, or evaluat
       ? `Not enough games to confirm a habit — your most expensive decision was ${input.fallbackChain.rootSan} at move ${input.fallbackChain.rootMoveNumber}, which led to ${input.fallbackChain.blunderSan} at move ${input.fallbackChain.blunderMoveNumber}.`
       : 'Analysis complete — no recurring weaknesses detected in this batch.'
 
+  const sans = [
+    ...(input.headline ? [input.headline.exhibit.rootSan, input.headline.exhibit.blunderSan] : []),
+    ...(!input.headline && input.fallbackChain ? [input.fallbackChain.rootSan, input.fallbackChain.blunderSan] : []),
+  ]
+  const sentence = (s: unknown) =>
+    typeof s === 'string' && isOneSentence(polishSentence(s, sans)) && !namesUngivenSquare(polishSentence(s, sans), sans)
+  const finish = (s: unknown): string | null => {
+    const f = finishSentence(s, sans)
+    return f && !namesUngivenSquare(f, sans) ? f : null
+  }
+  const additionalTemplate = (a: { label: string; frequency: number }) =>
+    `${a.label} appeared in ${a.frequency} of ${input.gameCount} games.`
+  const trajectoryTemplate = wantTrajectory && input.trajectory
+    ? `Your ${input.trajectory.headlineLabel.toLowerCase()} habit is ${TRAJECTORY_DISPLAY[input.trajectory.direction]} compared to your previous batch.`
+    : null
+
   const result = await jsonCall<{ verdict: string; additional: string[]; trajectory: string | null }>(
     system,
     payload,
     p =>
-      isOneSentence(p.verdict) &&
+      sentence(p.verdict) &&
       Array.isArray(p.additional) &&
       p.additional.length === expectAdditional &&
-      p.additional.every(isOneSentence) &&
-      (wantTrajectory ? typeof p.trajectory === 'string' && isOneSentence(p.trajectory) : p.trajectory === null || p.trajectory === undefined)
+      p.additional.every(sentence) &&
+      (wantTrajectory ? sentence(p.trajectory) : p.trajectory === null || p.trajectory === undefined)
   ).catch(() => ({
     verdict: fallbackVerdict,
-    additional: input.additional.map(
-      a => `${a.label} appeared in ${a.frequency} of ${input.gameCount} games at an average cost of ${(a.avgCp / 100).toFixed(1)} pawns.`
-    ),
-    trajectory: wantTrajectory && input.trajectory
-      ? `Your ${input.trajectory.headlineLabel.toLowerCase()} habit is ${TRAJECTORY_DISPLAY[input.trajectory.direction]} compared to your previous batch.`
-      : null,
+    additional: input.additional.map(additionalTemplate),
+    trajectory: trajectoryTemplate,
   }))
 
-  const verdict = truncateToOneSentence(result.verdict)
-  const patternSentences = result.additional.map(truncateToOneSentence)
-  const trajectorySentence = wantTrajectory && result.trajectory ? truncateToOneSentence(result.trajectory) : null
+  const verdict = finish(result.verdict) ?? fallbackVerdict
+  const patternSentences = input.additional.map(
+    (a, i) => finish(Array.isArray(result.additional) ? result.additional[i] : undefined) ?? additionalTemplate(a)
+  )
+  const trajectorySentence = wantTrajectory
+    ? finish(result.trajectory) ?? trajectoryTemplate
+    : null
 
   return {
     verdict,

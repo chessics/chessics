@@ -1,3 +1,5 @@
+import { TOO_MANY_REQUESTS_CODE, TOO_MANY_REQUESTS_MESSAGE } from '@/lib/ratelimit-message'
+
 export const POLL_INTERVAL_MS = 2000
 
 export const LOST_AFTER_404S = 3
@@ -62,6 +64,8 @@ const MESSAGES: Record<string, string> = {
   status_unreachable: "We couldn't reach the analysis status for 30 seconds. Run it again in a minute.",
   network_error: 'The connection dropped before the sync started. Try again.',
   sync_failed: "The sync didn't start. Try again.",
+  [TOO_MANY_REQUESTS_CODE]: TOO_MANY_REQUESTS_MESSAGE,
+  sign_up_for_larger_batches: 'Sign up to analyse 25, 50 or 100 games at a time.',
   'Username not found': 'That username was not found. Check the spelling and the site.',
   'Rate limited, try again shortly': 'The chess site is rate limiting us. Try again in a minute.',
   'Failed to fetch games': "We couldn't fetch your games from the chess site. Try again.",

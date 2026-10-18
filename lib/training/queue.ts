@@ -168,7 +168,9 @@ export function selectNext(pool: QueueCandidate[], served: ServedPosition[]): Qu
     return { position: null, reason: 'exhausted' }
   }
 
-  const next = unserved.find(c => !violatesInterleave(c, previousTag))
+  const previousGame = served.length > 0 ? served[served.length - 1].game_id : undefined
+  const allowed = unserved.filter(c => !violatesInterleave(c, previousTag))
+  const next = allowed.find(c => c.game_id !== previousGame) ?? allowed[0]
 
   if (!next) {
     return { position: null, reason: 'interleave_blocked' }

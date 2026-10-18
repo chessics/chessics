@@ -129,19 +129,19 @@ export default function LandingPage() {
         </div>
 
         {errorMessage && (
-          <p role="alert" className="w-full text-sm text-center" style={{ color: 'var(--oxblood)' }}>
+          <p role="alert" className="w-full text-sm text-center" style={{ color: 'var(--text)', borderTop: '1px solid var(--oxblood)', paddingTop: 8 }}>
             {errorMessage}
           </p>
         )}
 
         {resumeState === 'ready' && resumeSession && (
           <div
-            className="w-full rounded-lg p-5 flex flex-col gap-4"
+            className="w-full p-5 flex flex-col gap-4"
             style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)' }}
           >
             <div className="flex items-start gap-3">
               <div
-                className="mt-1 flex-shrink-0 w-2 h-2 rounded-full"
+                className="mt-1 flex-shrink-0 w-2 h-2"
                 style={{ background: 'var(--gold)' }}
               />
               <div className="flex flex-col gap-0.5">
@@ -157,21 +157,21 @@ export default function LandingPage() {
             <div className="flex flex-col gap-2">
               <a
                 href="/report"
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-center block"
+                className="w-full py-2.5 text-sm font-medium text-center block"
                 style={{ background: 'transparent', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
               >
                 View your report
               </a>
               <a
                 href="/signup"
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-center block"
+                className="w-full py-2.5 text-sm font-medium text-center block"
                 style={{ background: 'var(--gold)', color: '#1a1512' }}
               >
                 Sign up to save &amp; view results →
               </a>
               <a
                 href="/login"
-                className="w-full py-2.5 rounded-lg text-sm text-center block"
+                className="w-full py-2.5 text-sm text-center block"
                 style={{
                   background: 'transparent',
                   border: '1px solid var(--border-strong)',
@@ -196,7 +196,9 @@ export default function LandingPage() {
         {showForm && (
           <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
             <div
-              className="flex rounded-lg p-1 gap-1"
+              className="flex p-1 gap-1"
+              role="group"
+              aria-label="Platform"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             >
               {(['chess.com', 'lichess'] as Platform[]).map((p) => (
@@ -204,13 +206,13 @@ export default function LandingPage() {
                   key={p}
                   type="button"
                   onClick={() => setPlatform(p)}
-                  className="flex-1 py-2 rounded-md text-sm"
+                  aria-pressed={platform === p}
+                  className="flex-1 py-2 text-sm"
                   style={{
                     background: platform === p ? 'var(--gold)' : 'transparent',
                     color: platform === p ? '#1a1512' : 'var(--text-muted)',
                     border: 'none',
                     cursor: 'pointer',
-                    outline: 'none',
                     fontWeight: platform === p ? 600 : 400,
                   }}
                 >
@@ -224,7 +226,9 @@ export default function LandingPage() {
               placeholder={`Your ${platform === 'chess.com' ? 'Chess.com' : 'Lichess'} username`}
               value={username}
               onChange={handleUsernameChange}
-              className="w-full px-4 py-3 rounded-lg text-sm outline-none"
+              aria-label={`${platform === 'chess.com' ? 'Chess.com' : 'Lichess'} username`}
+              autoComplete="off"
+              className="w-full px-4 py-3 text-sm outline-none"
               style={{
                 background: 'var(--surface)',
                 border: '1px solid var(--border-strong)',
@@ -236,7 +240,7 @@ export default function LandingPage() {
             <button
               type="submit"
               disabled={!username.trim()}
-              className="w-full py-3 rounded-lg text-sm font-medium transition-opacity disabled:opacity-40"
+              className="w-full py-3 text-sm font-medium transition-opacity disabled:opacity-40"
               style={{
                 background: 'var(--gold)',
                 color: '#1a1512',

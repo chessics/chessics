@@ -8,13 +8,13 @@
   --surface-2: #282219;
   --surface-3: #2f281e;
   --gold: #c9a55c;
-  --gold-dim: #8f7440;
+  --gold-dim: var(--brass);
   --gold-bright: #dcbe7e;
   --brass: #c9a55c;
   --oxblood: #c0455a;
   --text: #e8e0d0;
   --text-muted: #a2977f;
-  --text-dim: #6a5f4e;
+  --text-dim: var(--text-muted);
   --blunder: #c0455a;
   --mistake: #d07f3e;
   --inaccuracy: #c9a55c;
@@ -140,4 +140,33 @@ coords.squares:nth-of-type(even) :nth-child(odd) {
 coords.squares:nth-of-type(odd) :nth-child(odd),
 coords.squares:nth-of-type(even) :nth-child(even) {
   color: rgba(220, 175, 110, 0.85);
+}
+
+.lit-sentence {
+  cursor: default;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.lit-sentence:hover,
+.lit-sentence:focus {
+  text-decoration-color: var(--brass);
+}
+
+:focus-visible {
+  outline: 1px solid var(--brass);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
 }

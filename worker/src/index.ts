@@ -211,6 +211,7 @@ async function processGuestJob(job: AnalysisJob): Promise<void> {
           user_color: raw.user_color,
           result: raw.result,
           opening_name: raw.opening_name,
+          time_control: raw.time_control,
         },
         job.calibrationLevel
       ),

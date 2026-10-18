@@ -7,7 +7,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export default function Button({ variant = 'gold', size = 'md', className, children, ...props }: ButtonProps) {
-  const base = 'rounded-lg font-medium transition-opacity disabled:opacity-40 cursor-pointer'
+  const base = 'font-medium transition-opacity disabled:opacity-40 cursor-pointer'
 
   const variants = {
     gold: 'text-[#1a1512]',

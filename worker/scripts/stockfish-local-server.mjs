@@ -65,6 +65,7 @@ function evaluate(fen, depth) {
 
     let lastScore = null
     let lastDepth = null
+    let lastPv = []
     const bestmoveLine = await new Promise((resolve) => {
       send(`go depth ${depth}`)
       waitFor(
@@ -75,6 +76,8 @@ function evaluate(fen, depth) {
             lastScore = { unit: m[1], value: parseInt(m[2], 10) }
             const d = l.match(/\bdepth (\d+)/)
             lastDepth = d ? parseInt(d[1], 10) : null
+            const pv = l.match(/\bpv (.+)$/)
+            lastPv = pv ? pv[1].trim().split(/\s+/) : []
           }
         }
       ).then(resolve)
@@ -94,6 +97,7 @@ function evaluate(fen, depth) {
         type: 'mate',
         mate: mateWhite,
         depth: lastDepth,
+        continuationArr: lastPv,
       }
     }
 
@@ -105,6 +109,7 @@ function evaluate(fen, depth) {
       type: 'cp',
       mate: null,
       depth: lastDepth,
+      continuationArr: lastPv,
     }
   }
 

@@ -3,8 +3,10 @@ import { Redis } from '@upstash/redis'
 import { createClient } from '@/lib/supabase/server'
 import { fetchChessComGames } from '@/lib/sync/chess-com'
 import { fetchLichessGames } from '@/lib/sync/lichess'
-import type { SyncedGame, TimeControlFilter } from '@/lib/sync/chess-com'
+import type { SyncedGame } from '@/lib/sync/chess-com'
 import type { LichessSyncedGame } from '@/lib/sync/lichess'
+import { checkLimits, ipKey, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
+import { batchSizeAllowed, parseSyncBody, SIGN_UP_FOR_LARGER_BATCHES } from '@/lib/sync/request'
 
 export const maxDuration = 30
 
@@ -19,39 +21,41 @@ function estimatedMinutes(gameCount: number): number {
   return 15
 }
 
-interface SyncRequestBody {
-  username: string
-  platform: 'chess_com' | 'lichess'
-  batchSize?: number
-  calibrationLevel?: number
-  sessionToken?: string
-  timeControlFilter?: TimeControlFilter
-}
-
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: SyncRequestBody
-
+  let raw: unknown
   try {
-    body = (await req.json()) as SyncRequestBody
+    raw = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const {
-    username,
-    platform,
-    batchSize = 10,
-    calibrationLevel,
-    sessionToken,
-    timeControlFilter = 'rapid_blitz',
-  } = body
+  const parsed = parseSyncBody(raw)
+  if (typeof parsed === 'string') {
+    return NextResponse.json({ error: parsed }, { status: 400 })
+  }
+  const { username, platform, batchSize, calibrationLevel, sessionToken, timeControlFilter } = parsed
 
-  if (!username || !platform) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const userId = user?.id ?? null
+
+  if (!userId && !sessionToken) {
     return NextResponse.json(
-      { error: 'username and platform are required' },
+      { error: 'sessionToken required for pre-signup analysis' },
       { status: 400 }
     )
   }
+
+  if (!batchSizeAllowed(batchSize, userId !== null)) {
+    return NextResponse.json({ error: SIGN_UP_FOR_LARGER_BATCHES }, { status: 403 })
+  }
+
+  const perCaller = await checkLimits([
+    userId
+      ? { rule: RATE_LIMITS.userAnalysis, key: userKey(userId) }
+      : { rule: RATE_LIMITS.guestAnalysis, key: ipKey(req.headers) },
+  ])
+  if (!perCaller.allowed) return tooManyRequests(perCaller)
 
   type AnyGame = SyncedGame | LichessSyncedGame
 
@@ -80,6 +84,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 })
   }
 
+  const siteWide = await checkLimits([{ rule: RATE_LIMITS.allAnalyses, key: SITE_KEY }])
+  if (!siteWide.allowed) return tooManyRequests(siteWide)
+
   const gameCount = games.length
   const jobId = crypto.randomUUID()
 
@@ -90,11 +97,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const autoCalibration =
     avgRating === null ? 2 : avgRating < 800 ? 0 : avgRating < 1200 ? 1 : avgRating < 1500 ? 2 : avgRating < 1800 ? 3 : 4
   const effectiveCalibration = calibrationLevel ?? autoCalibration
-
-  const supabase = await createClient()
-  const { data: { session: authSession }, error: authError } = await supabase.auth.getSession()
-  const userId = authSession?.user.id ?? null
-  console.log(`[sync] auth check: userId=${userId ?? 'null'} error=${authError?.message ?? 'none'}`)
 
   let finalCalibration = effectiveCalibration
   if (userId && calibrationLevel === undefined) {
@@ -138,12 +140,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Failed to save games' }, { status: 500 })
     }
   } else {
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'sessionToken required for pre-signup analysis' },
-        { status: 400 }
-      )
-    }
     try {
       await redis.set(
         `guest:${sessionToken}:games`,

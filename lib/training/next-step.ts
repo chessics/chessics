@@ -2,6 +2,7 @@ import { toPublicPosition } from './position-payload'
 import { qualityFilter, type QueueCandidate, type ServedPosition } from './queue'
 import { nextSessionStep, openLoopSentence, orderPoolForSession, type HistoryRow } from './session'
 import type { NextResponse } from './api-types'
+import { asksForReason } from './reason'
 
 export interface NextStepRow {
   id: string
@@ -16,19 +17,36 @@ export interface NextStepRow {
   refutation_evals: number[] | null
   span_plies: number
   played_at?: string | null
+  chain_root_plies?: number[] | null
 }
 
 export const TRAINING_QUEUE_SELECT =
-  'id, game_id, root_ply, fen, side_to_move, tag, eval_cp, best_move, refutation_line, refutation_evals, span_plies, games(played_at)'
+  'id, game_id, root_ply, fen, side_to_move, tag, eval_cp, best_move, refutation_line, refutation_evals, span_plies, games(played_at, game_analyses(causal_chains(root_move_ply)))'
 
-export type QueueSelectRow = Omit<NextStepRow, 'played_at'> & {
-  games: { played_at: string | null } | { played_at: string | null }[] | null
+type OneOrMany<T> = T | T[] | null | undefined
+type EmbeddedAnalysis = { causal_chains?: { root_move_ply: number }[] | null }
+type EmbeddedGame = { played_at: string | null; game_analyses?: OneOrMany<EmbeddedAnalysis> }
+
+export type QueueSelectRow = Omit<NextStepRow, 'played_at' | 'chain_root_plies'> & {
+  games: OneOrMany<EmbeddedGame>
 }
+
+const one = <T>(v: OneOrMany<T>): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
 
 export function fromQueueSelectRow(r: QueueSelectRow): NextStepRow {
   const { games, ...rest } = r
-  const game = Array.isArray(games) ? games[0] : games
-  return { ...rest, played_at: game?.played_at ?? null }
+  const game = one(games)
+  const analysis = one(game?.game_analyses)
+  return {
+    ...rest,
+    played_at: game?.played_at ?? null,
+    chain_root_plies: analysis ? (analysis.causal_chains ?? []).map(c => c.root_move_ply) : null,
+  }
+}
+
+export function isStaleRoot(row: Pick<NextStepRow, 'root_ply' | 'chain_root_plies'>): boolean {
+  if (row.chain_root_plies === null || row.chain_root_plies === undefined) return false
+  return !row.chain_root_plies.includes(row.root_ply)
 }
 
 export function sortNewestGameFirst<T extends Pick<NextStepRow, 'played_at' | 'root_ply'>>(rows: T[]): T[] {
@@ -55,15 +73,20 @@ export interface NextStepInteraction {
 export const NOTHING_TO_TRAIN =
   'Nothing to train yet. Analyse a batch of games, and the positions where you were ahead before a slide land here.'
 
+export interface NextStepOptions {
+  reasonGate?: boolean
+}
+
 export function nextStepBody(
   rows: NextStepRow[],
   interactions: NextStepInteraction[],
   sessionId: string,
-  startedAt: number
+  startedAt: number,
+  options: NextStepOptions = {}
 ): NextResponse {
   const byId = new Map(rows.map(r => [r.id, r]))
 
-  const candidates: QueueCandidate[] = sortNewestGameFirst(rows).map(r => ({
+  const candidates: QueueCandidate[] = sortNewestGameFirst(rows.filter(r => !isStaleRoot(r))).map(r => ({
     id: r.id,
     game_id: r.game_id,
     tag: r.tag,
@@ -94,7 +117,16 @@ export function nextStepBody(
 
   if (step.kind === 'serve') {
     const row = byId.get(step.position.id)!
-    return { position: toPublicPosition({ id: row.id, fen: row.fen, side_to_move: row.side_to_move }) }
+    const position = toPublicPosition({ id: row.id, fen: row.fen, side_to_move: row.side_to_move })
+    if (!options.reasonGate) return { position }
+    return {
+      position: {
+        position_id: position.position_id,
+        fen: position.fen,
+        side_to_move: position.side_to_move,
+        ask_reason: asksForReason(sessionRows.length),
+      },
+    }
   }
 
   if (step.reason === 'empty' && sessionRows.length === 0) {

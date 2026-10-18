@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { evaluateGame, engineLabel, DEFAULT_DEPTH, type EvaluatedMove } from './stockfish.js'
 import { buildTrainingPositions, type TrainingPositionRow } from './training-positions.js'
 import { generateGameReview } from './claude-service.js'
-import { detectGamePatterns, primaryTagForChainRoot, isMateMissWhileWinning } from './pattern-detector.js'
+import { detectGamePatterns, primaryTagForChainRoot, isMateMissWhileWinning, withheldTagsFor } from './pattern-detector.js'
 import type { DetectedPattern, RootCauseRecord } from './pattern-detector.js'
 
 interface GameRecord {
@@ -13,6 +13,7 @@ interface GameRecord {
   user_color: 'white' | 'black'
   result: 'win' | 'loss' | 'draw'
   opening_name: string | null
+  time_control?: string | null
 }
 
 export interface GameAnalysisData {
@@ -227,7 +228,8 @@ export async function buildGameAnalysis(
     calibrationLevel
   )
 
-  const patterns = detectGamePatterns(evaluatedMoves, game.user_color)
+  const withheld = withheldTagsFor(game)
+  const patterns = detectGamePatterns(evaluatedMoves, game.user_color).filter(p => !withheld.has(p.patternType))
 
   const movesByPly = new Map(evaluatedMoves.map(m => [m.ply, m]))
   const userEval = (whitePerspectiveCp: number) =>
@@ -249,7 +251,8 @@ export async function buildGameAnalysis(
         chainSwingCp,
         intermediateNodeCount: chain.nodes.length,
       },
-      patterns
+      patterns,
+      withheld
     )
     const swing =
       blunderMove && isMateMissWhileWinning(blunderMove.eval_before, blunderMove.eval_after, game.user_color)

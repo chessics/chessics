@@ -10,6 +10,9 @@ import {
 import dynamic from 'next/dynamic'
 import { Chess } from 'chess.js'
 import type { BoardShape } from './ChessBoard'
+import { gameDecidedAt, decidedAtLabel } from '@/lib/review/decided-at'
+import { useLitSquares, LitProse } from '@/components/board/lit-squares'
+import { scrollBehavior } from '@/lib/motion'
 import type {
   Game,
   Move,
@@ -127,7 +130,6 @@ function EvalBar({ cp, height, flipped }: EvalBarProps) {
         flexShrink: 0,
         position: 'relative',
         background: '#1a1512',
-        borderRadius: 3,
         overflow: 'hidden',
         border: '1px solid var(--border)',
       }}
@@ -177,7 +179,9 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
     return (
       <button
         ref={ref}
+        type="button"
         onClick={onClick}
+        aria-current={isActive ? 'step' : undefined}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -187,7 +191,6 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
             ? 'rgba(201,165,92,0.18)'
             : 'transparent',
           border: 'none',
-          borderRadius: 3,
           cursor: 'pointer',
           width: '100%',
           textAlign: 'left',
@@ -203,10 +206,10 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
       >
         {color && (
           <span
+            aria-hidden
             style={{
               width: 6,
               height: 6,
-              borderRadius: '50%',
               background: color,
               flexShrink: 0,
             }}
@@ -224,7 +227,7 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
           {move.san}
         </span>
         {sym && cls && (cls === 'blunder' || cls === 'mistake') && (
-          <span style={{ fontSize: 9, color, lineHeight: 1, marginLeft: 1 }}>
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, marginLeft: 1 }}>
             {sym}
           </span>
         )}
@@ -252,6 +255,8 @@ export default function GameReviewClient({
   const [currentPly, setCurrentPly] = useState(0)
   const [activeChainId, setActiveChainId] = useState<string | null>(null)
   const [boardShapes, setBoardShapes] = useState<BoardShape[]>([])
+  const lit = useLitSquares()
+  const shownShapes = useMemo(() => lit.shapesWith(boardShapes), [lit, boardShapes])
 
   const totalPlies = moves.length
   const orientation = game.user_color ?? 'white'
@@ -310,25 +315,43 @@ export default function GameReviewClient({
 
   const setActiveMoveRef = useCallback(
     (node: HTMLButtonElement | null) => {
-      if (node) node.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      if (node) node.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentPly]
   )
 
+  const openChainAt = useCallback(
+    (rootPly: number) => {
+      const chain = causalChains.find((c) => c.root_move_ply === rootPly)
+      if (!chain) return
+      setCurrentPly(chain.root_move_ply)
+      setActiveChainId(chain.id)
+      const moveData = moves.find((m) => m.ply_number === chain.root_move_ply)
+      if (moveData) {
+        const sq = getMoveSquares(moveData.fen_before, moveData.san)
+        if (sq) setBoardShapes([{ orig: sq.to, brush: 'chain_root' }])
+      }
+    },
+    [causalChains, moves]
+  )
+
   useEffect(() => {
     if (initialChainRootPly === null) return
-    const chain = causalChains.find((c) => c.root_move_ply === initialChainRootPly)
-    if (!chain) return
-    setCurrentPly(chain.root_move_ply)
-    setActiveChainId(chain.id)
-    const moveData = moves.find((m) => m.ply_number === chain.root_move_ply)
-    if (moveData) {
-      const sq = getMoveSquares(moveData.fen_before, moveData.san)
-      if (sq) setBoardShapes([{ orig: sq.to, brush: 'chain_root' }])
-    }
+    openChainAt(initialChainRootPly)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChainRootPly])
+
+  const decidedAt = useMemo(
+    () =>
+      gameDecidedAt({
+        result: game.result,
+        userColor: game.user_color,
+        chains: causalChains,
+        moves,
+      }),
+    [game.result, game.user_color, causalChains, moves]
+  )
 
   const handleChainNodeClick = useCallback(
     (ply: number, chainId: string, brush: string) => {
@@ -379,6 +402,7 @@ export default function GameReviewClient({
         : 'var(--text-muted)'
 
   const boardSize = 480
+  const keyLit = lit.bind(analysis?.key_moment_explanation ?? '')
 
   return (
     <div
@@ -405,7 +429,7 @@ export default function GameReviewClient({
             fen={currentFen}
             orientation={orientation}
             lastMove={lastMoveSquares}
-            shapes={boardShapes}
+            shapes={shownShapes}
             size={boardSize}
           />
         </div>
@@ -437,16 +461,18 @@ export default function GameReviewClient({
           <div style={{ display: 'flex', gap: 6 }}>
             {(
               [
-                { label: '⏮', fn: goToStart, title: 'Start' },
-                { label: '←', fn: goBackward, title: 'Prev (←)' },
-                { label: '→', fn: goForward, title: 'Next (→)' },
-                { label: '⏭', fn: goToEnd, title: 'End' },
+                { label: '⏮', fn: goToStart, title: 'Start', name: 'First position' },
+                { label: '←', fn: goBackward, title: 'Prev (←)', name: 'Previous move' },
+                { label: '→', fn: goForward, title: 'Next (→)', name: 'Next move' },
+                { label: '⏭', fn: goToEnd, title: 'End', name: 'Last position' },
               ] as const
-            ).map(({ label, fn, title }) => (
+            ).map(({ label, fn, title, name }) => (
               <button
                 key={label}
+                type="button"
                 onClick={fn}
                 title={title}
+                aria-label={name}
                 style={{
                   width: 34,
                   height: 34,
@@ -455,7 +481,6 @@ export default function GameReviewClient({
                   justifyContent: 'center',
                   background: 'var(--surface)',
                   border: '1px solid var(--border)',
-                  borderRadius: 6,
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
                   fontSize: 13,
@@ -470,7 +495,7 @@ export default function GameReviewClient({
                   e.currentTarget.style.color = 'var(--text-muted)'
                 }}
               >
-                {label}
+                <span aria-hidden>{label}</span>
               </button>
             ))}
           </div>
@@ -492,7 +517,6 @@ export default function GameReviewClient({
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 8,
             padding: '6px 0',
             maxHeight: 300,
             overflowY: 'auto',
@@ -571,7 +595,6 @@ export default function GameReviewClient({
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 8,
             padding: '16px 18px',
           }}
         >
@@ -597,13 +620,12 @@ export default function GameReviewClient({
                 <span
                   style={{
                     padding: '2px 9px',
-                    borderRadius: 4,
                     fontSize: 11,
                     fontWeight: 600,
                     letterSpacing: '0.04em',
 
                     background: resultBg,
-                    color: resultColor,
+                    color: 'var(--text)',
                     border: `1px solid ${resultColor}`,
                   }}
                 >
@@ -646,6 +668,26 @@ export default function GameReviewClient({
                 >
                   {game.opening_name}
                 </p>
+              )}
+              {decidedAt && (
+                <button
+                  type="button"
+                  data-testid="decided-at"
+                  onClick={() => openChainAt(decidedAt.rootPly)}
+                  style={{
+                    marginTop: 10,
+                    padding: '4px 0',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: '1px solid var(--border-strong)',
+                    borderRadius: 0,
+                    color: 'var(--brass)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {decidedAtLabel(decidedAt)}
+                </button>
               )}
             </div>
 
@@ -715,7 +757,6 @@ export default function GameReviewClient({
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
-              borderRadius: 8,
               overflow: 'hidden',
             }}
           >
@@ -782,7 +823,8 @@ export default function GameReviewClient({
                       <span
                         style={{
                           fontFamily: 'JetBrains Mono, monospace',
-                          color: 'var(--blunder)',
+                          color: 'var(--text)',
+                          borderBottom: '1px solid var(--blunder)',
                         }}
                       >
                         {chain.terminal_blunder_san}
@@ -811,11 +853,13 @@ export default function GameReviewClient({
                           : isTerminal
                             ? 'rgba(192,57,43,0.45)'
                             : 'var(--border)'
-                        const nodeSanColor = isRoot
-                          ? 'var(--gold)'
-                          : isTerminal
-                            ? 'var(--blunder)'
-                            : 'var(--text)'
+                        const nodeSanColor = isRoot ? 'var(--gold)' : 'var(--text)'
+
+                        const nodeText =
+                          node.explanation.length > 60
+                            ? node.explanation.slice(0, 57) + '…'
+                            : node.explanation
+                        const nodeLit = lit.bind(nodeText)
 
                         return (
                           <div
@@ -823,6 +867,9 @@ export default function GameReviewClient({
                             style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
                           >
                             <button
+                              onFocus={nodeLit.onFocus}
+                              onBlur={nodeLit.onBlur}
+                              data-lit-squares={nodeLit['data-lit-squares']}
                               onClick={() =>
                                 handleChainNodeClick(
                                   node.ply,
@@ -838,7 +885,6 @@ export default function GameReviewClient({
                                     ? 'var(--surface-2)'
                                     : 'var(--surface-3)',
                                 border: `1px solid ${nodeBorderColor}`,
-                                borderRadius: 6,
                                 cursor: 'pointer',
                                 textAlign: 'left',
                                 transition: 'background 0.15s, border-color 0.15s',
@@ -847,12 +893,14 @@ export default function GameReviewClient({
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.background =
                                   'var(--surface-2)'
+                                nodeLit.onMouseEnter?.()
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.background =
                                   isActive && currentPly === node.ply
                                     ? 'var(--surface-2)'
                                     : 'var(--surface-3)'
+                                nodeLit.onMouseLeave?.()
                               }}
                             >
                               <span
@@ -864,7 +912,7 @@ export default function GameReviewClient({
                                   color: isRoot
                                     ? 'var(--gold-dim)'
                                     : isTerminal
-                                      ? 'var(--blunder)'
+                                      ? 'var(--text)'
                                       : 'var(--text-dim)',
                                   marginBottom: 4,
                                   fontWeight: 600,
@@ -898,9 +946,7 @@ export default function GameReviewClient({
                                   lineHeight: 1.4,
                                 }}
                               >
-                                {node.explanation.length > 60
-                                  ? node.explanation.slice(0, 57) + '…'
-                                  : node.explanation}
+                                {nodeText}
                               </span>
                             </button>
 
@@ -931,7 +977,7 @@ export default function GameReviewClient({
                           fontStyle: 'italic',
                         }}
                       >
-                        {chain.chain_explanation}
+                        <LitProse text={chain.chain_explanation} lit={lit} />
                       </p>
                     )}
                   </div>
@@ -965,7 +1011,6 @@ export default function GameReviewClient({
                     padding: '14px 8px 12px',
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
-                    borderRadius: 8,
                     textAlign: 'center',
                   }}
                 >
@@ -1007,11 +1052,13 @@ export default function GameReviewClient({
           analysis?.key_moment_explanation && (
             <button
               onClick={() => goTo(analysis.key_moment_move_ply!)}
+              onFocus={keyLit.onFocus}
+              onBlur={keyLit.onBlur}
+              data-lit-squares={keyLit['data-lit-squares']}
               style={{
                 padding: '16px 18px',
                 background: 'var(--surface)',
                 border: '1px solid rgba(201,165,92,0.28)',
-                borderRadius: 8,
                 textAlign: 'left',
                 cursor: 'pointer',
                 width: '100%',
@@ -1020,10 +1067,12 @@ export default function GameReviewClient({
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor =
                   'rgba(201,165,92,0.55)'
+                keyLit.onMouseEnter?.()
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor =
                   'rgba(201,165,92,0.28)'
+                keyLit.onMouseLeave?.()
               }}
             >
               <span
@@ -1094,7 +1143,6 @@ export default function GameReviewClient({
               padding: '18px',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
-              borderRadius: 8,
             }}
           >
             <span
@@ -1119,7 +1167,7 @@ export default function GameReviewClient({
                 whiteSpace: 'pre-wrap',
               }}
             >
-              {analysis.claude_narrative}
+              <LitProse text={analysis.claude_narrative} lit={lit} />
             </p>
           </div>
         )}
@@ -1130,7 +1178,6 @@ export default function GameReviewClient({
               padding: '24px',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
-              borderRadius: 8,
               textAlign: 'center',
             }}
           >
@@ -1154,7 +1201,6 @@ export default function GameReviewClient({
                 background: 'var(--gold)',
                 color: '#1a1512',
                 border: 'none',
-                borderRadius: 6,
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 600,

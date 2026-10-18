@@ -162,10 +162,10 @@ export default function BatchReportSummary({
           {groups.slice(0, 5).map((g) => (
             <div
               key={g.tag}
-              className="flex items-baseline gap-3 py-2"
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2"
               style={{ borderTop: '1px solid var(--border)' }}
             >
-              <span className="text-sm flex-1 truncate" style={{ color: 'var(--text)' }}>
+              <span className="text-sm flex-1 min-w-[10rem]" style={{ color: 'var(--text)' }}>
                 {g.label}
               </span>
               <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>

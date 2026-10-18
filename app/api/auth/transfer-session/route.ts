@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { Redis } from '@upstash/redis'
 import type { GuestSessionResult } from '@/types/guest'
+import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -24,6 +25,13 @@ function failed(step: string): NextResponse {
   return NextResponse.json({ error: 'transfer_failed', step }, { status: 500 })
 }
 
+const LOCK_TTL_SECONDS = 120
+const GUEST_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const RELEASE_IF_OWNER =
+  "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
+
+type UserClient = Awaited<ReturnType<typeof createClient>>
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let sessionToken: string
   try {
@@ -36,6 +44,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!sessionToken) {
     return NextResponse.json({ error: 'sessionToken is required' }, { status: 400 })
   }
+  if (typeof sessionToken !== 'string' || !GUEST_TOKEN.test(sessionToken)) {
+    return NextResponse.json({ error: 'sessionToken must be a UUID' }, { status: 400 })
+  }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -44,6 +55,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const userId = user.id
 
+  const limited = await checkLimits([{ rule: RATE_LIMITS.transfer, key: userKey(userId) }])
+  if (!limited.allowed) return tooManyRequests(limited)
+
+  const lockKey = `guest:${sessionToken}:transfer-lock`
+  const owner = crypto.randomUUID()
+  let locked: unknown
+  try {
+    locked = await redis.set(lockKey, owner, { nx: true, ex: LOCK_TTL_SECONDS })
+  } catch (err) {
+    console.error('[transfer] could not take the lock:', err)
+    return failed('lock')
+  }
+  if (locked !== 'OK') {
+    return NextResponse.json({ error: 'transfer_in_progress' }, { status: 409 })
+  }
+
+  try {
+    return await transfer(sessionToken, userId, supabase)
+  } finally {
+    try {
+      await redis.eval(RELEASE_IF_OWNER, [lockKey], [owner])
+    } catch (err) {
+      console.error('[transfer] lock not released:', err)
+    }
+  }
+}
+
+async function transfer(sessionToken: string, userId: string, supabase: UserClient): Promise<NextResponse> {
   const raw = await redis.get(`guest:${sessionToken}:result`)
   if (!raw) {
     return NextResponse.json({ error: 'no_data' }, { status: 404 })

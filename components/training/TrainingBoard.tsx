@@ -6,6 +6,7 @@ import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import 'chessground/assets/chessground.base.css'
 import 'chessground/assets/chessground.cburnett.css'
+import { boardAnimation } from '@/lib/motion'
 
 export interface DrawnArrow {
   from: string
@@ -21,6 +22,7 @@ interface TrainingBoardProps {
   onDraw: (arrow: DrawnArrow) => void
   onSelectArrow: (index: number) => void
   size: number
+  locked?: boolean
 }
 
 type Dests = Map<Key, Key[]>
@@ -75,13 +77,14 @@ export default function TrainingBoard({
   onDraw,
   onSelectArrow,
   size,
+  locked = false,
 }: TrainingBoardProps) {
   const elRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cgRef = useRef<any>(null)
 
-  const latest = useRef({ arrows, selected, onDraw, onSelectArrow })
-  latest.current = { arrows, selected, onDraw, onSelectArrow }
+  const latest = useRef({ arrows, selected, onDraw, onSelectArrow, locked })
+  latest.current = { arrows, selected, onDraw, onSelectArrow, locked }
 
   useEffect(() => {
     if (!elRef.current) return
@@ -95,7 +98,7 @@ export default function TrainingBoard({
         fen,
         turnColor,
         lastMove: undefined,
-        movable: { color: turnColor, dests },
+        movable: { color: latest.current.locked ? undefined : turnColor, dests },
       })
     }
 
@@ -109,7 +112,7 @@ export default function TrainingBoard({
         coordinates: true,
         movable: {
           free: false,
-          color: turnColor,
+          color: latest.current.locked ? undefined : turnColor,
           dests,
           showDests: true,
           events: {
@@ -127,7 +130,7 @@ export default function TrainingBoard({
         premovable: { enabled: false },
         draggable: { enabled: true, showGhost: true },
         selectable: { enabled: true },
-        animation: { enabled: true, duration: MOVE_ANIMATION_MS },
+        animation: boardAnimation(MOVE_ANIMATION_MS),
         highlight: { lastMove: false, check: true },
         events: {
           select: (key: Key) => {
@@ -155,11 +158,21 @@ export default function TrainingBoard({
     cgRef.current?.setAutoShapes(toShapes(arrows, selected))
   }, [arrows, selected])
 
+  useEffect(() => {
+    cgRef.current?.set({ movable: { color: locked ? undefined : orientation } })
+  }, [locked, orientation])
+
   return (
     <div
       ref={elRef}
       style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}
-      aria-label="Training board. Drag a piece to draw a candidate move."
+      role="group"
+      aria-label={
+        locked
+          ? 'Training board. Pick a reason first, then drag a piece to draw a candidate move.'
+          : 'Training board. Drag a piece to draw a candidate move.'
+      }
+      data-locked={locked ? 'true' : undefined}
     />
   )
 }

@@ -3,6 +3,9 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import type { Game } from '@/lib/supabase/types'
+import { failureMessage } from '@/lib/ratelimit-message'
+
+const RETRY_LABEL = "Couldn't queue, retry"
 
 interface GameRow extends Game {
   overall_accuracy?: number | null
@@ -30,7 +33,6 @@ function ResultBadge({ result }: { result: Game['result'] }) {
         height: 22,
         lineHeight: '22px',
         textAlign: 'center',
-        borderRadius: 4,
         fontSize: 11,
         fontWeight: 700,
         background: s.bg,
@@ -51,7 +53,6 @@ function PlatformDot({ platform }: { platform: Game['platform'] }) {
       style={{
         fontSize: 9,
         padding: '1px 5px',
-        borderRadius: 3,
         background: 'var(--surface-3)',
         color: 'var(--text-dim)',
         fontFamily: 'JetBrains Mono, monospace',
@@ -87,7 +88,6 @@ function FilterTab({
       onClick={onClick}
       style={{
         padding: '5px 12px',
-        borderRadius: 20,
         fontSize: 12,
         fontWeight: active ? 500 : 400,
         background: active ? 'rgba(201,165,92,0.14)' : 'transparent',
@@ -108,7 +108,7 @@ export default function GamesLibraryClient({ games }: Props) {
   const [colorFilter, setColorFilter] = useState<ColorFilter>('all')
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set())
-  const [failedIds, setFailedIds] = useState<Set<string>>(new Set())
+  const [failedIds, setFailedIds] = useState<Map<string, string>>(new Map())
 
   const filtered = useMemo(() => {
     return games.filter((g) => {
@@ -131,13 +131,13 @@ export default function GamesLibraryClient({ games }: Props) {
       const ok = res.ok
       setQueuedIds((prev) => (ok ? new Set([...Array.from(prev), gameId]) : prev))
       setFailedIds((prev) => {
-        const next = new Set(prev)
+        const next = new Map(prev)
         if (ok) next.delete(gameId)
-        else next.add(gameId)
+        else next.set(gameId, failureMessage(res.status, RETRY_LABEL))
         return next
       })
     } catch {
-      setFailedIds((prev) => new Set([...Array.from(prev), gameId]))
+      setFailedIds((prev) => new Map(prev).set(gameId, RETRY_LABEL))
     } finally {
       setAnalyzingId(null)
     }
@@ -206,7 +206,6 @@ export default function GamesLibraryClient({ games }: Props) {
             textAlign: 'center',
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 8,
           }}
         >
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -218,7 +217,6 @@ export default function GamesLibraryClient({ games }: Props) {
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 8,
             overflow: 'hidden',
           }}
         >
@@ -366,7 +364,6 @@ export default function GamesLibraryClient({ games }: Props) {
                         color: 'var(--gold)',
                         background: 'rgba(201,165,92,0.1)',
                         border: '1px solid rgba(201,165,92,0.25)',
-                        borderRadius: 5,
                         textDecoration: 'none',
                         whiteSpace: 'nowrap',
                         transition: 'background 0.15s',
@@ -404,9 +401,8 @@ export default function GamesLibraryClient({ games }: Props) {
                         color: 'var(--text-muted)',
                         background: 'transparent',
                         border: '1px solid var(--border)',
-                        borderRadius: 5,
                         cursor: isBeingAnalyzed ? 'default' : 'pointer',
-                        whiteSpace: 'nowrap',
+                        whiteSpace: failedIds.has(game.id) ? 'normal' : 'nowrap',
                         opacity: isBeingAnalyzed ? 0.6 : 1,
                         transition: 'border-color 0.15s, color 0.15s',
                       }}
@@ -421,7 +417,7 @@ export default function GamesLibraryClient({ games }: Props) {
                         e.currentTarget.style.color = 'var(--text-muted)'
                       }}
                     >
-                      {isBeingAnalyzed ? 'Queuing…' : failedIds.has(game.id) ? "Couldn't queue, retry" : 'Analyze'}
+                      {isBeingAnalyzed ? 'Queuing…' : failedIds.get(game.id) ?? 'Analyze'}
                     </button>
                   )}
                 </div>

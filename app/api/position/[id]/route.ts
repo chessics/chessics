@@ -6,6 +6,7 @@ import {
   NO_STORE_HEADERS,
   type PublicPositionRow,
 } from '@/lib/training/position-payload'
+import { SESSION_UUID } from '@/lib/training/next-step'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -24,6 +25,13 @@ export async function GET(
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401, headers: NO_STORE_HEADERS }
+    )
+  }
+
+  if (!SESSION_UUID.test(params.id)) {
+    return NextResponse.json(
+      { error: 'Not found' },
+      { status: 404, headers: NO_STORE_HEADERS }
     )
   }
 

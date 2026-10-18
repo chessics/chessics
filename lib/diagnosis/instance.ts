@@ -1,0 +1,53 @@
+import { Chess } from 'chess.js'
+import { userCp, type GameResult, type InstanceFacts } from './finding'
+
+export interface MoveFacts {
+  ply_number: number
+  san: string
+  fen_before: string
+  eval_before: number | null
+  eval_after: number | null
+}
+
+export interface GameFacts {
+  id: string
+  played_at: string | null
+  opponent_username: string | null
+  result: GameResult | null
+  user_color: 'white' | 'black'
+}
+
+export function rootSquares(fen: string, san: string): { from: string; to: string } | null {
+  try {
+    const move = new Chess(fen).move(san)
+    return move ? { from: move.from, to: move.to } : null
+  } catch {
+    return null
+  }
+}
+
+export function makeInstance(
+  game: GameFacts,
+  movesByPly: Map<number, MoveFacts>,
+  rootPly: number,
+  terminalPly: number | null
+): InstanceFacts | null {
+  const root = movesByPly.get(rootPly)
+  if (!root) return null
+  const terminal = terminalPly === null ? undefined : movesByPly.get(terminalPly)
+  const squares = rootSquares(root.fen_before, root.san)
+  return {
+    gameId: game.id,
+    rootPly,
+    rootSan: root.san,
+    fenBefore: root.fen_before,
+    from: squares?.from ?? null,
+    to: squares?.to ?? null,
+    userColor: game.user_color,
+    playedAt: game.played_at,
+    opponent: game.opponent_username,
+    result: game.result,
+    beforeCp: userCp(root.eval_before, game.user_color),
+    afterCp: userCp(terminal?.eval_after, game.user_color),
+  }
+}

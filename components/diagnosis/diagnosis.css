@@ -1,0 +1,104 @@
+.diagnosis-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 1px;
+}
+
+.evidence-board {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.evidence-board svg.cg-shapes {
+  opacity: 0;
+}
+
+.diagnosis-evidence[data-phase='run'] .evidence-board svg.cg-shapes,
+.diagnosis-evidence[data-phase='final'] .evidence-board svg.cg-shapes {
+  opacity: 1;
+}
+
+.diagnosis-evidence[data-phase='run'] .evidence-board cg-board,
+.diagnosis-evidence[data-phase='run'] .evidence-board coords,
+.diagnosis-evidence[data-phase='final'] .evidence-board cg-board,
+.diagnosis-evidence[data-phase='final'] .evidence-board coords {
+  opacity: var(--faded);
+}
+
+.diagnosis-evidence[data-phase='run'] .evidence-board svg.cg-shapes {
+  transition: opacity var(--arrow-in) cubic-bezier(0.2, 0.7, 0.2, 1) var(--arrow-delay);
+}
+
+.diagnosis-evidence[data-phase='run'] .evidence-board cg-board,
+.diagnosis-evidence[data-phase='run'] .evidence-board coords {
+  transition: opacity var(--fade-ms) cubic-bezier(0.45, 0, 0.2, 1) var(--fade-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diagnosis-evidence .evidence-board svg.cg-shapes,
+  .diagnosis-evidence .evidence-board cg-board,
+  .diagnosis-evidence .evidence-board coords {
+    transition: none !important;
+  }
+}
+
+.diagnosis-door {
+  color: var(--brass);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.diagnosis-door:hover,
+.diagnosis-door[aria-expanded='true'] {
+  border-bottom-color: var(--brass);
+}
+
+.diagnosis-door:focus-visible,
+.diagnosis-other:focus-visible {
+  outline: 1px solid var(--brass);
+  outline-offset: 3px;
+}
+
+.diagnosis-other {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 16px;
+  row-gap: 2px;
+  width: 100%;
+  padding: 9px 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.diagnosis-other-status {
+  white-space: nowrap;
+}
+
+.diagnosis-other:hover .diagnosis-other-label {
+  color: var(--text);
+}
+
+.diagnosis-source {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  text-decoration: none;
+  flex-wrap: wrap;
+}
+
+a.diagnosis-source:hover {
+  opacity: 0.75;
+}

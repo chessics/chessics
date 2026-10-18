@@ -23,7 +23,7 @@ export default function AuthCompletePage() {
     >
       <div className="flex flex-col items-center gap-3">
         <div
-          className="w-6 h-6 rounded-full"
+          className="w-6 h-6"
           style={{
             border: '2px solid var(--gold)',
             borderTopColor: 'transparent',

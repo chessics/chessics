@@ -1,4 +1,3 @@
-import { clsx } from 'clsx'
 import { HTMLAttributes } from 'react'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -10,7 +9,7 @@ export default function Card({ variant = 'default', className, children, style, 
 
   return (
     <div
-      className={clsx('rounded-lg', className)}
+      className={className}
       style={{
         background: bg,
         border: '1px solid var(--border)',

@@ -25,7 +25,7 @@ export default function Topbar() {
 
   return (
     <header
-      className="flex items-center justify-between px-6 h-14 shrink-0"
+      className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14 shrink-0"
       style={{
         background: 'var(--surface)',
         borderBottom: '1px solid var(--border)',
@@ -39,14 +39,15 @@ export default function Topbar() {
         <span style={{ color: 'var(--gold)' }}>ics</span>
       </Link>
 
-      <nav className="flex items-center gap-1">
+      <nav className="hidden sm:flex items-center gap-1">
         {navLinks.map(({ href, label }) => {
           const isActive = pathname.startsWith(href)
           return (
             <Link
               key={href}
               href={href}
-              className={clsx('px-4 py-1.5 rounded-full text-sm transition-colors')}
+              aria-current={isActive ? 'page' : undefined}
+              className={clsx('px-4 py-1.5 text-sm transition-colors')}
               style={{
                 color: isActive ? 'var(--gold)' : 'var(--text-muted)',
                 background: isActive ? 'rgba(201,165,92,0.1)' : 'transparent',
@@ -60,27 +61,10 @@ export default function Topbar() {
       </nav>
 
       <div className="flex items-center gap-3">
-        <span
-          className="text-xs font-mono px-2.5 py-1 rounded"
-          style={{
-            background: 'var(--surface-2)',
-            color: 'var(--gold)',
-            border: '1px solid var(--border)',
-            fontFamily: 'JetBrains Mono, monospace',
-          }}
-        >
-          1342 elo
-        </span>
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold select-none"
-          style={{ background: 'var(--gold-dim)', color: '#1a1512' }}
-        >
-          A
-        </div>
         <button
           onClick={handleSignOut}
           disabled={signingOut}
-          className="text-xs px-3 py-1.5 rounded-md transition-opacity"
+          className="text-xs px-3 py-1.5 transition-opacity"
           style={{
             color: 'var(--text-muted)',
             border: '1px solid var(--border)',

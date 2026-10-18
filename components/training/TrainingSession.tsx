@@ -18,6 +18,10 @@ import {
   type TrainingMode,
 } from '@/lib/training/api-types'
 import { nextButtonLabel, planReveal, type RevealKind } from '@/lib/training/reveal'
+import type { Goal } from '@/lib/training/reason'
+import { announcement } from '@/lib/training/announce'
+import ReasonChips from './ReasonChips'
+import { useFocusWhenLost } from './focus'
 import {
   loadSession as loadStoredSession,
   markAnswered,
@@ -26,6 +30,7 @@ import {
   type StoredSession,
 } from '@/lib/training/session-store'
 import './training.css'
+import { failureMessage } from '@/lib/ratelimit-message'
 
 type Phase =
   | { name: 'loading' }
@@ -34,11 +39,13 @@ type Phase =
   | { name: 'intro' }
   | { name: 'punish'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
   | { name: 'reveal'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
+  | { name: 'threat'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
   | { name: 'done'; openLoop: string; summary?: SessionSummary }
   | { name: 'signin' }
   | { name: 'error'; message: string }
 
 const INTRO_KEY = 'chessics_train_intro_seen'
+const COMMIT_NOT_RECORDED = 'The commit was not recorded, so the answer stays hidden.'
 
 function introSeen(): boolean {
   try {
@@ -114,6 +121,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   const [phase, setPhase] = useState<Phase>({ name: 'loading' })
   const [arrows, setArrows] = useState<DrawnArrow[]>([])
   const [selected, setSelected] = useState<number | null>(null)
+  const [goal, setGoal] = useState<Goal | null>(null)
   const [upcoming, setUpcoming] = useState<NextResponse | null>(null)
   const answered = useRef(false)
   const [showStakes, setShowStakes] = useState(true)
@@ -140,6 +148,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   const show = useCallback((body: NextResponse) => {
     setArrows([])
     setSelected(null)
+    setGoal(null)
     if ('done' in body) return setPhase({ name: 'done', openLoop: body.open_loop, summary: body.summary })
     startedAt.current = performance.now()
     setShowStakes(!answered.current)
@@ -177,10 +186,11 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
             chosen_move: chosen,
             drawn_moves: arrows.map(a => ({ from: a.from, to: a.to })),
             time_to_commit_ms: timeToCommit,
+            ...(position.ask_reason ? { declared_goal: goal } : {}),
           }),
         })
         if (res.status === 401) return setPhase({ name: 'signin' })
-        if (!res.ok) return setPhase({ name: 'error', message: 'The commit was not recorded, so the answer stays hidden.' })
+        if (!res.ok) return setPhase({ name: 'error', message: failureMessage(res.status, COMMIT_NOT_RECORDED) })
         const result = (await res.json()) as CommitResponse
         answered.current = true
         markAnswered(sessionStore(), session)
@@ -191,16 +201,18 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
         const shown = { position, commit: result, chosen, kind, watched: false }
         setPhase(canPlay ? { name: 'punish', ...shown } : { name: 'reveal', ...shown })
       } catch {
-        setPhase({ name: 'error', message: 'The commit was not recorded, so the answer stays hidden.' })
+        setPhase({ name: 'error', message: COMMIT_NOT_RECORDED })
       }
     },
-    [phase, session, mode, arrows]
+    [phase, session, mode, arrows, goal]
   )
+
+  const needsReason = (phase.name === 'board' || phase.name === 'committing') && phase.position.ask_reason === true && goal === null
 
   useEffect(() => {
     if (phase.name !== 'board') return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.repeat) return
+      if (e.key !== 'Enter' || e.repeat || needsReason) return
       if (selected !== null && arrows[selected]) {
         e.preventDefault()
         commit(arrowUci(arrows[selected]))
@@ -208,7 +220,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase.name, selected, arrows, commit])
+  }, [phase.name, selected, arrows, commit, needsReason])
 
   const onDraw = (a: DrawnArrow) => {
     const existing = arrows.findIndex(p => p.from === a.from && p.to === a.to)
@@ -239,14 +251,24 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
 
   const orientation = (p: PublicPosition) => p.side_to_move
   const answering = phase.name === 'board' || phase.name === 'committing'
-  const onPosition = answering || phase.name === 'punish' || phase.name === 'reveal'
+  const onPosition = answering || phase.name === 'punish' || phase.name === 'reveal' || phase.name === 'threat'
+  const titleRef = useFocusWhenLost<HTMLHeadingElement>(phase.name === 'board' ? phase.position.position_id : null)
 
   return (
     <div ref={wrapRef} className="training-root">
+      <p className="sr-only" aria-live="polite" data-testid="training-announcement">
+        {announcement(phase)}
+      </p>
       {onPosition && (
         <header className="training-header">
           <div className="training-header-row">
-            <h1 className="training-title" style={{ visibility: answering ? 'visible' : 'hidden' }} aria-hidden={!answering}>
+            <h1
+              ref={titleRef}
+              tabIndex={-1}
+              className="training-title"
+              style={{ visibility: answering ? 'visible' : 'hidden' }}
+              aria-hidden={!answering}
+            >
               Your move.
             </h1>
             <button className="training-btn training-btn-quiet" onClick={() => setShowHelp(v => !v)} aria-expanded={showHelp}>
@@ -278,9 +300,18 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
               onDraw={onDraw}
               onSelectArrow={setSelected}
               size={size}
+              locked={needsReason}
             />
             <div className="training-panel">
-              {arrows.length === 0 ? (
+              {phase.position.ask_reason && (
+                <ReasonChips
+                  positionId={phase.position.position_id}
+                  goal={goal}
+                  disabled={phase.name === 'committing'}
+                  onPick={setGoal}
+                />
+              )}
+              {needsReason ? null : arrows.length === 0 ? (
                 <div className="training-instructions">
                   <p className="training-instructions-main">Find the best move.</p>
                   <p className="training-hint">
@@ -346,7 +377,24 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
           watched={phase.watched}
           nextLabel={nextButtonLabel(upcoming)}
           onWatch={() => setPhase({ ...phase, name: 'punish' })}
+          onThreat={() => setPhase({ ...phase, name: 'threat' })}
         />
+      )}
+
+      {phase.name === 'threat' && phase.chosen && phase.commit.reason?.checks?.threat && (
+        <div className="training-grid">
+          <LosingBranch
+            fen={phase.position.fen}
+            orientation={orientation(phase.position)}
+            rootMoveUci={phase.chosen}
+            line={[phase.commit.reason.checks.threat.move]}
+            evals={[phase.commit.reason.checks.threat.eval_after_cp]}
+            startEvalCp={phase.commit.reason.checks.evals.before?.cp ?? phase.commit.eval_cp ?? 0}
+            size={size}
+            context="threat"
+            onDone={() => setPhase({ ...phase, name: 'reveal' })}
+          />
+        </div>
       )}
 
       {phase.name === 'intro' && <TrainingIntro onStart={startFromIntro} />}

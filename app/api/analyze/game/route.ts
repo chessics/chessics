@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkLimits, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -22,8 +25,14 @@ export async function POST(request: NextRequest) {
   if (!gameId || typeof gameId !== 'string') {
     return NextResponse.json({ error: 'gameId required' }, { status: 400 })
   }
+  if (!UUID.test(gameId)) {
+    return NextResponse.json({ error: 'Game not found' }, { status: 404 })
+  }
 
-  const userId = session.user.id
+  const userId = user.id
+
+  const perUser = await checkLimits([{ rule: RATE_LIMITS.gameAnalysis, key: userKey(userId) }])
+  if (!perUser.allowed) return tooManyRequests(perUser)
 
   const { data: game } = await supabase
     .from('games')
@@ -39,6 +48,9 @@ export async function POST(request: NextRequest) {
   if (game.is_analyzed) {
     return NextResponse.json({ error: 'Game already analyzed' }, { status: 409 })
   }
+
+  const siteWide = await checkLimits([{ rule: RATE_LIMITS.allAnalyses, key: SITE_KEY }])
+  if (!siteWide.allowed) return tooManyRequests(siteWide)
 
   const { data: job, error: jobError } = await supabase
     .from('analysis_jobs')

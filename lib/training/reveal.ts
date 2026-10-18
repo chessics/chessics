@@ -150,9 +150,7 @@ export const ARROW_KEY: Record<RevealArrow['role'], string> = {
   unchecked: 'Your move (not checked by the engine)',
 }
 
-export function squaresNamed(sentence: string): string[] {
-  return Array.from(new Set(sentence.match(/[a-h][1-8]/g) ?? []))
-}
+export { squaresNamed } from '@/lib/board/squares'
 
 export function evalBarFraction(cpUserPerspective: number): number {
   const cp = Math.max(-1500, Math.min(1500, cpUserPerspective))

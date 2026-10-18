@@ -62,7 +62,6 @@ export default async function GamesPage() {
             fontWeight: 500,
             background: 'var(--gold)',
             color: '#1a1512',
-            borderRadius: 6,
             textDecoration: 'none',
             display: 'inline-block',
           }}
@@ -78,7 +77,6 @@ export default async function GamesPage() {
             textAlign: 'center',
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 8,
           }}
         >
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -100,7 +98,6 @@ export default async function GamesPage() {
               padding: '8px 20px',
               background: 'var(--gold)',
               color: '#1a1512',
-              borderRadius: 6,
               textDecoration: 'none',
               fontSize: 13,
               fontWeight: 600,

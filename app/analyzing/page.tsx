@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import RecurrenceStrip, { type StripBarState } from '@/components/workbench/RecurrenceStrip'
 import { POLL_INTERVAL_MS, createStatusPoller } from '@/lib/sync/poll'
+import { planOnLoad } from '@/lib/sync/resume'
 
 interface ChessicsSession {
   username: string
@@ -13,6 +14,7 @@ interface ChessicsSession {
   timeControlFilter?: 'rapid_blitz' | 'all'
   sessionToken?: string
   jobId?: string
+  authed?: boolean
 }
 
 type StageStatus = 'pending' | 'active' | 'complete'
@@ -105,11 +107,7 @@ export default function AnalyzingPage() {
       return
     }
     try {
-      const parsed = JSON.parse(raw) as ChessicsSession
-      const freshSession: ChessicsSession = { ...parsed }
-      delete freshSession.jobId
-      localStorage.setItem('chessics_session', JSON.stringify(freshSession))
-      setSession(freshSession as ChessicsSession)
+      setSession(JSON.parse(raw) as ChessicsSession)
     } catch {
       router.replace('/')
     }
@@ -151,7 +149,7 @@ export default function AnalyzingPage() {
         if (raw) {
           try {
             const stored = JSON.parse(raw) as ChessicsSession
-            localStorage.setItem('chessics_session', JSON.stringify({ ...stored, jobId: data.jobId }))
+            localStorage.setItem('chessics_session', JSON.stringify({ ...stored, jobId: data.jobId, authed }))
           } catch {  }
         }
 
@@ -162,12 +160,28 @@ export default function AnalyzingPage() {
       }
     }
 
-    startSync()
+    async function begin() {
+      const plan = await planOnLoad(session!.jobId, (id) =>
+        fetch(`/api/sync/status?jobId=${encodeURIComponent(id)}`)
+      )
+      if (cancelled) return
+      const authed = session!.authed ?? !session!.sessionToken
+      if (plan.kind === 'resume') {
+        setStages(['complete', 'active', 'pending', 'pending'])
+        startPolling(plan.jobId, authed)
+      } else if (plan.kind === 'finished') {
+        finish(authed)
+      } else {
+        startSync()
+      }
+    }
+
+    begin()
     return () => {
       cancelled = true
       clearAll()
     }
-  }, [session, startPolling, clearAll, router])
+  }, [session, startPolling, clearAll, router, finish])
 
   if (!session) return null
 

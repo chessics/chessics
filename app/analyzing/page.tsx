@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import RecurrenceStrip, { type StripBarState } from '@/components/workbench/RecurrenceStrip'
+import { useProgressFavicon } from '@/components/layout/progress-favicon'
 import { POLL_INTERVAL_MS, createStatusPoller } from '@/lib/sync/poll'
 import { planOnLoad } from '@/lib/sync/resume'
 
@@ -35,6 +36,7 @@ export default function AnalyzingPage() {
   const [stages, setStages] = useState<StageStatus[]>(['active', 'pending', 'pending', 'pending'])
   const [gamesDone, setGamesDone] = useState(0)
   const [stageDetail, setStageDetail] = useState<string | null>(null)
+  useProgressFavicon(stages)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)

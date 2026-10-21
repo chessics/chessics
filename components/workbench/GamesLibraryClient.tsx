@@ -222,10 +222,8 @@ export default function GamesLibraryClient({ games }: Props) {
           }}
         >
           <div
+            className="games-grid games-head"
             style={{
-              display: 'grid',
-              gridTemplateColumns: '90px 28px 28px 140px 1fr 80px 72px 100px',
-              gap: 0,
               padding: '8px 16px',
               borderBottom: '1px solid var(--border)',
             }}
@@ -252,30 +250,27 @@ export default function GamesLibraryClient({ games }: Props) {
           {filtered.map((game, idx) => {
             const isQueued = queuedIds.has(game.id)
             const isBeingAnalyzed = analyzingId === game.id
+            const rowStyle: React.CSSProperties = {
+              padding: '10px 16px',
+              borderBottom:
+                idx < filtered.length - 1
+                  ? '1px solid var(--border)'
+                  : 'none',
+              transition: 'background 0.1s',
+            }
+            const hover = {
+              onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+                e.currentTarget.style.background = 'rgba(201,165,92,0.04)'
+              },
+              onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+                e.currentTarget.style.background = 'transparent'
+              },
+            }
 
-            return (
-              <div
-                key={game.id}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '90px 28px 28px 140px 1fr 80px 72px 100px',
-                  gap: 0,
-                  padding: '10px 16px',
-                  borderBottom:
-                    idx < filtered.length - 1
-                      ? '1px solid var(--border)'
-                      : 'none',
-                  alignItems: 'center',
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(201,165,92,0.04)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                }}
-              >
+            const cells = (
+              <>
                 <span
+                  className="games-cell-date"
                   style={{
                     fontSize: 12,
                     color: 'var(--text-muted)',
@@ -286,15 +281,16 @@ export default function GamesLibraryClient({ games }: Props) {
                   {formatDate(game.played_at)}
                 </span>
 
-                <div style={{ padding: '0 2px' }}>
+                <div className="games-cell-result" style={{ padding: '0 2px' }}>
                   <ResultBadge result={game.result} />
                 </div>
 
-                <div style={{ padding: '0 2px' }}>
+                <div className="games-cell-platform" style={{ padding: '0 2px' }}>
                   <PlatformDot platform={game.platform} />
                 </div>
 
                 <span
+                  className="games-cell-opponent"
                   style={{
                     fontSize: 13,
                     color: 'var(--text)',
@@ -308,6 +304,8 @@ export default function GamesLibraryClient({ games }: Props) {
                 </span>
 
                 <span
+                  className="games-cell-opening"
+                  data-empty={game.opening_name ? undefined : ''}
                   style={{
                     fontSize: 12,
                     color: 'var(--text-dim)',
@@ -322,6 +320,7 @@ export default function GamesLibraryClient({ games }: Props) {
                 </span>
 
                 <span
+                  className="games-cell-time"
                   style={{
                     fontSize: 11,
                     color: 'var(--text-dim)',
@@ -333,6 +332,7 @@ export default function GamesLibraryClient({ games }: Props) {
                 </span>
 
                 <span
+                  className="games-cell-accuracy"
                   style={{
                     fontSize: 12,
                     color:
@@ -353,10 +353,9 @@ export default function GamesLibraryClient({ games }: Props) {
                     : '—'}
                 </span>
 
-                <div style={{ padding: '0 4px' }}>
+                <div className="games-cell-action" style={{ padding: '0 4px' }}>
                   {game.is_analyzed ? (
-                    <Link
-                      href={`/games/${game.id}/review`}
+                    <span
                       style={{
                         display: 'inline-block',
                         padding: '4px 10px',
@@ -365,21 +364,12 @@ export default function GamesLibraryClient({ games }: Props) {
                         color: 'var(--gold)',
                         background: 'rgba(201,165,92,0.1)',
                         border: '1px solid rgba(201,165,92,0.25)',
-                        textDecoration: 'none',
                         whiteSpace: 'nowrap',
-                        transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          'rgba(201,165,92,0.2)'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background =
-                          'rgba(201,165,92,0.1)'
                       }}
                     >
-                      View review
-                    </Link>
+                      <span className="games-label-full">View review</span>
+                      <span className="games-label-short">Review</span>
+                    </span>
                   ) : isQueued ? (
                     <span
                       style={{
@@ -422,6 +412,22 @@ export default function GamesLibraryClient({ games }: Props) {
                     </button>
                   )}
                 </div>
+              </>
+            )
+
+            return game.is_analyzed ? (
+              <Link
+                key={game.id}
+                href={`/games/${game.id}/review`}
+                className="games-grid"
+                style={{ ...rowStyle, color: 'inherit', textDecoration: 'none' }}
+                {...hover}
+              >
+                {cells}
+              </Link>
+            ) : (
+              <div key={game.id} className="games-grid" style={rowStyle} {...hover}>
+                {cells}
               </div>
             )
           })}

@@ -188,3 +188,39 @@ coords.squares:nth-of-type(even) :nth-child(even) {
     border-right: none !important;
   }
 }
+
+.games-grid {
+  display: grid;
+  grid-template-columns: 90px 28px 28px 140px minmax(0, 1fr) 80px 72px 100px;
+  align-items: center;
+}
+.games-label-short {
+  display: none;
+}
+@media (max-width: 767px) {
+  .games-grid {
+    grid-template-columns: 28px auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'result platform opponent opponent accuracy'
+      'result date date time action'
+      '. opening opening opening opening';
+    column-gap: 4px;
+    row-gap: 4px;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .games-head {
+    display: none;
+  }
+  .games-cell-result { grid-area: result; align-self: start; }
+  .games-cell-opponent { grid-area: opponent; }
+  .games-cell-accuracy { grid-area: accuracy; justify-self: end; }
+  .games-cell-date { grid-area: date; }
+  .games-cell-platform { grid-area: platform; }
+  .games-cell-time { grid-area: time; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 !important; }
+  .games-cell-action { grid-area: action; justify-self: end; max-width: 9rem; padding: 0 !important; }
+  .games-cell-opening { grid-area: opening; }
+  .games-cell-opening[data-empty] { display: none; }
+  .games-label-full { display: none; }
+  .games-label-short { display: inline; }
+}

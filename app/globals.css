@@ -159,6 +159,10 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   outline-offset: 2px;
 }
 
+.focus-landing:focus-visible {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -168,5 +172,19 @@ coords.squares:nth-of-type(even) :nth-child(even) {
     transition-duration: 0.01ms !important;
     transition-delay: 0s !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 899px) {
+  .review-layout {
+    flex-direction: column;
+    gap: 28px !important;
+  }
+  .review-left,
+  .review-right {
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-right: none !important;
   }
 }

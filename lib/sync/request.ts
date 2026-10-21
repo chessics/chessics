@@ -10,6 +10,10 @@ export function batchSizeAllowed(batchSize: number, signedIn: boolean): boolean 
   return signedIn || GUEST_BATCH_SIZES.includes(batchSize)
 }
 
+export function noGamesCode(filter: TimeControlFilter): 'no_rapid_blitz_games' | 'no_games' {
+  return filter === 'rapid_blitz' ? 'no_rapid_blitz_games' : 'no_games'
+}
+
 const PLATFORMS = ['chess_com', 'lichess'] as const
 const FILTERS: readonly TimeControlFilter[] = ['rapid_blitz', 'all']
 export const MAX_USERNAME_LENGTH = 50

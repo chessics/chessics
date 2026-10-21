@@ -1,7 +1,8 @@
 import { Chess } from 'chess.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { evaluateGame, engineLabel, DEFAULT_DEPTH, type EvaluatedMove } from './stockfish.js'
+import { evaluateGame, evaluateTopLines, engineLabel, DEFAULT_DEPTH, type EvaluatedMove } from './stockfish.js'
 import { buildTrainingPositions, type TrainingPositionRow } from './training-positions.js'
+import { withTimeFloors } from './time-floor.js'
 import { generateGameReview } from './claude-service.js'
 import { detectGamePatterns, primaryTagForChainRoot, isMateMissWhileWinning, withheldTagsFor } from './pattern-detector.js'
 import type { DetectedPattern, RootCauseRecord } from './pattern-detector.js'
@@ -143,10 +144,10 @@ export function detectCausalChains(
     chains.push({
       root_move_ply: rootMove.ply,
       root_move_san: rootMove.san,
-      root_move_explanation: `${rootMove.san} at ${moveNum(rootMove.ply)} began the decline (${(rootMove.eval_delta / 100).toFixed(1)} pawn loss)`,
+      root_move_explanation: `${rootMove.san} at ${moveNum(rootMove.ply)} began the decline`,
       terminal_blunder_ply: blunder.ply,
       terminal_blunder_san: blunder.san,
-      terminal_blunder_explanation: `${blunder.san} at ${moveNum(blunder.ply)} was the decisive mistake (${(blunder.eval_delta / 100).toFixed(1)} pawn loss)`,
+      terminal_blunder_explanation: `${blunder.san} at ${moveNum(blunder.ply)} was the decisive mistake`,
       chain_explanation: `The position was compromised at ${moveNum(rootMove.ply)} (${rootMove.san}), which led to the blunder ${blunder.san} at ${moveNum(blunder.ply)}.`,
       nodes: intermediates.map((m, idx) => ({
         move_ply: m.ply,
@@ -275,17 +276,22 @@ export async function buildGameAnalysis(
     }
   })
 
-  const trainingPositions = buildTrainingPositions(
-    game.id,
-    evaluatedMoves,
-    game.user_color,
-    rootCauseRecords.map(r => ({
-      rootPly: r.rootPly,
-      terminalPly: r.blunderPly,
-      tag: r.patternTag,
-    })),
-    { engine: engineLabel(), depth: DEFAULT_DEPTH }
+  const floored = await withTimeFloors(
+    buildTrainingPositions(
+      game.id,
+      evaluatedMoves,
+      game.user_color,
+      rootCauseRecords.map(r => ({
+        rootPly: r.rootPly,
+        terminalPly: r.blunderPly,
+        tag: r.patternTag,
+      })),
+      { engine: engineLabel(), depth: DEFAULT_DEPTH }
+    ),
+    fen => evaluateTopLines(fen, DEFAULT_DEPTH)
   )
+  const trainingPositions = floored.rows
+  if (floored.reasons.length) console.log(`[floor] ${game.id}: ${floored.reasons.join(', ')}`)
 
   return {
     gameId: game.id,

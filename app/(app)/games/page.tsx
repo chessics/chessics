@@ -1,7 +1,10 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
 import type { Game } from '@/lib/supabase/types'
+
+export const metadata: Metadata = { title: 'Games' }
 
 type GameWithAccuracy = Game & { overall_accuracy: number | null }
 

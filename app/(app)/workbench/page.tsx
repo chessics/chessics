@@ -1,7 +1,10 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import BatchReportSummary from '@/components/workbench/BatchReportSummary'
 import GuestTransferRetry from '@/components/auth/GuestTransferRetry'
 import type { BatchReport, Trajectory, UserPattern } from '@/lib/supabase/types'
+
+export const metadata: Metadata = { title: 'Workbench' }
 
 export default async function WorkbenchPage() {
   const supabase = await createClient()

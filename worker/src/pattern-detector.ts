@@ -73,7 +73,7 @@ export function detectGamePatterns(
         patternType: 'hanging_piece',
         patternLabel: 'Hanging Piece',
         movesPly: [move.ply],
-        context: `${move.san} lost ~${Math.round(effDelta / 100)} pawns of material`,
+        context: `${move.san} lost material at move ${Math.ceil(move.ply / 2)}`,
       })
     }
 
@@ -157,7 +157,7 @@ export function detectGamePatterns(
           patternType: 'missed_mating_pattern',
           patternLabel: 'Missed Mating Pattern',
           movesPly: [move.ply],
-          context: `Winning position (+${Math.round(userEval(move.eval_after) / 100)} pawns) collapsed at move ${Math.ceil(move.ply / 2)}`,
+          context: `Winning position collapsed at move ${Math.ceil(move.ply / 2)}`,
         })
       }
     }
@@ -168,7 +168,7 @@ export function detectGamePatterns(
         patternType: 'pawn_structure_weakness',
         patternLabel: 'Pawn Structure Weakness',
         movesPly: [move.ply],
-        context: `Pawn move ${move.san} weakened structure at move ${Math.ceil(move.ply / 2)} (${(effDelta / 100).toFixed(1)} pawn loss)`,
+        context: `Pawn move ${move.san} weakened structure at move ${Math.ceil(move.ply / 2)}`,
       })
     }
 
@@ -201,7 +201,7 @@ export function detectGamePatterns(
         patternType: 'bad_bishop_trade',
         patternLabel: 'Bad Bishop Trade',
         movesPly: [move.ply],
-        context: `Bishop capture ${move.san} was unfavorable at move ${Math.ceil(move.ply / 2)} (${(effDelta / 100).toFixed(1)} pawn loss)`,
+        context: `Bishop capture ${move.san} was unfavorable at move ${Math.ceil(move.ply / 2)}`,
       })
     }
 

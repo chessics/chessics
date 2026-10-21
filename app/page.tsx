@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { landingErrorMessage } from '@/lib/sync/poll'
+import { landingPlan } from '@/lib/sync/resume'
 import SourceLink from '@/components/layout/SourceLink'
 
 type Platform = 'chess.com' | 'lichess'
@@ -15,6 +16,7 @@ interface ChessicsSession {
   timeControlFilter?: 'rapid_blitz' | 'all'
   sessionToken?: string
   jobId?: string
+  authed?: boolean
 }
 
 type ResumeState = 'idle' | 'checking' | 'ready' | 'processing'
@@ -48,27 +50,13 @@ export default function LandingPage() {
         return
       }
 
-      if (!session.sessionToken) {
-        setResumeState('idle')
-        return
-      }
-
-      try {
-        const params = new URLSearchParams({ sessionToken: session.sessionToken })
-        if (session.jobId) params.set('jobId', session.jobId)
-
-        const res = await fetch(`/api/guest/check?${params}`)
-        const { status } = (await res.json()) as { status: 'ready' | 'processing' | 'failed' | 'lost' | 'not_found' }
-
-        if (status === 'ready') {
-          setResumeSession(session)
-          setResumeState('ready')
-        } else if (status === 'processing') {
-          router.replace('/analyzing')
-        } else {
-          setResumeState('idle')
-        }
-      } catch {
+      const plan = await landingPlan(session, (url) => fetch(url))
+      if (plan === 'ready') {
+        setResumeSession(session)
+        setResumeState('ready')
+      } else if (plan === 'processing') {
+        router.replace('/analyzing')
+      } else {
         setResumeState('idle')
       }
     }

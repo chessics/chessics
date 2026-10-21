@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import type { Game } from '@/lib/supabase/types'
 import { failureMessage } from '@/lib/ratelimit-message'
+import { formatTimeControl } from '@/lib/review/time-control'
 
 const RETRY_LABEL = "Couldn't queue, retry"
 
@@ -328,7 +329,7 @@ export default function GamesLibraryClient({ games }: Props) {
                     fontFamily: 'JetBrains Mono, monospace',
                   }}
                 >
-                  {game.time_control ?? '—'}
+                  {formatTimeControl(game.time_control) ?? '—'}
                 </span>
 
                 <span

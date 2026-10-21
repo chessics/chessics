@@ -39,7 +39,13 @@ function sentenceEnds(text: string): number[] {
     const nextWord = rest.trimStart().split(/\s+/)[0] ?? ''
     const next = nextWord.replace(/^["'“‘(]+/, '').charAt(0)
 
-    if (/^\d+$/.test(lastWord.replace(/[.!?]+$/, '')) && run === '.' && isSan(nextWord)) continue
+    const wordBefore = before.split(/\s+/).slice(-2, -1)[0] ?? ''
+    if (
+      /^\d+$/.test(lastWord.replace(/[.!?]+$/, '')) &&
+      run === '.' &&
+      isSan(nextWord) &&
+      !/^moves?$/i.test(wordBefore)
+    ) continue
     if (run === '.' && ABBREVIATIONS.has(lastWord.toLowerCase())) continue
 
     if (/[A-Z]/.test(next) || /^["'“‘]/.test(nextWord)) {
@@ -151,4 +157,23 @@ export function squaresNamed(text: string): string[] {
 export function namesUngivenSquare(text: string, sans: readonly string[]): boolean {
   const given = new Set(sans.flatMap(s => s.match(/[a-h][1-8]/g) ?? []))
   return squaresNamed(text).some(sq => !given.has(sq))
+}
+
+const NUMBER_WORD = String.raw`(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|half|several|many|a few)`
+const FIGURE_PATTERNS: readonly RegExp[] = [
+  /(?<![A-Za-z0-9.,])\d+(?:[.,]\d+)?\s*-?\s*pawns?\b/i,
+  new RegExp(String.raw`\b${NUMBER_WORD}\s+pawns?(?:'s|’s)?\s+(?:worth|(?:of|in)\s+(?:advantage|edge|evaluation|eval|value))`, 'i'),
+  new RegExp(String.raw`\b(?:about|roughly|around|nearly|almost|approximately)\s+${NUMBER_WORD}\s+pawns?\b`, 'i'),
+  new RegExp(String.raw`\bequivalent\s+of\s+(?:about\s+|roughly\s+)?${NUMBER_WORD}\s+pawns?\b`, 'i'),
+  /\bhalf\s+a\s+pawn\b/i,
+  /\bpawns?\s+and\s+a\s+half\b/i,
+  /centi-?pawn/i,
+  /(?<![A-Za-z0-9.,])\d+(?:[.,]\d+)?\s*cp\b/i,
+  /\bcp\b/,
+  /(?<![\w.])[+\-−–]\d+(?:[.,]\d+)?(?![\w])/,
+  /\b(?:eval(?:uation)?|advantage|edge|swing|score)\s+(?:of\s+)?(?:about\s+|roughly\s+|around\s+|nearly\s+|almost\s+|over\s+)?[+\-−–]?\d/i,
+]
+
+export function statesEvalFigure(text: string): boolean {
+  return FIGURE_PATTERNS.some(re => re.test(text))
 }

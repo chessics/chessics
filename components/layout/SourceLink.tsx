@@ -7,8 +7,8 @@ export function sourceUrl(commitSha: string | undefined = process.env.NEXT_PUBLI
 
 export default function SourceLink() {
   return (
-    <a href={sourceUrl()} rel="noopener noreferrer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>
-      Source code
+    <a href={sourceUrl()} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>
+      Source code<span className="sr-only"> (opens in a new tab)</span>
     </a>
   )
 }

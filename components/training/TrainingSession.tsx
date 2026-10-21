@@ -20,6 +20,8 @@ import {
 import { nextButtonLabel, planReveal, type RevealKind } from '@/lib/training/reveal'
 import type { Goal } from '@/lib/training/reason'
 import { announcement } from '@/lib/training/announce'
+import { arrowUci } from '@/lib/training/keyboard-board'
+import { keyBelongsToControl } from '@/lib/training/shortcut'
 import ReasonChips from './ReasonChips'
 import { useFocusWhenLost } from './focus'
 import {
@@ -86,10 +88,6 @@ async function fetchNext(mode: TrainingMode, s: StoredSession): Promise<NextFetc
   }
 }
 
-function arrowUci(a: DrawnArrow): string {
-  return `${a.from}${a.to}${a.promotion ?? ''}`
-}
-
 function arrowSan(fen: string, a: DrawnArrow): string {
   try {
     return new Chess(fen).move({ from: a.from, to: a.to, promotion: a.promotion ?? 'q' })?.san ?? arrowUci(a)
@@ -121,6 +119,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   const [phase, setPhase] = useState<Phase>({ name: 'loading' })
   const [arrows, setArrows] = useState<DrawnArrow[]>([])
   const [selected, setSelected] = useState<number | null>(null)
+  const [boardMessage, setBoardMessage] = useState<string | null>(null)
   const [goal, setGoal] = useState<Goal | null>(null)
   const [upcoming, setUpcoming] = useState<NextResponse | null>(null)
   const answered = useRef(false)
@@ -148,6 +147,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   const show = useCallback((body: NextResponse) => {
     setArrows([])
     setSelected(null)
+    setBoardMessage(null)
     setGoal(null)
     if ('done' in body) return setPhase({ name: 'done', openLoop: body.open_loop, summary: body.summary })
     startedAt.current = performance.now()
@@ -175,6 +175,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
       if (phase.name !== 'board' || !session) return
       const position = phase.position
       const timeToCommit = Math.round(performance.now() - startedAt.current)
+      setBoardMessage(null)
       setPhase({ name: 'committing', position })
       try {
         const res = await fetch(commitUrl(mode, position.position_id), {
@@ -212,7 +213,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   useEffect(() => {
     if (phase.name !== 'board') return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.repeat || needsReason) return
+      if (e.key !== 'Enter' || e.repeat || needsReason || keyBelongsToControl(e.target)) return
       if (selected !== null && arrows[selected]) {
         e.preventDefault()
         commit(arrowUci(arrows[selected]))
@@ -257,7 +258,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   return (
     <div ref={wrapRef} className="training-root">
       <p className="sr-only" aria-live="polite" data-testid="training-announcement">
-        {announcement(phase)}
+        {phase.name === 'board' && boardMessage ? boardMessage : announcement(phase)}
       </p>
       {onPosition && (
         <header className="training-header">
@@ -265,7 +266,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
             <h1
               ref={titleRef}
               tabIndex={-1}
-              className="training-title"
+              className="training-title focus-landing"
               style={{ visibility: answering ? 'visible' : 'hidden' }}
               aria-hidden={!answering}
             >
@@ -301,6 +302,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
               onSelectArrow={setSelected}
               size={size}
               locked={needsReason}
+              onAnnounce={setBoardMessage}
             />
             <div className="training-panel">
               {phase.position.ask_reason && (

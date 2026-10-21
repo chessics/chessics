@@ -82,7 +82,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 }
 
+const APPENDS_TTL_SECONDS = 7 * 24 * 3600
+
+interface AppendsDone {
+  batchReportId: string
+  patterns: string[]
+}
+
+function readAppends(raw: unknown): AppendsDone | null {
+  if (raw === null || raw === undefined) return null
+  const value = typeof raw === 'string' ? JSON.parse(raw) : raw
+  const id = (value as { batchReportId?: unknown })?.batchReportId
+  const patterns = (value as { patterns?: unknown })?.patterns
+  if (typeof id !== 'string' || !id || !Array.isArray(patterns) || !patterns.every(p => typeof p === 'string')) {
+    throw new Error('unreadable')
+  }
+  return { batchReportId: id, patterns }
+}
+
 async function transfer(sessionToken: string, userId: string, supabase: UserClient): Promise<NextResponse> {
+  const appendsKey = `guest:${sessionToken}:transfer-appends`
+  const markAppends = async (done: AppendsDone) => {
+    try {
+      await redis.set(appendsKey, JSON.stringify(done), { ex: APPENDS_TTL_SECONDS })
+    } catch (err) {
+      console.error('[transfer] append marker not written; a retry from here would append again:', err)
+    }
+  }
+
   const raw = await redis.get(`guest:${sessionToken}:result`)
   if (!raw) {
     return NextResponse.json({ error: 'no_data' }, { status: 404 })
@@ -223,27 +250,39 @@ async function transfer(sessionToken: string, userId: string, supabase: UserClie
       .map((tempId) => gameIdMap.get(tempId))
       .filter((id): id is string => !!id)
 
-    const { data: insertedBatch, error: batchError } = await supabase
-      .from('batch_reports')
-      .insert({
-        user_id: userId,
-        game_count: guestResult.batch_report.game_count,
-        calibration_level_used: guestResult.batch_report.calibration_level_used,
-        claude_narrative: guestResult.batch_report.claude_narrative,
-        overall_accuracy: guestResult.batch_report.overall_accuracy,
-        accuracy_delta: null,
-        pattern_groups: remappedGroups,
-        game_ids: remappedGameIds,
-      })
-      .select('id')
-      .single()
-    check('insert batch_reports', batchError)
-    if (!insertedBatch) throw new TransferError('insert batch_reports', 'no row returned')
+    let done: AppendsDone | null
+    try {
+      done = readAppends(await redis.get(appendsKey))
+    } catch (err) {
+      throw new TransferError('read append marker', err instanceof Error ? err.message : String(err))
+    }
+
+    if (!done) {
+      const { data: insertedBatch, error: batchError } = await supabase
+        .from('batch_reports')
+        .insert({
+          user_id: userId,
+          game_count: guestResult.batch_report.game_count,
+          calibration_level_used: guestResult.batch_report.calibration_level_used,
+          claude_narrative: guestResult.batch_report.claude_narrative,
+          overall_accuracy: guestResult.batch_report.overall_accuracy,
+          accuracy_delta: null,
+          pattern_groups: remappedGroups,
+          game_ids: remappedGameIds,
+        })
+        .select('id')
+        .single()
+      check('insert batch_reports', batchError)
+      if (!insertedBatch) throw new TransferError('insert batch_reports', 'no row returned')
+      done = { batchReportId: insertedBatch.id, patterns: [] }
+      await markAppends(done)
+    }
 
     const maxScore = remappedGroups[0]?.score ?? 0
     for (const group of remappedGroups) {
+      if (done.patterns.includes(group.tag)) continue
       const snapshot = {
-        batch_report_id: insertedBatch.id,
+        batch_report_id: done.batchReportId,
         frequency: group.frequency,
         occurrences: group.occurrences,
         total_cp: group.totalCp,
@@ -285,12 +324,15 @@ async function transfer(sessionToken: string, userId: string, supabase: UserClie
         })
         check(`insert user_patterns (${group.tag})`, error)
       }
+      done = { ...done, patterns: [...done.patterns, group.tag] }
+      await markAppends(done)
     }
 
     try {
       await Promise.all([
         redis.del(`guest:${sessionToken}:games`),
         redis.del(`guest:${sessionToken}:result`),
+        redis.del(appendsKey),
       ])
     } catch (err) {
       console.error('[transfer] transferred, but the guest result was not deleted:', err)

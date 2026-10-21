@@ -7,6 +7,8 @@ import { transferGuestSession, type TransferOutcome } from '@/lib/auth/transfer'
 export const RETRY_LINE =
   "Your guest analysis hasn't moved to your account yet. It will try again next time you open this page."
 
+export const GONE_LINE = 'Your guest analysis is no longer available, so it can\'t be moved to your account.'
+
 export async function retryGuestTransfer({
   signedIn,
   transfer,
@@ -19,7 +21,8 @@ export async function retryGuestTransfer({
   if (!signedIn) return null
   const outcome = await transfer()
   if (outcome === 'transferred') refresh()
-  return outcome === 'failed' || outcome === 'not_ready' ? RETRY_LINE : null
+  if (outcome === 'failed' || outcome === 'not_ready') return RETRY_LINE
+  return outcome === 'gone' ? GONE_LINE : null
 }
 
 export default function GuestTransferRetry({ signedIn }: { signedIn: boolean }) {

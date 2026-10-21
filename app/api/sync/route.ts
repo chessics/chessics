@@ -6,7 +6,7 @@ import { fetchLichessGames } from '@/lib/sync/lichess'
 import type { SyncedGame } from '@/lib/sync/chess-com'
 import type { LichessSyncedGame } from '@/lib/sync/lichess'
 import { checkLimits, ipKey, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
-import { batchSizeAllowed, parseSyncBody, SIGN_UP_FOR_LARGER_BATCHES } from '@/lib/sync/request'
+import { batchSizeAllowed, noGamesCode, parseSyncBody, SIGN_UP_FOR_LARGER_BATCHES } from '@/lib/sync/request'
 
 export const maxDuration = 30
 
@@ -82,6 +82,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     console.error('[sync] fetch error:', err)
     return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 })
+  }
+
+  if (games.length === 0) {
+    return NextResponse.json({ error: noGamesCode(timeControlFilter) }, { status: 422 })
   }
 
   const siteWide = await checkLimits([{ rule: RATE_LIMITS.allAnalyses, key: SITE_KEY }])

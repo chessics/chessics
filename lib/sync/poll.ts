@@ -75,6 +75,8 @@ const MESSAGES: Record<string, string> = {
   sync_failed: "The sync didn't start. Try again.",
   [TOO_MANY_REQUESTS_CODE]: TOO_MANY_REQUESTS_MESSAGE,
   sign_up_for_larger_batches: 'Sign up to analyse 25, 50 or 100 games at a time.',
+  no_rapid_blitz_games: 'That account has no rapid or blitz games to analyse yet.',
+  no_games: 'That account has no games to analyse yet.',
   'Username not found': 'That username was not found. Check the spelling and the site.',
   'Rate limited, try again shortly': 'The chess site is rate limiting us. Try again in a minute.',
   'Failed to fetch games': "We couldn't fetch your games from the chess site. Try again.",

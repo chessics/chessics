@@ -5,14 +5,20 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   forwardRef,
 } from 'react'
 import dynamic from 'next/dynamic'
 import { Chess } from 'chess.js'
 import type { BoardShape } from './ChessBoard'
 import { gameDecidedAt, decidedAtLabel } from '@/lib/review/decided-at'
+import { withoutPawnFigure } from '@/lib/review/pawn-figure'
+import { evalWords, evalReceipt } from '@/lib/review/eval-words'
 import { useLitSquares, LitProse } from '@/components/board/lit-squares'
 import { scrollBehavior } from '@/lib/motion'
+import { formatTimeControl } from '@/lib/review/time-control'
+import { reviewBoardSize } from '@/lib/review/board-size'
+import { moveListKey, tabStopPly } from '@/lib/review/move-list-keys'
 import type {
   Game,
   Move,
@@ -64,13 +70,6 @@ function evalToWhitePercent(cp: number | null): number {
   return ((Math.tanh(clamped / 500) + 1) / 2) * 100
 }
 
-function evalToLabel(cp: number | null): string {
-  if (cp === null) return '—'
-  if (Math.abs(cp) >= 900) return cp > 0 ? '+M' : '−M'
-  const p = cp / 100
-  return p > 0 ? `+${p.toFixed(1)}` : p.toFixed(1)
-}
-
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', {
@@ -94,19 +93,19 @@ function buildChainNodes(chain: ChainWithNodes): FullChainNode[] {
     {
       ply: chain.root_move_ply,
       san: chain.root_move_san,
-      explanation: chain.root_move_explanation,
+      explanation: withoutPawnFigure(chain.root_move_explanation),
       kind: 'root',
     },
     ...chain.nodes.map((n) => ({
       ply: n.move_ply,
       san: n.move_san,
-      explanation: n.explanation,
+      explanation: withoutPawnFigure(n.explanation),
       kind: 'mid' as const,
     })),
     {
       ply: chain.terminal_blunder_ply,
       san: chain.terminal_blunder_san,
-      explanation: chain.terminal_blunder_explanation,
+      explanation: withoutPawnFigure(chain.terminal_blunder_explanation),
       kind: 'terminal',
     },
   ]
@@ -116,11 +115,12 @@ interface EvalBarProps {
   cp: number | null
   height: number
   flipped: boolean
+  words: string | null
 }
 
-function EvalBar({ cp, height, flipped }: EvalBarProps) {
+function EvalBar({ cp, height, flipped, words }: EvalBarProps) {
   const whitePercent = evalToWhitePercent(cp)
-  const label = evalToLabel(cp)
+  const label = words ?? '—'
 
   return (
     <div
@@ -168,10 +168,11 @@ interface MoveCellProps {
   move: Move
   isActive: boolean
   onClick: () => void
+  tabIndex: number
 }
 
 const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
-  ({ move, isActive, onClick }, ref) => {
+  ({ move, isActive, onClick, tabIndex }, ref) => {
     const cls = move.classification
     const color = cls ? CLASS_COLOR[cls] : undefined
     const sym = cls ? CLASS_SYMBOL[cls] : undefined
@@ -181,6 +182,8 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
         ref={ref}
         type="button"
         onClick={onClick}
+        tabIndex={tabIndex}
+        data-ply={move.ply_number}
         aria-current={isActive ? 'step' : undefined}
         style={{
           display: 'flex',
@@ -272,6 +275,9 @@ export default function GameReviewClient({
     return moves[currentPly - 1]?.eval_after ?? null
   }, [currentPly, moves])
 
+  const currentWords = evalWords(currentEval, game.user_color)
+  const currentReceipt = evalReceipt(currentEval)
+
   const lastMoveSquares = useMemo((): [string, string] | null => {
     if (currentPly === 0 || !moves[currentPly - 1]) return null
     const m = moves[currentPly - 1]
@@ -312,6 +318,22 @@ export default function GameReviewClient({
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
   }, [goForward, goBackward])
+
+  const moveListRef = useRef<HTMLDivElement>(null)
+  const listStop = tabStopPly(currentPly, totalPlies)
+  const onMoveListKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return
+    const next = moveListKey(e.key, currentPly, totalPlies)
+    if (next === null) return
+    e.preventDefault()
+    e.stopPropagation()
+    goTo(next)
+  }
+  useEffect(() => {
+    const list = moveListRef.current
+    if (!list || !list.contains(document.activeElement)) return
+    list.querySelector<HTMLButtonElement>(`button[data-ply="${listStop}"]`)?.focus({ preventScroll: true })
+  }, [listStop])
 
   const setActiveMoveRef = useCallback(
     (node: HTMLButtonElement | null) => {
@@ -401,11 +423,22 @@ export default function GameReviewClient({
         ? 'var(--blunder)'
         : 'var(--text-muted)'
 
-  const boardSize = 480
+  const boardRowRef = useRef<HTMLDivElement>(null)
+  const [boardSize, setBoardSize] = useState(reviewBoardSize(0))
+  useEffect(() => {
+    const el = boardRowRef.current
+    if (!el) return
+    const measure = () => setBoardSize(reviewBoardSize(el.clientWidth))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const keyLit = lit.bind(analysis?.key_moment_explanation ?? '')
 
   return (
     <div
+      className="review-layout"
       style={{
         display: 'flex',
         gap: 0,
@@ -413,6 +446,7 @@ export default function GameReviewClient({
       }}
     >
       <div
+        className="review-left"
         style={{
           width: '60%',
           minWidth: 0,
@@ -423,8 +457,8 @@ export default function GameReviewClient({
           borderRight: '1px solid var(--border)',
         }}
       >
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <EvalBar cp={currentEval} height={boardSize} flipped={isFlipped} />
+        <div ref={boardRowRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflow: 'hidden' }}>
+          <EvalBar cp={currentEval} height={boardSize} flipped={isFlipped} words={currentWords} />
           <ChessBoard
             fen={currentFen}
             orientation={orientation}
@@ -442,21 +476,24 @@ export default function GameReviewClient({
             paddingLeft: 22,
           }}
         >
-          <span
-            style={{
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 12,
-              color:
-                currentEval === null
-                  ? 'var(--text-dim)'
-                  : (currentEval ?? 0) >= 0
-                    ? 'var(--text)'
-                    : 'var(--text-muted)',
-              minWidth: 48,
-            }}
-          >
-            {evalToLabel(currentEval)}
-          </span>
+          {currentWords && currentReceipt ? (
+            <details className="review-eval" style={{ fontSize: 12, minWidth: 48 }}>
+              <summary style={{ cursor: 'pointer', color: 'var(--text)' }}>{currentWords}</summary>
+              <span
+                style={{
+                  display: 'block',
+                  marginTop: 4,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                {currentReceipt}
+              </span>
+            </details>
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--text-dim)', minWidth: 48 }}>—</span>
+          )}
 
           <div style={{ display: 'flex', gap: 6 }}>
             {(
@@ -514,6 +551,10 @@ export default function GameReviewClient({
         </div>
 
         <div
+          ref={moveListRef}
+          role="group"
+          aria-label="Moves. Use the arrow keys to step through them, Home and End for the start and the end."
+          onKeyDown={onMoveListKey}
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -558,6 +599,7 @@ export default function GameReviewClient({
                 move={white}
                 isActive={currentPly === white.ply_number}
                 onClick={() => goTo(white.ply_number)}
+                tabIndex={listStop === white.ply_number ? 0 : -1}
                 ref={
                   currentPly === white.ply_number ? setActiveMoveRef : undefined
                 }
@@ -567,6 +609,7 @@ export default function GameReviewClient({
                   move={black}
                   isActive={currentPly === black.ply_number}
                   onClick={() => goTo(black.ply_number)}
+                  tabIndex={listStop === black.ply_number ? 0 : -1}
                   ref={
                     currentPly === black.ply_number
                       ? setActiveMoveRef
@@ -582,6 +625,7 @@ export default function GameReviewClient({
       </div>
 
       <div
+        className="review-right"
         style={{
           width: '40%',
           minWidth: 0,
@@ -645,7 +689,7 @@ export default function GameReviewClient({
                 </span>
                 {game.time_control && (
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {game.time_control}
+                    {formatTimeControl(game.time_control)}
                   </span>
                 )}
                 <span

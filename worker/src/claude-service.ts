@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { EvaluatedMove } from './stockfish.js'
-import { attributesUserMoveToOpponent, finishSentence, isOneSentence, namesUngivenSquare, polishSentence } from './sentences.js'
+import { attributesUserMoveToOpponent, finishSentence, isOneSentence, namesUngivenSquare, polishSentence, statesEvalFigure } from './sentences.js'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -15,6 +15,8 @@ const CALIBRATION_VOICES: Record<number, string> = {
 }
 
 const NO_OTHER_SQUARES = 'Name no square except those inside the moves you are given.'
+
+const NO_FIGURES = 'Never state a cost or an evaluation as a number: no pawns, centipawns or plus and minus scores.'
 
 function voiceFor(level: number): string {
   return CALIBRATION_VOICES[level] ?? CALIBRATION_VOICES[2]!
@@ -83,10 +85,13 @@ export async function generateGameReview(
 ): Promise<GameReviewResult> {
   const moveNum = (ply: number) => Math.ceil(ply / 2)
   const colour = gameData.userColor
-  const ownMoves = `The user played ${colour}; every move you are given was played by the user, never by the opponent. ${NO_OTHER_SQUARES}`
+  const ownMoves = `The user played ${colour}; every move you are given was played by the user, never by the opponent. ${NO_OTHER_SQUARES} ${NO_FIGURES}`
   const accept = (text: unknown, sans: readonly string[]): string | null => {
     const finished = finishSentence(text, sans)
-    return finished && !attributesUserMoveToOpponent(finished, colour, sans) && !namesUngivenSquare(finished, sans)
+    return finished &&
+      !attributesUserMoveToOpponent(finished, colour, sans) &&
+      !namesUngivenSquare(finished, sans) &&
+      !statesEvalFigure(finished)
       ? finished
       : null
   }
@@ -94,7 +99,8 @@ export async function generateGameReview(
     typeof text === 'string' &&
     isOneSentence(polishSentence(text, sans)) &&
     !attributesUserMoveToOpponent(polishSentence(text, sans), colour, sans) &&
-    !namesUngivenSquare(polishSentence(text, sans), sans)
+    !namesUngivenSquare(polishSentence(text, sans), sans) &&
+    !statesEvalFigure(polishSentence(text, sans))
 
   if (causalChains.length === 0) {
     const worst = [...gameData.moves]
@@ -194,14 +200,29 @@ Rules — non-negotiable:
 - "verdict": EXACTLY ONE sentence. ${input.headline ? `It must follow the shape "You keep losing the same way — [habit], in ${input.headline.frequency} of ${input.gameCount} games." — habit-specific, grounded in the given facts.` : `No habit recurred in enough games: frame it as "not enough games to confirm a habit — here's your most expensive decision", naming the given root move and blunder.`}
 - "additional": EXACTLY ${expectAdditional} strings, one per additional pattern, each EXACTLY ONE sentence.
 - ${wantTrajectory ? '"trajectory": EXACTLY ONE sentence on the direction of the headline habit vs the previous batch.' : '"trajectory": must be null — this is a first analysis, never invent a comparison.'}
-- Costs are pawns or centipawns, never Elo. Sentence case. No headers, no lists.
+- ${NO_FIGURES} Never Elo either. Sentence case. No headers, no lists.
 You are given computed engine facts only; never invent moves, counts, or evaluations. ${NO_OTHER_SQUARES}`
 
   const payload = {
     gamesAnalyzed: input.gameCount,
-    headline: input.headline,
-    additionalPatterns: input.additional,
-    fallbackChain: input.headline ? null : input.fallbackChain,
+    headline: input.headline
+      ? {
+          label: input.headline.label,
+          frequency: input.headline.frequency,
+          occurrences: input.headline.occurrences,
+          exhibit: input.headline.exhibit,
+        }
+      : null,
+    additionalPatterns: input.additional.map(a => ({ label: a.label, frequency: a.frequency })),
+    fallbackChain:
+      !input.headline && input.fallbackChain
+        ? {
+            rootSan: input.fallbackChain.rootSan,
+            rootMoveNumber: input.fallbackChain.rootMoveNumber,
+            blunderSan: input.fallbackChain.blunderSan,
+            blunderMoveNumber: input.fallbackChain.blunderMoveNumber,
+          }
+        : null,
     trajectory: input.trajectory
       ? { headlineLabel: input.trajectory.headlineLabel, direction: TRAJECTORY_DISPLAY[input.trajectory.direction] }
       : null,
@@ -218,10 +239,13 @@ You are given computed engine facts only; never invent moves, counts, or evaluat
     ...(!input.headline && input.fallbackChain ? [input.fallbackChain.rootSan, input.fallbackChain.blunderSan] : []),
   ]
   const sentence = (s: unknown) =>
-    typeof s === 'string' && isOneSentence(polishSentence(s, sans)) && !namesUngivenSquare(polishSentence(s, sans), sans)
+    typeof s === 'string' &&
+    isOneSentence(polishSentence(s, sans)) &&
+    !namesUngivenSquare(polishSentence(s, sans), sans) &&
+    !statesEvalFigure(polishSentence(s, sans))
   const finish = (s: unknown): string | null => {
     const f = finishSentence(s, sans)
-    return f && !namesUngivenSquare(f, sans) ? f : null
+    return f && !namesUngivenSquare(f, sans) && !statesEvalFigure(f) ? f : null
   }
   const additionalTemplate = (a: { label: string; frequency: number }) =>
     `${a.label} appeared in ${a.frequency} of ${input.gameCount} games.`

@@ -1,6 +1,7 @@
 import type { GuestSessionResult } from '@/types/guest'
 import type { InstanceFacts } from './finding'
 import { makeInstance, type MoveFacts } from './instance'
+import { fatigueLine, type BlunderMove, type FatigueLine, type HistoryGame, type ScopeGame } from './sittings'
 
 export function guestInstances(result: GuestSessionResult): Map<string, InstanceFacts[]> {
   const out = new Map<string, InstanceFacts[]>()
@@ -29,4 +30,27 @@ export function guestInstances(result: GuestSessionResult): Map<string, Instance
     }
   }
   return out
+}
+
+export function guestFatigue(result: GuestSessionResult): FatigueLine | null {
+  const history: HistoryGame[] = result.games.map((g) => ({
+    id: g.analysis_data.gameId,
+    platform: g.platform,
+    playedAt: g.played_at,
+    timeControl: g.time_control,
+  }))
+  const scope: ScopeGame[] = result.games.map((g) => ({
+    id: g.analysis_data.gameId,
+    playedAt: g.played_at,
+    opponent: g.opponent_username,
+    result: g.result,
+    userColor: g.user_color,
+    analysed: g.analysis_data.moves.length > 0,
+  }))
+  const blunders: BlunderMove[] = result.games.flatMap((g) =>
+    g.analysis_data.moves
+      .filter((m) => m.classification === 'blunder')
+      .map((m) => ({ gameId: g.analysis_data.gameId, ply: m.ply_number, evalBefore: m.eval_before, evalAfter: m.eval_after }))
+  )
+  return fatigueLine(history, scope, blunders)
 }

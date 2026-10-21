@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
 import { useState } from 'react'
+import { FLAGS } from '@/lib/flags'
 
 const navLinks = [
   { href: '/workbench', label: 'Workbench' },
   { href: '/games', label: 'Games' },
-  { href: '/progress', label: 'Progress' },
+  ...(FLAGS.progressPage ? [{ href: '/progress', label: 'Progress' }] : []),
 ]
 
-export default function Topbar() {
+export default function Topbar({ signedIn }: { signedIn: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
@@ -61,20 +62,30 @@ export default function Topbar() {
       </nav>
 
       <div className="flex items-center gap-3">
-        <button
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="text-xs px-3 py-1.5 transition-opacity"
-          style={{
-            color: 'var(--text-muted)',
-            border: '1px solid var(--border)',
-            background: 'transparent',
-            cursor: signingOut ? 'not-allowed' : 'pointer',
-            opacity: signingOut ? 0.5 : 1,
-          }}
-        >
-          {signingOut ? 'Signing out…' : 'Sign out'}
-        </button>
+        {signedIn ? (
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="text-xs px-3 py-1.5 transition-opacity"
+            style={{
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              cursor: signingOut ? 'not-allowed' : 'pointer',
+              opacity: signingOut ? 0.5 : 1,
+            }}
+          >
+            {signingOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="text-xs px-3 py-1.5"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+          >
+            Sign in
+          </Link>
+        )}
       </div>
     </header>
   )

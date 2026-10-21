@@ -49,7 +49,7 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
 
   return (
     <div className="session-end">
-      <h1 ref={titleRef} tabIndex={-1} className="training-title">
+      <h1 ref={titleRef} tabIndex={-1} className="training-title focus-landing">
         Session done.
       </h1>
 

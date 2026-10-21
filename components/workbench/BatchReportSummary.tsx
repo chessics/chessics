@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import RecurrenceStrip from './RecurrenceStrip'
 import type { BatchPatternGroup, Trajectory } from '@/lib/supabase/types'
+import { firstSentence } from '@/lib/first-sentence'
 
 interface BatchReportSummaryProps {
   latestBatch: {
@@ -115,7 +116,7 @@ export default function BatchReportSummary({
   const bars = (latestBatch.game_ids ?? []).map((id) =>
     affected.has(id) ? ('affected' as const) : ('quiet' as const)
   )
-  const verdict = headline?.insight ?? latestBatch.claude_narrative?.split(/(?<=[.!?])\s+/)[0] ?? null
+  const verdict = headline?.insight ?? (latestBatch.claude_narrative ? firstSentence(latestBatch.claude_narrative) : null)
 
   return (
     <div

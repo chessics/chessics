@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from 'lucide-react'
 import ChessBoard from '@/components/workbench/ChessBoard'
 import EvalBar from './EvalBar'
-import { buildReplay } from '@/lib/training/replay'
-import { standing } from '@/lib/training/reveal'
+import { buildReplay, replayStatus } from '@/lib/training/replay'
 import { useFocusWhenLost } from './focus'
+import { keyBelongsToControl } from '@/lib/training/shortcut'
 
 interface LosingBranchProps {
   fen: string
@@ -81,6 +81,7 @@ export default function LosingBranch({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'Enter' || e.key === ' ') && keyBelongsToControl(e.target)) return
       if (e.key === 'Enter' && (e.repeat || performance.now() - mountedAt.current < 400)) return
       if (e.key === 'ArrowRight') step(1)
       else if (e.key === 'ArrowLeft') step(-1)
@@ -94,8 +95,8 @@ export default function LosingBranch({
   })
 
   const frame = frames[index]
-  let now: string = standing(startEvalCp)
-  for (let i = 1; i <= index; i++) if (frames[i].ply?.standing) now = frames[i].ply!.standing!
+  const status = replayStatus(frames, index, startEvalCp)
+  const now = status.standing
 
   const shapes =
     index === 1 && frame.lastMove
@@ -111,7 +112,7 @@ export default function LosingBranch({
 
       <div className="training-panel replay-panel">
         <div>
-          <p ref={titleRef} tabIndex={-1} className="training-verdict">
+          <p ref={titleRef} tabIndex={-1} className="training-verdict focus-landing">
             {context === 'same-move' ? 'Same move as your game.' : context === 'threat' ? 'The threat' : 'What happened in your game'}
           </p>
           <p className="training-hint">
@@ -124,7 +125,7 @@ export default function LosingBranch({
         </div>
 
         <div className="replay-status">
-          <span className="replay-status-label">{index === 0 ? 'Before your move' : 'Position now'}</span>
+          <span className="replay-status-label">{status.label}</span>
           <span className={`replay-status-word is-${tone(now)}`}>You&apos;re {now}</span>
         </div>
 

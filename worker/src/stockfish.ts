@@ -1,4 +1,5 @@
 import { isMateMissWhileWinning } from './pattern-detector.js'
+import type { TopLine, TopLinesResult } from './time-floor.js'
 
 const STOCKFISH_URL = process.env.STOCKFISH_URL ?? 'https://chess-api.com/v1'
 
@@ -163,6 +164,42 @@ export async function evaluatePosition(fen: string, depth = DEFAULT_DEPTH): Prom
   }
 
   throw lastError ?? new Error('Stockfish evaluation failed')
+}
+
+export const TOP_LINES_TIMEOUT_MS = 10_000
+
+export function topLinesSupported(): boolean {
+  return PI_API_URL === null && IS_LOCAL_ENGINE
+}
+
+export function parseTopLines(data: unknown): TopLine[] | null {
+  const lines = (data as { lines?: unknown } | null)?.lines
+  if (!Array.isArray(lines)) return null
+  const out: TopLine[] = []
+  for (const line of lines) {
+    const move = (line as { move?: unknown })?.move
+    const cp = Number.parseInt(String((line as { centipawns?: unknown })?.centipawns), 10)
+    if (typeof move !== 'string' || move.length < 4 || !Number.isFinite(cp)) return null
+    out.push({ move, cp })
+  }
+  return out
+}
+
+export async function evaluateTopLines(fen: string, depth = DEFAULT_DEPTH): Promise<TopLinesResult> {
+  if (!topLinesSupported()) return { ok: false, reason: 'engine_unsupported' }
+  try {
+    const response = await fetch(STOCKFISH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen, depth, multiPv: 2 }),
+      signal: AbortSignal.timeout(TOP_LINES_TIMEOUT_MS),
+    })
+    if (!response.ok) return { ok: false, reason: 'engine_failed' }
+    const lines = parseTopLines(await response.json())
+    return lines ? { ok: true, lines } : { ok: false, reason: 'engine_failed' }
+  } catch {
+    return { ok: false, reason: 'engine_failed' }
+  }
 }
 
 export async function evaluateGame(

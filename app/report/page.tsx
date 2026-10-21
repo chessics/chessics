@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import RecurrenceStrip from '@/components/workbench/RecurrenceStrip'
 import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
+import SittingLine from '@/components/diagnosis/SittingLine'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
-import { guestInstances } from '@/lib/diagnosis/guest'
+import { guestFatigue, guestInstances } from '@/lib/diagnosis/guest'
 import type { GuestSessionResult } from '@/types/guest'
 
 export default function GuestReportPage() {
@@ -49,6 +50,7 @@ export default function GuestReportPage() {
     () => (result ? buildFindings(result.pattern_groups ?? [], guestInstances(result), result.batch_report.game_count) : []),
     [result]
   )
+  const fatigue = useMemo(() => (result ? guestFatigue(result) : null), [result])
   const stripGroup = useMemo(() => selectFindings(result?.pattern_groups ?? []).ordered[0] ?? null, [result])
 
   if (state === 'loading') return null
@@ -99,6 +101,8 @@ export default function GuestReportPage() {
           reviewLinks={false}
           sourcesNote="Sign up to open full game reviews with every chain."
         />
+
+        <SittingLine line={fatigue} reviewLinks={false} />
 
         <div className="flex flex-col gap-3">
           <hr className="hairline" />

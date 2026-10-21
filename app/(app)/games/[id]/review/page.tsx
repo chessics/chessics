@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import GameReviewClient, {
   type ChainWithNodes,
 } from '@/components/workbench/GameReviewClient'
 import type { Game, Move, GameAnalysis, CausalChain, CausalChainNode } from '@/lib/supabase/types'
+
+export const metadata: Metadata = { title: 'Game review' }
 
 interface Props {
   params: { id: string }

@@ -1,9 +1,23 @@
 import type { Metadata } from 'next'
+import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from '@/lib/site'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Chessics — Find out why you\'re losing',
-  description: 'A chess improvement workbench that traces blunders back to the earlier decision that made them inevitable.',
+  metadataBase: siteUrl(),
+  title: {
+    default: 'Chessics — Find out why you\'re losing',
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
 }
 
 const FONTS_URL =

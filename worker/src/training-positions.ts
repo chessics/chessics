@@ -5,7 +5,8 @@ export const REFUTATION_MAX_PLIES = 8
 
 export const REFUTATION_FLOOR_CP = -1000
 
-export const DEFAULT_TIME_FLOOR_MS = 5000
+import { DEFAULT_TIME_FLOOR_MS } from './time-floor.js'
+export { DEFAULT_TIME_FLOOR_MS }
 
 export interface ChainRootInput {
   rootPly: number

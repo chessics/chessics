@@ -16,6 +16,7 @@ import {
 import { withLitSquares } from '@/lib/board/squares'
 import { tagLabel } from '@/lib/training/session'
 import { GOAL_LABEL, reasonWords, type CheckStatus, type GoalCheck } from '@/lib/training/reason'
+import { keyBelongsToControl } from '@/lib/training/shortcut'
 
 interface RevealProps {
   fen: string
@@ -96,7 +97,7 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
   useEffect(() => {
     const mountedAt = performance.now()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.repeat || performance.now() - mountedAt < 400) return
+      if (e.key !== 'Enter' || e.repeat || performance.now() - mountedAt < 400 || keyBelongsToControl(e.target)) return
       e.preventDefault()
       if (watchFirst) onWatch()
       else onNext()
@@ -119,7 +120,7 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
       <ChessBoard fen={fen} orientation={orientation} shapes={shapes} size={size} />
 
       <div className="training-panel">
-        <p ref={verdictRef} tabIndex={-1} className={`training-verdict training-verdict-${kind}`}>
+        <p ref={verdictRef} tabIndex={-1} className={`training-verdict training-verdict-${kind} focus-landing`}>
           {revealVerdict(kind)}
         </p>
 

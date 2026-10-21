@@ -75,3 +75,16 @@ export function buildReplay(
   }
   return frames
 }
+
+export interface ReplayStatus {
+  label: 'Before your move' | 'Position now'
+  standing: string
+}
+
+export function replayStatus(frames: ReplayFrame[], index: number, startEvalCp: number): ReplayStatus {
+  for (let i = Math.min(index, frames.length - 1); i >= 1; i--) {
+    const known = frames[i].ply?.standing
+    if (known) return { label: 'Position now', standing: known }
+  }
+  return { label: 'Before your move', standing: standing(startEvalCp) }
+}

@@ -30,3 +30,24 @@ export async function planOnLoad(
   if (statusSaysLost(body)) return { kind: 'fresh' }
   return { kind: 'resume', jobId }
 }
+
+export type LandingPlan = 'idle' | 'ready' | 'processing'
+
+export async function landingPlan(
+  session: { sessionToken?: string; jobId?: string; authed?: boolean } | null,
+  doFetch: (url: string) => Promise<Response>
+): Promise<LandingPlan> {
+  if (!session?.sessionToken) return 'idle'
+  const params = new URLSearchParams({ sessionToken: session.sessionToken })
+  if (session.jobId) params.set('jobId', session.jobId)
+  let status: unknown
+  try {
+    const res = await doFetch(`/api/guest/check?${params}`)
+    status = ((await res.json()) as { status?: unknown })?.status
+  } catch {
+    return 'idle'
+  }
+  if (status === 'processing') return 'processing'
+  if (status === 'ready') return session.authed === true ? 'idle' : 'ready'
+  return 'idle'
+}

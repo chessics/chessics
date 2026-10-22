@@ -2,11 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
-import type { Game } from '@/lib/supabase/types'
+import { withAccuracy, type GameWithAccuracy, type GameWithEmbeddedAnalysis } from '@/lib/games/accuracy'
 
 export const metadata: Metadata = { title: 'Games' }
-
-type GameWithAccuracy = Game & { overall_accuracy: number | null }
 
 export default async function GamesPage() {
   const supabase = await createClient()
@@ -33,12 +31,7 @@ export default async function GamesPage() {
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
 
-  type RawGame = Game & { game_analyses?: Array<{ overall_accuracy: number | null }> }
-  const flatGames: GameWithAccuracy[] = (games ?? []).map((g: RawGame) => ({
-    ...g,
-    overall_accuracy: g.game_analyses?.[0]?.overall_accuracy ?? null,
-    game_analyses: undefined,
-  }))
+  const flatGames: GameWithAccuracy[] = ((games ?? []) as GameWithEmbeddedAnalysis[]).map(withAccuracy)
 
   return (
     <div className="max-w-5xl mx-auto">

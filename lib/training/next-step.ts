@@ -3,6 +3,7 @@ import { qualityFilter, type QueueCandidate, type ServedPosition } from './queue
 import { nextSessionStep, openLoopSentence, orderPoolForSession, type HistoryRow } from './session'
 import type { NextResponse } from './api-types'
 import { asksForReason } from './reason'
+import { one, type OneOrMany } from '@/lib/supabase/embed'
 
 export interface NextStepRow {
   id: string
@@ -23,15 +24,12 @@ export interface NextStepRow {
 export const TRAINING_QUEUE_SELECT =
   'id, game_id, root_ply, fen, side_to_move, tag, eval_cp, best_move, refutation_line, refutation_evals, span_plies, games(played_at, game_analyses(causal_chains(root_move_ply)))'
 
-type OneOrMany<T> = T | T[] | null | undefined
 type EmbeddedAnalysis = { causal_chains?: { root_move_ply: number }[] | null }
 type EmbeddedGame = { played_at: string | null; game_analyses?: OneOrMany<EmbeddedAnalysis> }
 
 export type QueueSelectRow = Omit<NextStepRow, 'played_at' | 'chain_root_plies'> & {
   games: OneOrMany<EmbeddedGame>
 }
-
-const one = <T>(v: OneOrMany<T>): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
 
 export function fromQueueSelectRow(r: QueueSelectRow): NextStepRow {
   const { games, ...rest } = r

@@ -6,6 +6,7 @@ import RecurrenceStrip from '@/components/workbench/RecurrenceStrip'
 import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
+import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { guestFatigue, guestInstances } from '@/lib/diagnosis/guest'
 import type { GuestSessionResult } from '@/types/guest'
@@ -73,8 +74,8 @@ export default function GuestReportPage() {
   const gamesById = new Map(result.games.map((g) => [g.analysis_data.gameId, g]))
 
   return (
-    <main className="min-h-screen px-4 py-12" style={{ background: 'var(--bg)' }}>
-      <div className="flex flex-col gap-10 max-w-4xl mx-auto">
+    <main className="min-h-screen px-4 sm:px-8 lg:px-12 py-12" style={{ background: 'var(--bg)' }}>
+      <div className={`flex flex-col gap-10 ${REPORT_COLUMN}`}>
         <div className="flex items-baseline justify-between gap-4">
           <a href="/" className="font-logo" style={{ fontSize: 22, color: 'var(--text)', textDecoration: 'none' }}>
             chess<span style={{ color: 'var(--brass)' }}>ics</span>
@@ -85,12 +86,12 @@ export default function GuestReportPage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <h1 className="font-headline" style={{ fontSize: 34, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
+          <h1 className="font-headline" style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
             {verdict}
           </h1>
           <RecurrenceStrip bars={bars} />
           {result.batch_report.claude_narrative !== verdict && (
-            <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
+            <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
               {result.batch_report.claude_narrative.slice(verdict.length).trim()}
             </p>
           )}

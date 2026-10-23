@@ -6,6 +6,7 @@ import RecurrenceStrip from '@/components/workbench/RecurrenceStrip'
 import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
+import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { accountInstances, pliesNeeded, type AccountRows } from '@/lib/diagnosis/account'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { HISTORY_LOOKBACK_MS, fatigueLine, type BlunderMove, type HistoryGame } from '@/lib/diagnosis/sittings'
@@ -163,7 +164,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
   const verdict = headline?.insight ?? batch.claude_narrative?.split(/(?<=[.!?])\s+/)[0] ?? null
 
   return (
-    <div className="flex flex-col gap-10 max-w-4xl mx-auto">
+    <div className={`flex flex-col gap-10 ${REPORT_COLUMN}`}>
       <div className="flex flex-col gap-3">
         <Link
           href="/workbench"
@@ -181,14 +182,14 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
         {verdict && (
           <h1
             className="font-headline"
-            style={{ fontSize: 34, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}
+            style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}
           >
             {verdict}
           </h1>
         )}
         <RecurrenceStrip bars={bars} />
         {batch.claude_narrative && verdict && batch.claude_narrative !== verdict && (
-          <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
+          <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
             {batch.claude_narrative.slice(verdict.length).trim()}
           </p>
         )}

@@ -1,3 +1,37 @@
+.diagnosis-surface {
+  container-type: inline-size;
+}
+
+.diagnosis-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 20px;
+}
+
+@container (min-width: 960px) {
+  .diagnosis-body {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'text proof'
+      'others proof';
+    column-gap: 48px;
+  }
+
+  .diagnosis-text {
+    grid-area: text;
+  }
+
+  .diagnosis-proof {
+    grid-area: proof;
+  }
+
+  .diagnosis-others {
+    grid-area: others;
+    align-self: start;
+  }
+}
+
 .diagnosis-evidence {
   display: flex;
   flex-wrap: wrap;

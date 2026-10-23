@@ -51,71 +51,82 @@ export default function Diagnosis({ findings, reviewLinks, sourcesNote, reducedM
   }
 
   return (
-    <section ref={sectionRef} className="flex flex-col gap-5" aria-labelledby="diagnosis-finding" data-finding={finding.tag}>
+    <section
+      ref={sectionRef}
+      className="diagnosis-surface flex flex-col gap-5"
+      aria-labelledby="diagnosis-finding"
+      data-finding={finding.tag}
+    >
       <hr className="hairline" />
-      {finding.note && (
-        <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
-          {finding.note}
-        </p>
-      )}
-      <div className="flex items-baseline justify-between gap-4 flex-wrap">
-        <h2 id="diagnosis-finding" className="font-headline" style={{ fontSize: 28, lineHeight: 1.2, color: 'var(--text)', fontWeight: 500 }}>
-          {finding.label}
-        </h2>
-        <p className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
-          {finding.status}
-        </p>
-      </div>
+      <div className="diagnosis-body">
+        <div className="diagnosis-text flex flex-col gap-5">
+          {finding.note && (
+            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
+              {finding.note}
+            </p>
+          )}
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
+            <h2 id="diagnosis-finding" className="font-headline" style={{ fontSize: 28, lineHeight: 1.2, color: 'var(--text)', fontWeight: 500 }}>
+              {finding.label}
+            </h2>
+            <p className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
+              {finding.status}
+            </p>
+          </div>
 
-      <p className="text-lg" style={{ color: 'var(--text)', lineHeight: 1.6 }} data-claim>
-        {finding.claim.map((s, i) => (
-          <span key={i}>
-            {i > 0 && ' '}
-            {s.door ? (
-              <button
-                type="button"
-                className="diagnosis-door"
-                aria-expanded={doorOpen}
-                aria-controls="diagnosis-sources"
-                onClick={() => setDoorOpen((o) => !o)}
-              >
-                {s.text}
-              </button>
-            ) : (
-              s.text
-            )}
-          </span>
-        ))}
-      </p>
-
-      {doorOpen && (
-        <Sources id="diagnosis-sources" rule={finding.rule} rows={finding.sources} reviewLinks={reviewLinks} note={sourcesNote} />
-      )}
-
-      <EvidenceGrid key={finding.tag} boards={finding.boards} reducedMotion={reducedMotion} />
-      {finding.shownNote && (
-        <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-          {finding.shownNote}
-        </p>
-      )}
-
-      {others.length > 0 && (
-        <div className="flex flex-col pt-2">
-          <p className="text-sm pb-2" style={{ color: 'var(--text-dim)' }}>
-            Also in these games
+          <p className="text-lg" style={{ color: 'var(--text)', lineHeight: 1.6 }} data-claim>
+            {finding.claim.map((s, i) => (
+              <span key={i}>
+                {i > 0 && ' '}
+                {s.door ? (
+                  <button
+                    type="button"
+                    className="diagnosis-door"
+                    aria-expanded={doorOpen}
+                    aria-controls="diagnosis-sources"
+                    onClick={() => setDoorOpen((o) => !o)}
+                  >
+                    {s.text}
+                  </button>
+                ) : (
+                  s.text
+                )}
+              </span>
+            ))}
           </p>
-          {others.map((o) => (
-            <button key={o.tag} type="button" className="diagnosis-other" onClick={() => show(o.tag)}>
-              <span className="diagnosis-other-label text-sm" style={{ color: 'var(--text-muted)' }}>
-                {o.label}
-              </span>
-              <span className="diagnosis-other-status text-xs font-mono" style={{ color: 'var(--text-dim)' }}>
-                {o.status}
-              </span>
-            </button>
-          ))}
+
+          {doorOpen && (
+            <Sources id="diagnosis-sources" rule={finding.rule} rows={finding.sources} reviewLinks={reviewLinks} note={sourcesNote} />
+          )}
         </div>
-      )}
+
+        <div className="diagnosis-proof flex flex-col gap-5">
+          <EvidenceGrid key={finding.tag} boards={finding.boards} reducedMotion={reducedMotion} />
+          {finding.shownNote && (
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+              {finding.shownNote}
+            </p>
+          )}
+        </div>
+
+        {others.length > 0 && (
+          <div className="diagnosis-others flex flex-col pt-2">
+            <p className="text-sm pb-2" style={{ color: 'var(--text-dim)' }}>
+              Also in these games
+            </p>
+            {others.map((o) => (
+              <button key={o.tag} type="button" className="diagnosis-other" onClick={() => show(o.tag)}>
+                <span className="diagnosis-other-label text-sm" style={{ color: 'var(--text-muted)' }}>
+                  {o.label}
+                </span>
+                <span className="diagnosis-other-status text-xs font-mono" style={{ color: 'var(--text-dim)' }}>
+                  {o.status}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
@@ -186,13 +197,14 @@ function Sources({
   )
 }
 
-const MAX_BOARD_PX = 200
+const MAX_BOARD_PX = 240
 const GAP_PX = 10
-const WIDE_PX = 640
+const MIN_ROW_BOARD_PX = 150
 
 export function boardLayout(width: number, boards: number): { cols: number; size: number } {
-  const cols = boards <= 3 ? Math.max(boards, 1) : width >= WIDE_PX ? boards : 3
-  const size = Math.min(MAX_BOARD_PX, Math.floor((width - GAP_PX * (cols - 1)) / cols))
+  const fit = (cols: number) => Math.floor((width - GAP_PX * (cols - 1)) / cols)
+  const cols = boards <= 3 ? Math.max(boards, 1) : fit(boards) >= MIN_ROW_BOARD_PX ? boards : 3
+  const size = Math.min(MAX_BOARD_PX, fit(cols))
   return { cols, size: Math.max(size, 0) }
 }
 

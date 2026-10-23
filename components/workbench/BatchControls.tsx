@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ANALYZE_MORE_ID } from '@/lib/diagnosis/verdict'
 
 type TimeControlFilter = 'rapid_blitz' | 'all'
 
@@ -37,6 +38,8 @@ export default function BatchControls({
   const [filter, setFilter] = useState<TimeControlFilter>('rapid_blitz')
   const [saving, setSaving] = useState(false)
   const [starting, setStarting] = useState<number | null>(null)
+  const [saved, setSaved] = useState<{ username: string; platform: 'chess.com' | 'lichess' } | null>(null)
+  const who = username && platform ? { username, platform } : saved
 
   useEffect(() => {
     try {
@@ -44,6 +47,8 @@ export default function BatchControls({
       if (raw && (JSON.parse(raw) as { timeControlFilter?: TimeControlFilter }).timeControlFilter === 'all') {
         setFilter('all')
       }
+      const s = raw ? (JSON.parse(raw) as { username?: string; platform?: 'chess.com' | 'lichess' }) : null
+      if (s?.username && s.platform) setSaved({ username: s.username, platform: s.platform })
     } catch {  }
   }, [])
 
@@ -59,7 +64,7 @@ export default function BatchControls({
   }
 
   const startBatch = (batchSize: number) => {
-    if (!username || !platform) return
+    if (!who) return
     setStarting(batchSize)
     const raw = localStorage.getItem('chessics_session')
     let sessionToken: string | undefined
@@ -69,8 +74,8 @@ export default function BatchControls({
     localStorage.setItem(
       'chessics_session',
       JSON.stringify({
-        username,
-        platform,
+        username: who.username,
+        platform: who.platform,
         batchSize,
         calibrationLevel: level,
         timeControlFilter: filter,
@@ -103,47 +108,37 @@ export default function BatchControls({
   }
 
   return (
-    <div className="flex flex-col gap-5 p-5" style={{ borderTop: '1px solid var(--border)' }}>
+    <div id={ANALYZE_MORE_ID} className="flex flex-col gap-5 p-5" style={{ borderTop: '1px solid var(--border)' }}>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          More games sharpen the pattern — confirm or clear your habits.
+          {isGuest ? 'Sign up to analyze more games' : 'Analyze more games'}
         </p>
-        {isGuest ? (
-          <a
-            href="/signup"
-            className="text-sm transition-opacity hover:opacity-80"
-            style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
-          >
-            Sign up to analyse 25, 50 or 100 games at a time.
-          </a>
-        ) : (
         <div className="flex gap-2">
           {[25, 50, 100].map((n) => (
             <button
               key={n}
               type="button"
-              onClick={() => startBatch(n)}
-              disabled={starting !== null || !username}
-              className="px-4 py-2 text-sm transition-opacity hover:opacity-80 disabled:opacity-40"
+              onClick={() => (isGuest ? router.push('/signup') : startBatch(n))}
+              disabled={starting !== null || (!isGuest && !who)}
+              className="px-4 py-2 text-sm transition-colors hover:bg-[rgba(201,165,92,0.22)] active:bg-[rgba(201,165,92,0.34)] disabled:opacity-40"
               style={{
-                background: 'transparent',
-                border: '1px solid var(--border-strong)',
+                background: starting === n ? 'rgba(201,165,92,0.34)' : 'rgba(201,165,92,0.08)',
+                border: '1px solid var(--brass)',
                 color: 'var(--brass)',
-                cursor: username ? 'pointer' : 'not-allowed',
+                cursor: isGuest || who ? 'pointer' : 'not-allowed',
               }}
             >
               {starting === n ? 'Starting…' : `Analyze ${n} more`}
             </button>
           ))}
         </div>
-        )}
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           This report is written for{' '}
           <span style={{ color: 'var(--text)' }}>{COACHING_LEVELS[level]}</span>
-          {saving && <span style={{ color: 'var(--text-dim)' }}> — saving…</span>}
+          {saving && <span style={{ color: 'var(--text-dim)' }}> (saving…)</span>}
         </p>
         <div className="flex gap-2">
           {COACHING_LEVELS.map((label, i) => (
@@ -152,11 +147,11 @@ export default function BatchControls({
               type="button"
               onClick={() => changeLevel(i)}
               title={`Write for ${label}`}
-              className="px-2.5 py-1.5 text-xs transition-opacity hover:opacity-80"
+              className="px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgba(201,165,92,0.18)]"
               style={{
-                background: level === i ? 'rgba(201,165,92,0.14)' : 'transparent',
-                border: level === i ? '1px solid var(--border-strong)' : '1px solid var(--border)',
-                color: level === i ? 'var(--brass)' : 'var(--text-dim)',
+                background: level === i ? 'rgba(201,165,92,0.28)' : 'rgba(232,224,208,0.06)',
+                border: level === i ? '1px solid var(--brass)' : '1px solid var(--border-strong)',
+                color: level === i ? 'var(--brass)' : 'var(--text)',
                 cursor: 'pointer',
               }}
             >
@@ -172,7 +167,7 @@ export default function BatchControls({
             {filter === 'rapid_blitz' ? 'rapid & blitz games only' : 'all games'}
           </span>
           {filter === 'rapid_blitz' && (
-            <span style={{ color: 'var(--text-dim)' }}> — bullet and daily excluded</span>
+            <span style={{ color: 'var(--text-dim)' }}> (bullet and daily excluded)</span>
           )}
         </p>
         <div className="flex gap-2">
@@ -181,11 +176,11 @@ export default function BatchControls({
               key={opt.value}
               type="button"
               onClick={() => changeFilter(opt.value)}
-              className="px-2.5 py-1.5 text-xs transition-opacity hover:opacity-80"
+              className="px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgba(201,165,92,0.18)]"
               style={{
-                background: filter === opt.value ? 'rgba(201,165,92,0.14)' : 'transparent',
-                border: filter === opt.value ? '1px solid var(--border-strong)' : '1px solid var(--border)',
-                color: filter === opt.value ? 'var(--brass)' : 'var(--text-dim)',
+                background: filter === opt.value ? 'rgba(201,165,92,0.28)' : 'rgba(232,224,208,0.06)',
+                border: filter === opt.value ? '1px solid var(--brass)' : '1px solid var(--border-strong)',
+                color: filter === opt.value ? 'var(--brass)' : 'var(--text)',
                 cursor: 'pointer',
               }}
             >
@@ -195,7 +190,7 @@ export default function BatchControls({
         </div>
       </div>
       <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-        The new level and filter apply from your next analysis.
+        Level and filter apply to your next analysis.
       </p>
 
       {isGuest && (

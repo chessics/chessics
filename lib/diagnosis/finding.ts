@@ -176,15 +176,13 @@ function status(g: GroupFacts, gameCount: number): string {
   return g.recurring ? base : `${base}, not yet a habit`
 }
 
-export const DEGRADE_NOTE = `No pattern came up in ${RECURRING_GAMES} or more of these games yet. This one is behind the biggest single drop.`
-
 export function buildFindings(
   groups: GroupFacts[],
   instancesByTag: Map<string, InstanceFacts[]>,
   gameCount: number
 ): Finding[] {
-  const { ordered, degraded } = selectFindings(groups)
-  return ordered.map((g, index) => {
+  const { ordered } = selectFindings(groups)
+  return ordered.map((g) => {
     const instances = chronological(instancesByTag.get(g.tag) ?? [])
     const claim = buildClaim(instances, g.frequency, gameCount)
     const hasLead = claim.length > 1
@@ -197,7 +195,7 @@ export function buildFindings(
       gameCount,
       recurring: g.recurring,
       status: status(g, gameCount),
-      note: degraded && index === 0 ? DEGRADE_NOTE : null,
+      note: null,
       claim,
       rule: hasLead ? COUNTED_RULE : LISTED_RULE,
       boards: shown.map((i) => ({
@@ -225,9 +223,9 @@ export function buildFindings(
 
 export const ARROW_STEP_MS = 500
 export const ARROW_IN_MS = 280
-export const FADE_PAUSE_MS = 600
+export const FADE_PAUSE_MS = 3000
 export const FADE_MS = 1200
-export const FADED_OPACITY = 0.1
+export const FADED_OPACITY = 0.4
 
 export type EvidencePhase = 'idle' | 'run' | 'final'
 

@@ -198,13 +198,14 @@ function Sources({
 }
 
 const MAX_BOARD_PX = 240
+const MAX_FEW_BOARD_PX = 400
 const GAP_PX = 10
 const MIN_ROW_BOARD_PX = 150
 
 export function boardLayout(width: number, boards: number): { cols: number; size: number } {
   const fit = (cols: number) => Math.floor((width - GAP_PX * (cols - 1)) / cols)
   const cols = boards <= 3 ? Math.max(boards, 1) : fit(boards) >= MIN_ROW_BOARD_PX ? boards : 3
-  const size = Math.min(MAX_BOARD_PX, fit(cols))
+  const size = Math.min(boards <= 3 ? MAX_FEW_BOARD_PX : MAX_BOARD_PX, fit(cols))
   return { cols, size: Math.max(size, 0) }
 }
 
@@ -214,11 +215,13 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
   const [width, setWidth] = useState<number | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const readyCount = useRef(0)
+  const sized = width !== null
+  const [inView, setInView] = useState(false)
 
   const start = useCallback(() => {
-    if (reduced !== false || readyCount.current < boards.length) return
+    if (reduced !== false || !inView || readyCount.current < boards.length) return
     requestAnimationFrame(() => setPhase((p) => (p === 'idle' ? 'run' : p)))
-  }, [reduced, boards.length])
+  }, [reduced, inView, boards.length])
 
   useEffect(() => {
     if (reducedMotion !== undefined) return
@@ -232,10 +235,30 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
   }, [start])
 
   useEffect(() => {
-    if (reduced !== false) return
+    const el = gridRef.current
+    if (!el || !sized || reduced !== false) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.5 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [reduced, sized])
+
+  useEffect(() => {
+    if (reduced !== false || !inView) return
     const t = window.setTimeout(() => setPhase((p) => (p === 'idle' ? 'run' : p)), 2500)
     return () => window.clearTimeout(t)
-  }, [reduced])
+  }, [reduced, inView])
 
   useEffect(() => {
     const el = gridRef.current
@@ -271,6 +294,7 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
               orientation={b.orientation}
               size={layout.size}
               coordinates={false}
+              viewOnly
               shapes={[{ orig: b.from, dest: b.to, brush: 'mistake' }]}
               onReady={() => {
                 readyCount.current += 1

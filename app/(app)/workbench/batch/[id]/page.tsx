@@ -9,6 +9,8 @@ import SittingLine from '@/components/diagnosis/SittingLine'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { accountInstances, pliesNeeded, type AccountRows } from '@/lib/diagnosis/account'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
+import { userNameFromGames } from '@/lib/sync/user-from-games'
+import { ANALYZE_MORE_ID, MORE_GAMES_HINT, verdictFor, withoutEmDash } from '@/lib/diagnosis/verdict'
 import { HISTORY_LOOKBACK_MS, fatigueLine, type BlunderMove, type HistoryGame } from '@/lib/diagnosis/sittings'
 import type { BatchPatternGroup, BatchReport, Game, GameAnalysis, Profile } from '@/lib/supabase/types'
 
@@ -154,14 +156,16 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
       .sort((a, b) => (b.played_at ?? '').localeCompare(a.played_at ?? ''))[0]
       ?.user_rating_at_time ?? profile?.current_rating ?? null
 
+  const fromGames = userNameFromGames(orderedGames)
   const platform: 'chess.com' | 'lichess' | null = profile?.chess_com_username
     ? 'chess.com'
     : profile?.lichess_username
       ? 'lichess'
-      : null
-  const platformUsername = profile?.chess_com_username ?? profile?.lichess_username ?? null
+      : (fromGames?.platform ?? null)
+  const platformUsername = profile?.chess_com_username ?? profile?.lichess_username ?? fromGames?.username ?? null
 
-  const verdict = headline?.insight ?? batch.claude_narrative?.split(/(?<=[.!?])\s+/)[0] ?? null
+  const storedVerdict = headline?.insight ?? batch.claude_narrative?.split(/(?<=[.!?])\s+/)[0] ?? null
+  const verdict = verdictFor(storedVerdict, headline !== null)
 
   return (
     <div className={`flex flex-col gap-10 ${REPORT_COLUMN}`}>
@@ -184,13 +188,22 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
             className="font-headline"
             style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}
           >
-            {verdict}
+            {verdict.text}
           </h1>
         )}
+        {verdict?.needsMoreGames && (
+          <a
+            href={`#${ANALYZE_MORE_ID}`}
+            className="text-base w-fit transition-opacity hover:opacity-80"
+            style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            {MORE_GAMES_HINT} ↓
+          </a>
+        )}
         <RecurrenceStrip bars={bars} />
-        {batch.claude_narrative && verdict && batch.claude_narrative !== verdict && (
+        {batch.claude_narrative && storedVerdict && batch.claude_narrative !== storedVerdict && (
           <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
-            {batch.claude_narrative.slice(verdict.length).trim()}
+            {withoutEmDash(batch.claude_narrative.slice(storedVerdict.length).trim())}
           </p>
         )}
       </div>
@@ -294,6 +307,14 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
           </p>
         )}
       </div>
+
+      <Link
+        href="/train"
+        className="text-sm px-5 py-2.5 w-fit font-medium transition-opacity hover:opacity-80"
+        style={{ color: 'var(--bg)', background: 'var(--brass)' }}
+      >
+        Train these positions
+      </Link>
 
       <BatchControls
         username={platformUsername}

@@ -31,6 +31,7 @@ interface ChessBoardProps {
   size: number
   coordinates?: boolean
   onReady?: () => void
+  viewOnly?: boolean
 }
 
 export default function ChessBoard({
@@ -41,6 +42,7 @@ export default function ChessBoard({
   size,
   coordinates = true,
   onReady,
+  viewOnly = false,
 }: ChessBoardProps) {
   const elRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +69,7 @@ export default function ChessBoard({
         fen: latestFen.current,
         orientation,
         coordinates,
+        viewOnly,
         movable: { free: false, color: undefined },
         draggable: { enabled: false },
         selectable: { enabled: false },

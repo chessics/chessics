@@ -9,6 +9,7 @@ import SittingLine from '@/components/diagnosis/SittingLine'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { guestFatigue, guestInstances } from '@/lib/diagnosis/guest'
+import { ANALYZE_MORE_ID, MORE_GAMES_HINT, verdictFor, withoutEmDash } from '@/lib/diagnosis/verdict'
 import type { GuestSessionResult } from '@/types/guest'
 
 export default function GuestReportPage() {
@@ -70,7 +71,8 @@ export default function GuestReportPage() {
   const gameIds = result.batch_report.game_ids ?? []
   const affected = new Set(stripGroup?.gameIds ?? [])
   const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
-  const verdict = result.batch_report.verdict
+  const storedVerdict = result.batch_report.verdict
+  const verdict = verdictFor(storedVerdict, (result.pattern_groups ?? []).some((g) => g.recurring))
   const gamesById = new Map(result.games.map((g) => [g.analysis_data.gameId, g]))
 
   return (
@@ -86,13 +88,24 @@ export default function GuestReportPage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <h1 className="font-headline" style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
-            {verdict}
-          </h1>
+          {verdict && (
+            <h1 className="font-headline" style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
+              {verdict.text}
+            </h1>
+          )}
+          {verdict?.needsMoreGames && (
+            <a
+              href={`#${ANALYZE_MORE_ID}`}
+              className="text-base w-fit transition-opacity hover:opacity-80"
+              style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            >
+              {MORE_GAMES_HINT} ↓
+            </a>
+          )}
           <RecurrenceStrip bars={bars} />
-          {result.batch_report.claude_narrative !== verdict && (
+          {result.batch_report.claude_narrative !== storedVerdict && (
             <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
-              {result.batch_report.claude_narrative.slice(verdict.length).trim()}
+              {withoutEmDash(result.batch_report.claude_narrative.slice(storedVerdict.length).trim())}
             </p>
           )}
         </div>

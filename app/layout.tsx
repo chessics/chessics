@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from '@/lib/site'
+import { SITE_DESCRIPTION, SITE_NAME, jsonLdScript, siteJsonLd, siteUrl } from '@/lib/site'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -32,7 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link rel="stylesheet" href={FONTS_URL} />
       </head>
-      <body>{children}</body>
+      <body>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(siteJsonLd()) }} />
+        {children}
+      </body>
     </html>
   )
 }

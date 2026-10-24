@@ -249,7 +249,10 @@ export default function LandingPage() {
           to save your progress.
         </p>
 
-        <p className="text-xs">
+        <p className="text-xs flex items-center gap-4">
+          <a href="/about" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>
+            How it works
+          </a>
           <SourceLink />
         </p>
       </div>

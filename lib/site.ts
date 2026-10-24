@@ -2,9 +2,31 @@ export const SITE_NAME = 'Chessics'
 
 export const SITE_TAGLINE = "Find out why you're losing, not just where."
 
-export const SITE_DESCRIPTION = `${SITE_TAGLINE} No signup required to see your first analysis.`
+export const SITE_DESCRIPTION =
+  'Chessics reviews 10 to 100 of your Chess.com or Lichess games at once, finds the mistake you keep repeating, and trains you on those positions. No signup for your first analysis.'
 
-export const PUBLIC_PATHS = ['/', '/login', '/signup'] as const
+export const PUBLIC_PATHS = ['/', '/about', '/login', '/signup'] as const
+
+export function siteJsonLd(base: URL = siteUrl()): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: SITE_NAME,
+    url: new URL('/', base).toString(),
+    description: SITE_DESCRIPTION,
+    applicationCategory: 'GameApplication',
+    genre: 'Chess game analysis',
+    operatingSystem: 'Any (runs in the browser)',
+    browserRequirements: 'Requires JavaScript',
+    isAccessibleForFree: true,
+    license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  }
+}
+
+export function jsonLdScript(data: Record<string, unknown>): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c')
+}
 
 type Env = Record<string, string | undefined>
 

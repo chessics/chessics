@@ -1,4 +1,5 @@
 import type { Color, Result } from '@/lib/supabase/types'
+import { blunderStandsAlone } from '@/lib/chains/stands-alone'
 
 export interface DecidedAtChain {
   root_move_ply: number
@@ -37,7 +38,9 @@ export function gameDecidedAt(input: {
   for (const c of chains) {
     const before = byPly.get(c.root_move_ply)?.eval_before
     const after = byPly.get(c.terminal_blunder_ply)?.eval_after
-    if (typeof before !== 'number' || typeof after !== 'number') continue
+    const beforeTerminal = byPly.get(c.terminal_blunder_ply)?.eval_before
+    if (typeof before !== 'number' || typeof after !== 'number' || typeof beforeTerminal !== 'number') continue
+    if (blunderStandsAlone(forUser(beforeTerminal))) continue
     if (!(forUser(before) > 0 && forUser(after) < 0)) continue
     if (earliest === null || c.root_move_ply < earliest) earliest = c.root_move_ply
   }

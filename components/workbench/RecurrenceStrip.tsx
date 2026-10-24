@@ -1,3 +1,5 @@
+import { countNoun } from '@/lib/count-noun'
+
 export type StripBarState = 'affected' | 'quiet' | 'pending'
 
 interface RecurrenceStripProps {
@@ -16,7 +18,7 @@ export default function RecurrenceStrip({ bars, height = 34 }: RecurrenceStripPr
   return (
     <div
       role="img"
-      aria-label={`${bars.filter((b) => b === 'affected').length} of ${bars.length} games affected`}
+      aria-label={`${bars.filter((b) => b === 'affected').length} of ${countNoun(bars.length, 'game')} affected`}
       style={{ display: 'flex', gap: 5, alignItems: 'stretch', height }}
     >
       {bars.map((state, i) => (

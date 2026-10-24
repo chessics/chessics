@@ -1,5 +1,5 @@
 import type { GroupFacts, InstanceFacts } from './finding'
-import { makeInstance, type GameFacts, type MoveFacts } from './instance'
+import { makeInstance, noteStandAlone, terminalStoodAlone, type GameFacts, type MoveFacts, type StandAloneByTag } from './instance'
 
 export interface AccountRows {
   groups: GroupFacts[]
@@ -43,7 +43,7 @@ function earliestTerminals(
   return out
 }
 
-export function accountInstances(rows: AccountRows): Map<string, InstanceFacts[]> {
+export function accountInstances(rows: AccountRows, standAlone?: StandAloneByTag): Map<string, InstanceFacts[]> {
   const terminals = earliestTerminals(rows.analyses, rows.chains)
   const gamesById = new Map(rows.games.map((g) => [g.id, g]))
   const movesByGame = new Map<string, Map<number, MoveFacts>>()
@@ -53,12 +53,14 @@ export function accountInstances(rows: AccountRows): Map<string, InstanceFacts[]
     movesByGame.set(m.game_id, byPly)
   }
   const gamesWithPositions = new Set(rows.positions.map((p) => p.game_id))
+  const analysed = new Set(rows.analyses.map((a) => a.game_id))
 
   const out = new Map<string, InstanceFacts[]>()
   for (const g of rows.groups) {
     const inGroup = new Set(g.gameIds)
     const roots = rows.positions
       .filter((p) => p.tag === g.tag && inGroup.has(p.game_id))
+      .filter((p) => terminals.has(`${p.game_id}:${p.root_ply}`) || !analysed.has(p.game_id))
       .map((p) => ({ gameId: p.game_id, rootPly: p.root_ply }))
     if (!gamesWithPositions.has(g.exhibit.gameId)) {
       roots.push({ gameId: g.exhibit.gameId, rootPly: g.exhibit.rootPly })
@@ -70,7 +72,9 @@ export function accountInstances(rows: AccountRows): Map<string, InstanceFacts[]
       const key = `${r.gameId}:${r.rootPly}`
       const terminal =
         terminals.get(key) ?? (r.gameId === g.exhibit.gameId && r.rootPly === g.exhibit.rootPly ? g.exhibit.blunderPly : null)
-      const instance = makeInstance(game, movesByGame.get(r.gameId) ?? new Map(), r.rootPly, terminal)
+      const byPly = movesByGame.get(r.gameId) ?? new Map<number, MoveFacts>()
+      if (terminalStoodAlone(game, byPly, terminal)) noteStandAlone(standAlone, g.tag, r.gameId)
+      const instance = makeInstance(game, byPly, r.rootPly, terminal)
       if (instance) instances.push(instance)
     }
     out.set(g.tag, instances)

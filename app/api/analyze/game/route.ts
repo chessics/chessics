@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkLimits, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
+import { pgnAnalysable, pgnParses } from '@/lib/sync/standard'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const { data: game } = await supabase
     .from('games')
-    .select('id, is_analyzed')
+    .select('id, is_analyzed, pgn')
     .eq('id', gameId)
     .eq('user_id', userId)
     .single()
@@ -47,6 +48,10 @@ export async function POST(request: NextRequest) {
 
   if (game.is_analyzed) {
     return NextResponse.json({ error: 'Game already analyzed' }, { status: 409 })
+  }
+
+  if (!pgnAnalysable(game.pgn) || !pgnParses(game.pgn)) {
+    return NextResponse.json({ error: 'not_standard_chess' }, { status: 422 })
   }
 
   const siteWide = await checkLimits([{ rule: RATE_LIMITS.allAnalyses, key: SITE_KEY }])

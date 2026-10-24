@@ -70,7 +70,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 })
     }
   } catch (err: unknown) {
-    const apiErr = err as Error & { status?: number }
+    const apiErr = err as Error & { status?: number; code?: string }
+    if (apiErr.code === 'no_recent_rapid_blitz_games') {
+      return NextResponse.json({ error: apiErr.code }, { status: 422 })
+    }
     if (apiErr.status === 404) {
       return NextResponse.json({ error: 'Username not found' }, { status: 404 })
     }

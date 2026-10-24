@@ -5,6 +5,7 @@ import { useFocusWhenLost } from './focus'
 import ChessBoard from '@/components/workbench/ChessBoard'
 import type { SessionSummary, StakesBar } from '@/lib/training/summary'
 import { stakesSentences } from '@/lib/training/summary'
+import { NOTHING_TO_TRAIN, NOTHING_TO_TRAIN_HINT, NOTHING_TO_TRAIN_TITLE } from '@/lib/training/empty'
 
 function sanOf(fen: string, uci: string): string {
   try {
@@ -46,11 +47,12 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
   const locked = summary?.locked_in ?? []
   const stakes = summary?.stakes ?? null
   const titleRef = useFocusWhenLost<HTMLHeadingElement>(openLoop)
+  const empty = openLoop === NOTHING_TO_TRAIN
 
   return (
     <div className="session-end">
       <h1 ref={titleRef} tabIndex={-1} className="training-title focus-landing">
-        Session done.
+        {empty ? NOTHING_TO_TRAIN_TITLE : 'Session done.'}
       </h1>
 
       {locked.length > 0 && (
@@ -64,6 +66,7 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
                   fen={l.fen}
                   orientation={l.side_to_move}
                   size={176}
+                  viewOnly
                   shapes={[{ orig: l.move.slice(0, 2), dest: l.move.slice(2, 4), brush: 'held', hilite: true }]}
                 />
                 <figcaption>
@@ -104,13 +107,15 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
         </section>
       )}
 
-      <p className="training-open-loop">{openLoop}</p>
+      <p className="training-open-loop">{empty ? NOTHING_TO_TRAIN_HINT : openLoop}</p>
 
       <div className="training-actions">
-        <button className="training-btn training-btn-primary" onClick={onAgain}>
-          Another session
-        </button>
-        <a className="training-btn training-btn-quiet" href="/workbench">
+        {!empty && (
+          <button className="training-btn training-btn-primary" onClick={onAgain}>
+            Another session
+          </button>
+        )}
+        <a className={empty ? 'training-btn training-btn-primary' : 'training-btn training-btn-quiet'} href="/workbench">
           Back to the workbench
         </a>
       </div>

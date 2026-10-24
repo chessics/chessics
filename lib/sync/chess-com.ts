@@ -1,3 +1,6 @@
+import { pgnAnalysable } from './standard'
+export { pgnAnalysable, setUpFromPosition } from './standard'
+
 export interface ChessComGame {
   pgn: string
   time_control: string
@@ -6,6 +9,12 @@ export interface ChessComGame {
   white: { username: string; rating: number; result: string }
   black: { username: string; rating: number; result: string }
   url: string
+  rules?: string
+}
+
+export function analysableChessComGame(game: Pick<ChessComGame, 'rules' | 'pgn'>): boolean {
+  if (game.rules !== undefined && game.rules !== 'chess') return false
+  return pgnAnalysable(game.pgn)
 }
 
 export type TimeControlFilter = 'rapid_blitz' | 'all'
@@ -99,11 +108,15 @@ function mapChessComGame(game: ChessComGame, username: string): SyncedGame {
   }
 }
 
+export const CHESS_COM_WALK_BUDGET_MS = 18_000
+
 export async function fetchChessComGames(
   username: string,
   batchSize: number,
-  timeControlFilter: TimeControlFilter = 'rapid_blitz'
+  timeControlFilter: TimeControlFilter = 'rapid_blitz',
+  { budgetMs = CHESS_COM_WALK_BUDGET_MS, now = Date.now }: { budgetMs?: number; now?: () => number } = {}
 ): Promise<SyncedGame[]> {
+  const startedAt = now()
   const archivesRes = await fetchWithRetry(
     `${CHESS_COM_BASE}/${encodeURIComponent(username)}/games/archives`
   )
@@ -125,6 +138,15 @@ export async function fetchChessComGames(
   const collectedGames: SyncedGame[] = []
 
   for (let i = archives.length - 1; i >= 0 && collectedGames.length < batchSize; i--) {
+    if (now() - startedAt > budgetMs) {
+      if (collectedGames.length === 0) {
+        const err = new Error('No rapid or blitz games in recent months') as Error & { status: number; code: string }
+        err.status = 422
+        err.code = 'no_recent_rapid_blitz_games'
+        throw err
+      }
+      break
+    }
     const monthUrl = archives[i]
     const monthRes = await fetchWithRetry(monthUrl)
 
@@ -136,6 +158,7 @@ export async function fetchChessComGames(
     for (const game of monthGames) {
       if (collectedGames.length >= batchSize) break
       if (timeControlFilter === 'rapid_blitz' && !KEPT_TIME_CLASSES.has(game.time_class)) continue
+      if (!analysableChessComGame(game)) continue
       collectedGames.push(mapChessComGame(game, username))
     }
   }

@@ -7,6 +7,7 @@ import { failureMessage } from '@/lib/ratelimit-message'
 import { formatTimeControl } from '@/lib/review/time-control'
 
 const RETRY_LABEL = "Couldn't queue, retry"
+export const NOT_STANDARD_LABEL = "Variant, can't analyze"
 
 interface GameRow extends Game {
   overall_accuracy?: number | null
@@ -134,7 +135,7 @@ export default function GamesLibraryClient({ games }: Props) {
       setFailedIds((prev) => {
         const next = new Map(prev)
         if (ok) next.delete(gameId)
-        else next.set(gameId, failureMessage(res.status, RETRY_LABEL))
+        else next.set(gameId, res.status === 422 ? NOT_STANDARD_LABEL : failureMessage(res.status, RETRY_LABEL))
         return next
       })
     } catch {
@@ -300,7 +301,7 @@ export default function GamesLibraryClient({ games }: Props) {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {game.opponent_username ?? '—'}
+                  {game.opponent_username || '—'}
                 </span>
 
                 <span

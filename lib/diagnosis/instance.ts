@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js'
 import { userCp, type GameResult, type InstanceFacts } from './finding'
+import { blunderStandsAlone } from '@/lib/chains/stands-alone'
 
 export interface MoveFacts {
   ply_number: number
@@ -26,6 +27,25 @@ export function rootSquares(fen: string, san: string): { from: string; to: strin
   }
 }
 
+export function terminalStoodAlone(
+  game: Pick<GameFacts, 'user_color'>,
+  movesByPly: Map<number, MoveFacts>,
+  terminalPly: number | null
+): boolean {
+  if (terminalPly === null) return false
+  const before = userCp(movesByPly.get(terminalPly)?.eval_before, game.user_color)
+  return before !== null && blunderStandsAlone(before)
+}
+
+export type StandAloneByTag = Map<string, Set<string>>
+
+export function noteStandAlone(out: StandAloneByTag | undefined, tag: string, gameId: string): void {
+  if (!out) return
+  const set = out.get(tag) ?? new Set<string>()
+  set.add(gameId)
+  out.set(tag, set)
+}
+
 export function makeInstance(
   game: GameFacts,
   movesByPly: Map<number, MoveFacts>,
@@ -34,6 +54,7 @@ export function makeInstance(
 ): InstanceFacts | null {
   const root = movesByPly.get(rootPly)
   if (!root) return null
+  if (terminalStoodAlone(game, movesByPly, terminalPly)) return null
   const terminal = terminalPly === null ? undefined : movesByPly.get(terminalPly)
   const squares = rootSquares(root.fen_before, root.san)
   return {

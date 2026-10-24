@@ -1,4 +1,5 @@
 import { standing } from '@/lib/training/reveal'
+import { countNoun } from '../count-noun'
 
 export type GameResult = 'win' | 'loss' | 'draw'
 
@@ -151,7 +152,7 @@ export function buildClaim(
 ): ClaimSentence[] {
   const counted = instances.filter(isSignFlip)
   if (counted.length === 0) {
-    return [{ text: `This came up in ${frequency} of your ${gameCount} games.`, door: true }]
+    return [{ text: `This came up in ${frequency} of your ${countNoun(gameCount, 'game')}.`, door: true }]
   }
   const before = sharedStanding(counted.map((i) => i.beforeCp!), 'ahead')
   const after = sharedStanding(counted.map((i) => i.afterCp!), 'behind')
@@ -172,7 +173,7 @@ export const COUNTED_RULE =
 export const LISTED_RULE = 'Every game where this pattern started a slide.'
 
 function status(g: GroupFacts, gameCount: number): string {
-  const base = `${g.frequency} of ${gameCount} games`
+  const base = `${g.frequency} of ${countNoun(gameCount, 'game')}`
   return g.recurring ? base : `${base}, not yet a habit`
 }
 

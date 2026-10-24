@@ -1,10 +1,10 @@
 import { Chess } from 'chess.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { evaluateGame, evaluateTopLines, engineLabel, DEFAULT_DEPTH, type EvaluatedMove } from './stockfish.js'
-import { buildTrainingPositions, type TrainingPositionRow } from './training-positions.js'
+import { buildStandaloneBlunderPositions, buildTrainingPositions, type TrainingPositionRow } from './training-positions.js'
 import { withTimeFloors } from './time-floor.js'
 import { generateGameReview } from './claude-service.js'
-import { detectGamePatterns, primaryTagForChainRoot, isMateMissWhileWinning, withheldTagsFor } from './pattern-detector.js'
+import { detectGamePatterns, primaryTagForChainRoot, primaryTagForRoot, isMateMissWhileWinning, withheldTagsFor } from './pattern-detector.js'
 import type { DetectedPattern, RootCauseRecord } from './pattern-detector.js'
 
 interface GameRecord {
@@ -94,9 +94,30 @@ const ROOT_MIN_LOSS_CP = 50
 const INTERMEDIATE_MIN_LOSS_CP = 20
 const MAX_LOOKBACK_PLIES = 60
 
+export interface ChainOptions {
+  skipStandAlone?: boolean
+}
+
+export function standAloneRuleEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.SKIP_STANDALONE_CHAINS === 'on'
+}
+
+export function standAloneBlunderPlies(moves: EvaluatedMove[], userColor: 'white' | 'black'): number[] {
+  const userEval = (cp: number) => (userColor === 'white' ? cp : -cp)
+  return moves
+    .filter(m => m.classification === 'blunder' && (userColor === 'white' ? m.ply % 2 === 1 : m.ply % 2 === 0))
+    .filter(m => userEval(m.eval_before) >= STABLE_CP)
+    .map(m => m.ply)
+}
+
+export function standAlonePositionsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.STANDALONE_BLUNDER_POSITIONS === 'on'
+}
+
 export function detectCausalChains(
   moves: EvaluatedMove[],
-  userColor: 'white' | 'black'
+  userColor: 'white' | 'black',
+  options: ChainOptions = {}
 ): GameAnalysisData['causal_chains'] {
   const chains: GameAnalysisData['causal_chains'] = []
   const byPly = new Map<number, EvaluatedMove>(moves.map(m => [m.ply, m]))
@@ -111,6 +132,8 @@ export function detectCausalChains(
   )
 
   for (const blunder of userBlunders) {
+    if (options.skipStandAlone && userEval(blunder.eval_before) >= STABLE_CP) continue
+
     let rootMove: EvaluatedMove | null = null
     const declineMoves: EvaluatedMove[] = []
 
@@ -195,7 +218,7 @@ export async function buildGameAnalysis(
     is_key_moment: m.classification === 'blunder' || m.classification === 'mistake',
   }))
 
-  const causalChains = detectCausalChains(evaluatedMoves, game.user_color)
+  const causalChains = detectCausalChains(evaluatedMoves, game.user_color, { skipStandAlone: standAloneRuleEnabled() })
 
   const openingMoves = evaluatedMoves.filter(m => m.ply <= 30)
   const midMoves = evaluatedMoves.filter(m => m.ply > 30 && m.ply <= 60)
@@ -276,20 +299,32 @@ export async function buildGameAnalysis(
     }
   })
 
-  const floored = await withTimeFloors(
-    buildTrainingPositions(
-      game.id,
-      evaluatedMoves,
-      game.user_color,
-      rootCauseRecords.map(r => ({
-        rootPly: r.rootPly,
-        terminalPly: r.blunderPly,
-        tag: r.patternTag,
-      })),
-      { engine: engineLabel(), depth: DEFAULT_DEPTH }
-    ),
-    fen => evaluateTopLines(fen, DEFAULT_DEPTH)
+  const rowMeta = { engine: engineLabel(), depth: DEFAULT_DEPTH }
+  const chainRows = buildTrainingPositions(
+    game.id,
+    evaluatedMoves,
+    game.user_color,
+    rootCauseRecords.map(r => ({
+      rootPly: r.rootPly,
+      terminalPly: r.blunderPly,
+      tag: r.patternTag,
+    })),
+    rowMeta
   )
+  const standAloneRows = standAlonePositionsEnabled()
+    ? buildStandaloneBlunderPositions(
+        game.id,
+        evaluatedMoves,
+        game.user_color,
+        standAloneBlunderPlies(evaluatedMoves, game.user_color).map(ply => ({
+          ply,
+          tag: primaryTagForRoot(ply, patterns)?.tag ?? null,
+        })),
+        new Set(chainRows.map(r => r.root_ply)),
+        rowMeta
+      )
+    : []
+  const floored = await withTimeFloors([...chainRows, ...standAloneRows], fen => evaluateTopLines(fen, DEFAULT_DEPTH))
   const trainingPositions = floored.rows
   if (floored.reasons.length) console.log(`[floor] ${game.id}: ${floored.reasons.join(', ')}`)
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { allRows } from '@/lib/supabase/row-cap'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
 import { withAccuracy, type GameWithAccuracy, type GameWithEmbeddedAnalysis } from '@/lib/games/accuracy'
 
@@ -22,14 +23,19 @@ export default async function GamesPage() {
 
   const userId = session.user.id
 
-  const { data: games } = await supabase
-    .from('games')
-    .select(`
+  const { data: games } = await allRows<GameWithEmbeddedAnalysis>((from, to) =>
+    supabase
+      .from('games')
+      .select(`
       *,
       game_analyses(overall_accuracy)
     `)
-    .eq('user_id', userId)
-    .order('played_at', { ascending: false })
+      .eq('user_id', userId)
+      .order('played_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+      .returns<GameWithEmbeddedAnalysis[]>()
+  )
 
   const flatGames: GameWithAccuracy[] = ((games ?? []) as GameWithEmbeddedAnalysis[]).map(withAccuracy)
 
@@ -41,7 +47,7 @@ export default async function GamesPage() {
             className="text-2xl font-semibold"
             style={{ color: 'var(--text)' }}
           >
-            Game Library
+            Game library
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             {flatGames.length > 0

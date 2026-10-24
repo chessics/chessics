@@ -1,3 +1,5 @@
+import { blunderStandsAlone, preTerminalEvalFromRow } from '../chains/stands-alone'
+
 export const TRAINING_QUEUE_SOURCE_TABLE = 'training_positions' as const
 
 export const DELAYED_RETURN_MIN_GAP = 3
@@ -12,6 +14,7 @@ export interface QueueCandidate {
   refutation_evals: number[]
   span_plies: number
   multipv_gap_cp?: number | null
+  pre_terminal_eval_cp?: number | null
 }
 
 export interface ServedPosition {
@@ -21,7 +24,12 @@ export interface ServedPosition {
   correct: boolean | null
 }
 
-export type RejectionReason = 'no_best_move' | 'no_refutation' | 'no_sign_flip' | 'no_root_loss'
+export type RejectionReason =
+  | 'no_best_move'
+  | 'no_refutation'
+  | 'no_sign_flip'
+  | 'no_root_loss'
+  | 'blunder_stands_alone'
 
 export interface Rejection {
   position: QueueCandidate
@@ -44,6 +52,11 @@ function hasSignFlip(c: QueueCandidate): boolean {
 function rootLostEval(c: QueueCandidate): boolean {
   if (c.eval_cp === null || c.refutation_evals.length === 0) return false
   return c.refutation_evals[0] < c.eval_cp
+}
+
+function blunderStandsAloneOnRow(c: QueueCandidate): boolean {
+  const before = preTerminalEvalFromRow(c.span_plies, c.refutation_evals) ?? c.pre_terminal_eval_cp ?? null
+  return before !== null && blunderStandsAlone(before)
 }
 
 function hasClearBestMove(c: QueueCandidate): boolean {
@@ -83,6 +96,10 @@ export function qualityFilter(candidates: QueueCandidate[]): FilterResult {
     }
     if (!rootLostEval(c)) {
       rejected.push({ position: c, reason: 'no_root_loss' })
+      continue
+    }
+    if (blunderStandsAloneOnRow(c)) {
+      rejected.push({ position: c, reason: 'blunder_stands_alone' })
       continue
     }
 

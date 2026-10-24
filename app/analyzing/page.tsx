@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import RecurrenceStrip, { type StripBarState } from '@/components/workbench/RecurrenceStrip'
+import AnalyzingView, { type StageStatus } from '@/components/analyzing/AnalyzingView'
 import { useProgressFavicon } from '@/components/layout/progress-favicon'
 import { POLL_INTERVAL_MS, createStatusPoller } from '@/lib/sync/poll'
 import { planOnLoad } from '@/lib/sync/resume'
+import { FLAGS } from '@/lib/flags'
+import { finishPlan } from '@/lib/sync/finish'
+import { nextGamesProgress, type GamesProgress } from '@/lib/sync/progress'
 
 interface ChessicsSession {
   username: string
@@ -18,14 +21,6 @@ interface ChessicsSession {
   authed?: boolean
 }
 
-type StageStatus = 'pending' | 'active' | 'complete'
-
-function platformLabel(platform: string): string {
-  if (platform === 'chess.com') return 'Chess.com'
-  if (platform === 'lichess') return 'Lichess'
-  return platform
-}
-
 function platformApiValue(platform: string): 'chess_com' | 'lichess' {
   return platform === 'chess.com' ? 'chess_com' : 'lichess'
 }
@@ -34,8 +29,10 @@ export default function AnalyzingPage() {
   const router = useRouter()
   const [session, setSession] = useState<ChessicsSession | null>(null)
   const [stages, setStages] = useState<StageStatus[]>(['active', 'pending', 'pending', 'pending'])
-  const [gamesDone, setGamesDone] = useState(0)
+  const [progress, setProgress] = useState<GamesProgress>({ done: 0, total: null })
   const [stageDetail, setStageDetail] = useState<string | null>(null)
+  const [readyHref, setReadyHref] = useState<string | null>(null)
+  const touchedRef = useRef(false)
   useProgressFavicon(stages)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -49,9 +46,14 @@ export default function AnalyzingPage() {
   const finish = useCallback(
     (authed: boolean) => {
       setStages(['complete', 'complete', 'complete', 'complete'])
+      const plan = finishPlan(authed, touchedRef.current)
+      if (plan.kind === 'wait') {
+        setReadyHref(plan.href)
+        return
+      }
       timerRef.current = setTimeout(() => {
-        router.push(authed ? '/workbench' : '/report')
-      }, 800)
+        router.push(plan.href)
+      }, plan.afterMs)
     },
     [router]
   )
@@ -78,11 +80,7 @@ export default function AnalyzingPage() {
           setStages(newStages)
           setStageDetail(data.stageDetail ?? null)
 
-          if (data.stageDetail) {
-            const match = data.stageDetail.match(/^(\d+)/)
-            if (match) setGamesDone(parseInt(match[1], 10))
-          }
-          if ((data.stage ?? 1) > 2) setGamesDone((prev) => Math.max(prev, batchSizeRef.current))
+          setProgress((prev) => nextGamesProgress(prev, data, batchSizeRef.current))
 
           if (data.status === 'complete') {
             clearInterval(pollRef.current!)
@@ -187,81 +185,18 @@ export default function AnalyzingPage() {
 
   if (!session) return null
 
-  const batchSize = session.batchSize ?? 10
-  const bars: StripBarState[] = Array.from({ length: batchSize }, (_, i) =>
-    i < gamesDone ? 'quiet' : 'pending'
-  )
-
-  const stageItems = [
-    `Syncing games from ${platformLabel(session.platform)}`,
-    'Engine analysis',
-    'Clustering root causes',
-    'Writing your report',
-  ]
-
   return (
-    <main
-      className="min-h-screen flex flex-col items-center justify-center px-4"
-      style={{ background: 'var(--bg)' }}
-    >
-      <div className="w-full max-w-md flex flex-col gap-10">
-        <div className="text-center">
-          <a href="/" className="font-logo inline-block" style={{ fontSize: 24, color: 'var(--text)' }}>
-            chess<span style={{ color: 'var(--brass)' }}>ics</span>
-          </a>
-          <h1 className="font-headline mt-4" style={{ fontSize: 28, color: 'var(--text)' }}>
-            Reading your games
-          </h1>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <RecurrenceStrip bars={bars} height={40} />
-          <p className="text-sm text-center font-mono" style={{ color: 'var(--text-muted)' }}>
-            {stages[1] === 'active' || stages[0] === 'active'
-              ? `${gamesDone} of ${batchSize} games analyzed`
-              : stageDetail ?? `${batchSize} games analyzed`}
-          </p>
-        </div>
-
-        <div className="flex flex-col">
-          {stageItems.map((label, i) => {
-            const status = stages[i]
-            return (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-4 py-3"
-                style={{ borderTop: '1px solid var(--border)' }}
-              >
-                <span
-                  className="text-sm"
-                  style={{
-                    color:
-                      status === 'pending'
-                        ? 'var(--text-dim)'
-                        : status === 'complete'
-                          ? 'var(--text-muted)'
-                          : 'var(--text)',
-                  }}
-                >
-                  {label}
-                </span>
-                <span
-                  className="text-xs font-mono"
-                  style={{
-                    color: status === 'active' ? 'var(--brass)' : 'var(--text-dim)',
-                  }}
-                >
-                  {status === 'complete' ? 'done' : status === 'active' ? 'working' : ''}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-
-        <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>
-          please keep this tab open while we read your games
-        </p>
-      </div>
-    </main>
+    <AnalyzingView
+      platform={session.platform}
+      batchSize={progress.total ?? session.batchSize ?? 10}
+      gamesDone={progress.done}
+      stages={stages}
+      stageDetail={stageDetail}
+      readyHref={readyHref}
+      puzzles={FLAGS.waitingPuzzles}
+      onTouched={() => {
+        touchedRef.current = true
+      }}
+    />
   )
 }

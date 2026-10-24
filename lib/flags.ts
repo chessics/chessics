@@ -1,6 +1,8 @@
 export const FLAGS = {
   progressPage: false,
   reasonGate: false,
+  standaloneBlunderPositions: false,
+  waitingPuzzles: true,
 } as const
 
 export function reasonGateEnabled(
@@ -10,4 +12,9 @@ export function reasonGateEnabled(
   if (env.REASON_GATE === 'on') return true
   if (where === 'fixture') return env.NODE_ENV === 'development'
   return FLAGS.reasonGate
+}
+
+export function standaloneBlunderPositionsEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.STANDALONE_BLUNDER_POSITIONS === 'on') return true
+  return FLAGS.standaloneBlunderPositions
 }

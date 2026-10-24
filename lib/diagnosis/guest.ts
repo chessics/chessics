@@ -1,9 +1,9 @@
 import type { GuestSessionResult } from '@/types/guest'
 import type { InstanceFacts } from './finding'
-import { makeInstance, type MoveFacts } from './instance'
+import { makeInstance, noteStandAlone, terminalStoodAlone, type MoveFacts, type StandAloneByTag } from './instance'
 import { fatigueLine, type BlunderMove, type FatigueLine, type HistoryGame, type ScopeGame } from './sittings'
 
-export function guestInstances(result: GuestSessionResult): Map<string, InstanceFacts[]> {
+export function guestInstances(result: GuestSessionResult, standAlone?: StandAloneByTag): Map<string, InstanceFacts[]> {
   const out = new Map<string, InstanceFacts[]>()
   const groupGames = new Map(result.pattern_groups.map((g) => [g.tag, new Set(g.gameIds)]))
   for (const game of result.games) {
@@ -24,6 +24,7 @@ export function guestInstances(result: GuestSessionResult): Map<string, Instance
     }
     for (const [rootPly, { tag, terminal }] of Array.from(byRoot)) {
       if (!tag || !groupGames.get(tag)?.has(gameId)) continue
+      if (terminalStoodAlone(facts, movesByPly, terminal)) noteStandAlone(standAlone, tag, gameId)
       const instance = makeInstance(facts, movesByPly, rootPly, terminal)
       if (!instance) continue
       out.set(tag, [...(out.get(tag) ?? []), instance])

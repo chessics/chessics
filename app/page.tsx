@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { landingErrorMessage } from '@/lib/sync/poll'
 import { landingPlan } from '@/lib/sync/resume'
 import SourceLink from '@/components/layout/SourceLink'
+import { uuid } from '@/lib/uuid'
 
 type Platform = 'chess.com' | 'lichess'
 
@@ -83,7 +84,7 @@ export default function LandingPage() {
       platform,
       batchSize: 10,
       timeControlFilter: savedFilter ?? 'rapid_blitz',
-      sessionToken: crypto.randomUUID(),
+      sessionToken: uuid(),
     }
     localStorage.setItem('chessics_session', JSON.stringify(session))
     router.push('/analyzing')

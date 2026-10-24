@@ -7,10 +7,12 @@ import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
-import { accountInstances, pliesNeeded, type AccountRows } from '@/lib/diagnosis/account'
+import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { userNameFromGames } from '@/lib/sync/user-from-games'
-import { ANALYZE_MORE_ID, MORE_GAMES_HINT, verdictFor, withoutEmDash } from '@/lib/diagnosis/verdict'
+import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
+import { checkBatchProse } from '@/lib/prose/check'
+import { countNoun } from '@/lib/count-noun'
 import { HISTORY_LOOKBACK_MS, fatigueLine, type BlunderMove, type HistoryGame } from '@/lib/diagnosis/sittings'
 import type { BatchPatternGroup, BatchReport, Game, GameAnalysis, Profile } from '@/lib/supabase/types'
 
@@ -52,9 +54,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
   if (!batch) notFound()
   const profile = (profileResult.data ?? null) as Profile | null
 
-  const groups = (batch.pattern_groups ?? []) as BatchPatternGroup[]
-  const headline = groups.find((g) => g.recurring) ?? null
-  const stripGroup = selectFindings(groups).ordered[0] ?? null
+  const storedGroups = (batch.pattern_groups ?? []) as BatchPatternGroup[]
 
   const gameIds = batch.game_ids ?? []
   const [gamesResult, analysesResult] = await Promise.all([
@@ -73,43 +73,19 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
     .map((id) => gamesById.get(id))
     .filter((g): g is Game => !!g)
 
-  const analysisRows = ((analysesResult.data as GameAnalysis[] | null) ?? []).map((a) => ({ id: a.id, game_id: a.game_id }))
-  const [positionsResult, chainsResult] = await Promise.all([
-    gameIds.length > 0
-      ? supabase.from('training_positions').select('game_id, root_ply, tag').in('game_id', gameIds)
-      : Promise.resolve({ data: [] }),
-    analysisRows.length > 0
-      ? supabase
-          .from('causal_chains')
-          .select('game_analysis_id, root_move_ply, terminal_blunder_ply')
-          .in('game_analysis_id', analysisRows.map((a) => a.id))
-      : Promise.resolve({ data: [] }),
-  ])
-  const diagnosisRows: Omit<AccountRows, 'moves'> = {
-    groups,
-    games: orderedGames.flatMap((g) =>
+  const { groups, instances } = await loadBatchDiagnosis(
+    supabase,
+    storedGroups,
+    gameIds,
+    orderedGames.flatMap((g) =>
       g.user_color
         ? [{ id: g.id, played_at: g.played_at, opponent_username: g.opponent_username, result: g.result, user_color: g.user_color }]
         : []
     ),
-    analyses: analysisRows,
-    chains: (chainsResult.data ?? []) as AccountRows['chains'],
-    positions: (positionsResult.data ?? []) as AccountRows['positions'],
-  }
-  const plies = pliesNeeded(diagnosisRows)
-  const { data: diagnosisMoves } =
-    gameIds.length > 0 && plies.length > 0
-      ? await supabase
-          .from('moves')
-          .select('game_id, ply_number, san, fen_before, eval_before, eval_after')
-          .in('game_id', gameIds)
-          .in('ply_number', plies)
-      : { data: [] }
-  const findings = buildFindings(
-    groups,
-    accountInstances({ ...diagnosisRows, moves: (diagnosisMoves ?? []) as AccountRows['moves'] }),
-    batch.game_count
+    ((analysesResult.data as GameAnalysis[] | null) ?? []).map((a) => ({ id: a.id, game_id: a.game_id }))
   )
+  const stripGroup = selectFindings(groups).ordered[0] ?? null
+  const findings = buildFindings(groups, instances, batch.game_count)
 
   const batchTimes = orderedGames.flatMap((g) => (g.played_at ? [Date.parse(g.played_at)] : [])).filter((t) => !Number.isNaN(t))
   const historyCols = 'id, platform, played_at, time_control'
@@ -164,8 +140,17 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
       : (fromGames?.platform ?? null)
   const platformUsername = profile?.chess_com_username ?? profile?.lichess_username ?? fromGames?.username ?? null
 
-  const storedVerdict = headline?.insight ?? batch.claude_narrative?.split(/(?<=[.!?])\s+/)[0] ?? null
-  const verdict = verdictFor(storedVerdict, headline !== null)
+  const storedVerdict = storedGroups.find((g) => g.recurring)?.insight ?? batch.claude_narrative?.split(/(?<=[.!?])\s+/)[0] ?? null
+  const prose = checkBatchProse({
+    storedVerdict,
+    narrative: batch.claude_narrative,
+    generatedAt: batch.generated_at,
+    gameCount: batch.game_count,
+    storedGroups,
+    recounted: groups,
+    results: new Map(orderedGames.map((g) => [g.id, g.result])),
+  })
+  const verdict = prose.verdict
 
   return (
     <div className={`flex flex-col gap-10 ${REPORT_COLUMN}`}>
@@ -178,7 +163,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
           ← Workbench
         </Link>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {batch.game_count} games · {formatDate(batch.generated_at)}
+          {countNoun(batch.game_count, 'game')} · {formatDate(batch.generated_at)}
         </p>
       </div>
 
@@ -201,9 +186,9 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
           </a>
         )}
         <RecurrenceStrip bars={bars} />
-        {batch.claude_narrative && storedVerdict && batch.claude_narrative !== storedVerdict && (
+        {prose.tail && (
           <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
-            {withoutEmDash(batch.claude_narrative.slice(storedVerdict.length).trim())}
+            {prose.tail}
           </p>
         )}
       </div>
@@ -271,7 +256,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
                 }}
               />
               <span className="text-sm flex-1 truncate" style={{ color: 'var(--text)' }}>
-                {game.opponent_username ?? 'Unknown opponent'}
+                {game.opponent_username || 'Unknown opponent'}
               </span>
               <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
                 {game.played_at ? formatDate(game.played_at) : '—'}

@@ -1,10 +1,11 @@
 import { revealVerdict, type RevealKind } from './reveal'
+import { NOTHING_TO_TRAIN, NOTHING_TO_TRAIN_TITLE } from './empty'
 
 export type AnnouncePhase =
   | { name: 'loading' | 'intro' | 'signin' | 'committing' }
   | { name: 'board' }
   | { name: 'punish' | 'reveal' | 'threat'; kind: RevealKind; watched: boolean }
-  | { name: 'done' }
+  | { name: 'done'; openLoop?: string }
   | { name: 'error'; message: string }
 
 function lowerFirst(s: string): string {
@@ -24,7 +25,7 @@ export function announcement(p: AnnouncePhase): string {
     case 'threat':
       return 'The threat is playing.'
     case 'done':
-      return 'Session finished.'
+      return p.openLoop === NOTHING_TO_TRAIN ? NOTHING_TO_TRAIN_TITLE : 'Session finished.'
     case 'error':
       return p.message
     default:

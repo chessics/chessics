@@ -3,6 +3,7 @@ export type { SyncedGame }
 
 interface LichessPlayer {
   user?: { name: string }
+  aiLevel?: number
   rating?: number
   ratingDiff?: number
 }
@@ -11,6 +12,8 @@ interface LichessGame {
   id: string
   createdAt: number
   clock?: { initial: number; increment: number }
+  daysPerTurn?: number
+  status?: string
   perf?: string
   speed?: string
   players: {
@@ -20,6 +23,7 @@ interface LichessGame {
   winner?: 'white' | 'black'
   pgn?: string
   opening?: { name: string; eco: string }
+  variant?: string
 }
 
 const LICHESS_BASE = 'https://lichess.org/api'
@@ -53,6 +57,12 @@ async function fetchWithRetry(
   throw lastError ?? new Error(`Failed to fetch ${url}`)
 }
 
+function playerName(p: LichessPlayer): string {
+  if (p.user?.name) return p.user.name
+  if (typeof p.aiLevel === 'number') return `Stockfish level ${p.aiLevel}`
+  return 'Anonymous'
+}
+
 function mapLichessGame(game: LichessGame, username: string): SyncedGame {
   const lowerUsername = username.toLowerCase()
 
@@ -74,7 +84,10 @@ function mapLichessGame(game: LichessGame, username: string): SyncedGame {
 
   const initial = game.clock?.initial ?? 0
   const increment = game.clock?.increment ?? 0
-  const time_control = `${initial}+${increment}`
+  const time_control =
+    !game.clock && typeof game.daysPerTurn === 'number' && game.daysPerTurn > 0
+      ? `1/${game.daysPerTurn * 86400}`
+      : `${initial}+${increment}`
 
   return {
     pgn: game.pgn ?? '',
@@ -83,7 +96,7 @@ function mapLichessGame(game: LichessGame, username: string): SyncedGame {
     played_at: new Date(game.createdAt).toISOString(),
     time_control,
     user_color: userColor,
-    opponent_username: opponentSide.user?.name ?? '',
+    opponent_username: playerName(opponentSide),
     result,
     user_rating_at_time: userSide.rating ?? 0,
     opponent_rating_at_time: opponentSide.rating ?? 0,
@@ -133,6 +146,8 @@ export async function fetchLichessGames(
     try {
       const raw = JSON.parse(line) as LichessGame
       if (timeControlFilter === 'rapid_blitz' && raw.speed !== undefined && !KEPT_SPEEDS.has(raw.speed)) continue
+      if (raw.variant !== undefined && raw.variant !== 'standard') continue
+      if (raw.status === 'aborted' || raw.status === 'noStart') continue
       const mapped = mapLichessGame(raw, username)
       games.push({ ...mapped, platform: 'lichess' })
     } catch {

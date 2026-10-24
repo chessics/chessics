@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { gamesWithTag, type RecurrenceRow } from '@/lib/training/recurrence'
+import { allRows } from '@/lib/supabase/row-cap'
 import { Chess } from 'chess.js'
 import { createClient } from '@/lib/supabase/server'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
@@ -277,7 +279,8 @@ export async function POST(
     }
   }
 
-  const recurrence = position.tag ? await buildRecurrence(supabase, user.id, position.tag, priorExposures) : null
+  const recurrence =
+    position.tag && position.span_plies !== 0 ? await buildRecurrence(supabase, user.id, position.tag, priorExposures) : null
 
   return NextResponse.json(
     {
@@ -321,6 +324,8 @@ export async function POST(
   )
 }
 
+const RECURRENCE_SELECT = 'game_id, tag, span_plies, refutation_evals'
+
 async function buildRecurrence(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -329,12 +334,16 @@ async function buildRecurrence(
   priorExposures: number
 ) {
   const [positions, analysed] = await Promise.all([
-    supabase.from('training_positions').select('game_id, tag'),
-    supabase.from('games').select('id').eq('user_id', userId).eq('is_analyzed', true),
+    allRows<RecurrenceRow>((from, to) =>
+      supabase.from('training_positions').select(RECURRENCE_SELECT).order('id', { ascending: true }).range(from, to)
+    ),
+    allRows<{ id: string }>((from, to) =>
+      supabase.from('games').select('id').eq('user_id', userId).eq('is_analyzed', true).order('id', { ascending: true }).range(from, to)
+    ),
   ])
 
-  const rows = (positions.data ?? []) as { game_id: string; tag: string | null }[]
-  const gamesWithTag = new Set(rows.filter(r => r.tag === tag).map(r => r.game_id)).size
+  const rows = (positions.data ?? []) as RecurrenceRow[]
+  const withTag = gamesWithTag(rows, tag)
 
   const analysedGames = new Set<string>([
     ...((analysed.data ?? []) as { id: string }[]).map(g => g.id),
@@ -344,7 +353,7 @@ async function buildRecurrence(
   return {
     tag,
     exposure_ordinal: priorExposures + 1,
-    games_with_tag: gamesWithTag,
+    games_with_tag: withTag,
     games_analysed: analysedGames.size,
   }
 }

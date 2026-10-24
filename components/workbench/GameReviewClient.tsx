@@ -12,7 +12,9 @@ import dynamic from 'next/dynamic'
 import { Chess } from 'chess.js'
 import type { BoardShape } from './ChessBoard'
 import { gameDecidedAt, decidedAtLabel } from '@/lib/review/decided-at'
+import { chainAtRoot, chainStandsAlone, standAloneExplanation } from '@/lib/review/chain-roots'
 import { withoutPawnFigure } from '@/lib/review/pawn-figure'
+import { checkReviewProse } from '@/lib/prose/check'
 import { evalWords, evalReceipt } from '@/lib/review/eval-words'
 import { useLitSquares, LitProse } from '@/components/board/lit-squares'
 import { scrollBehavior } from '@/lib/motion'
@@ -88,7 +90,17 @@ interface FullChainNode {
   kind: 'root' | 'mid' | 'terminal'
 }
 
-function buildChainNodes(chain: ChainWithNodes): FullChainNode[] {
+function buildChainNodes(chain: ChainWithNodes, standsAlone = false): FullChainNode[] {
+  if (standsAlone) {
+    return [
+      {
+        ply: chain.terminal_blunder_ply,
+        san: chain.terminal_blunder_san,
+        explanation: standAloneExplanation(chain.terminal_blunder_san, chain.terminal_blunder_ply),
+        kind: 'terminal',
+      },
+    ]
+  }
   return [
     {
       ply: chain.root_move_ply,
@@ -343,19 +355,49 @@ export default function GameReviewClient({
     [currentPly]
   )
 
+  const standAloneIds = useMemo(
+    () => new Set(causalChains.filter((c) => chainStandsAlone(c, moves, game.user_color)).map((c) => c.id)),
+    [causalChains, moves, game.user_color]
+  )
+  const realChainCount = causalChains.length - standAloneIds.size
+
+  const prose = useMemo(
+    () =>
+      analysis
+        ? checkReviewProse({
+            narrative: analysis.claude_narrative,
+            keyMoment: analysis.key_moment_explanation,
+            createdAt: analysis.created_at ?? null,
+            userColor: game.user_color,
+            result: game.result,
+            chains: causalChains.map((c) => ({
+              rootSan: c.root_move_san,
+              rootPly: c.root_move_ply,
+              terminalSan: c.terminal_blunder_san,
+              terminalPly: c.terminal_blunder_ply,
+              standsAlone: standAloneIds.has(c.id),
+            })),
+            moves,
+          })
+        : null,
+    [analysis, game.user_color, game.result, causalChains, standAloneIds, moves]
+  )
+
   const openChainAt = useCallback(
     (rootPly: number) => {
-      const chain = causalChains.find((c) => c.root_move_ply === rootPly)
+      const chain = chainAtRoot(causalChains, rootPly, standAloneIds)
       if (!chain) return
-      setCurrentPly(chain.root_move_ply)
+      const alone = standAloneIds.has(chain.id)
+      const ply = alone ? chain.terminal_blunder_ply : chain.root_move_ply
+      setCurrentPly(ply)
       setActiveChainId(chain.id)
-      const moveData = moves.find((m) => m.ply_number === chain.root_move_ply)
+      const moveData = moves.find((m) => m.ply_number === ply)
       if (moveData) {
         const sq = getMoveSquares(moveData.fen_before, moveData.san)
-        if (sq) setBoardShapes([{ orig: sq.to, brush: 'chain_root' }])
+        if (sq) setBoardShapes([{ orig: sq.to, brush: alone ? 'chain_blunder' : 'chain_root' }])
       }
     },
-    [causalChains, moves]
+    [causalChains, moves, standAloneIds]
   )
 
   useEffect(() => {
@@ -434,7 +476,7 @@ export default function GameReviewClient({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const keyLit = lit.bind(analysis?.key_moment_explanation ?? '')
+  const keyLit = lit.bind(prose?.keyMoment ?? '')
 
   return (
     <div
@@ -473,6 +515,8 @@ export default function GameReviewClient({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            rowGap: 8,
             paddingLeft: 22,
           }}
         >
@@ -658,9 +702,9 @@ export default function GameReviewClient({
                   flexWrap: 'wrap',
                 }}
               >
-                <span style={{ fontWeight: 500, color: 'var(--text)' }}>
-                  vs {game.opponent_username ?? 'Unknown'}
-                </span>
+                <h1 style={{ fontWeight: 500, color: 'var(--text)', fontSize: 'inherit', margin: 0 }}>
+                  vs {game.opponent_username || 'Unknown'}
+                </h1>
                 <span
                   style={{
                     padding: '2px 9px',
@@ -831,14 +875,18 @@ export default function GameReviewClient({
                   marginLeft: 'auto',
                 }}
               >
-                {causalChains.length} chain
-                {causalChains.length !== 1 ? 's' : ''} detected
+                {realChainCount > 0 && (
+                  <>
+                    {realChainCount} chain
+                    {realChainCount !== 1 ? 's' : ''} detected
+                  </>
+                )}
               </span>
             </div>
 
             <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {causalChains.map((chain, chainIdx) => {
-                const nodes = buildChainNodes(chain)
+                const nodes = buildChainNodes(chain, standAloneIds.has(chain.id))
                 const isActive = activeChainId === chain.id
                 const terminalMoveNum = Math.ceil(
                   chain.terminal_blunder_ply / 2
@@ -1011,7 +1059,7 @@ export default function GameReviewClient({
                       })}
                     </div>
 
-                    {chain.chain_explanation && (
+                    {chain.chain_explanation && !standAloneIds.has(chain.id) && (
                       <p
                         style={{
                           marginTop: 10,
@@ -1093,7 +1141,7 @@ export default function GameReviewClient({
           )}
 
         {analysis?.key_moment_move_ply &&
-          analysis?.key_moment_explanation && (
+          prose?.keyMoment && (
             <button
               onClick={() => goTo(analysis.key_moment_move_ply!)}
               onFocus={keyLit.onFocus}
@@ -1165,7 +1213,7 @@ export default function GameReviewClient({
                   lineHeight: 1.65,
                 }}
               >
-                {analysis.key_moment_explanation}
+                {prose.keyMoment}
               </p>
               <span
                 style={{
@@ -1181,7 +1229,7 @@ export default function GameReviewClient({
             </button>
           )}
 
-        {analysis?.claude_narrative && (
+        {prose?.narrative && (
           <div
             style={{
               padding: '18px',
@@ -1200,7 +1248,7 @@ export default function GameReviewClient({
                 marginBottom: 12,
               }}
             >
-              Coach Analysis
+              Coach analysis
             </span>
             <p
               style={{
@@ -1211,7 +1259,7 @@ export default function GameReviewClient({
                 whiteSpace: 'pre-wrap',
               }}
             >
-              <LitProse text={analysis.claude_narrative} lit={lit} />
+              <LitProse text={prose.narrative} lit={lit} />
             </p>
           </div>
         )}

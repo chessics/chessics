@@ -9,14 +9,19 @@ import SittingLine from '@/components/diagnosis/SittingLine'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { guestFatigue, guestInstances } from '@/lib/diagnosis/guest'
-import { ANALYZE_MORE_ID, MORE_GAMES_HINT, verdictFor, withoutEmDash } from '@/lib/diagnosis/verdict'
+import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
+import { checkBatchProse } from '@/lib/prose/check'
+import { recountGroups } from '@/lib/diagnosis/recount'
+import type { StandAloneByTag } from '@/lib/diagnosis/instance'
 import type { GuestSessionResult } from '@/types/guest'
+import { reportLoadState, type ReportLoadState } from '@/lib/report/load-state'
+import { countNoun } from '@/lib/count-noun'
 
 export default function GuestReportPage() {
   const router = useRouter()
   const [result, setResult] = useState<GuestSessionResult | null>(null)
   const [sessionMeta, setSessionMeta] = useState<{ username: string; platform: 'chess.com' | 'lichess' } | null>(null)
-  const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading')
+  const [state, setState] = useState<'loading' | ReportLoadState>('loading')
 
   useEffect(() => {
     const raw = localStorage.getItem('chessics_session')
@@ -38,24 +43,39 @@ export default function GuestReportPage() {
     }
     fetch(`/api/guest/result?sessionToken=${encodeURIComponent(token)}`)
       .then(async (res) => {
-        if (!res.ok) {
-          setState('missing')
+        const next = reportLoadState(res.status)
+        if (next !== 'ready') {
+          setState(next)
           return
         }
         setResult((await res.json()) as GuestSessionResult)
         setState('ready')
       })
-      .catch(() => setState('missing'))
+      .catch(() => setState(reportLoadState(null)))
   }, [router])
 
-  const findings = useMemo(
-    () => (result ? buildFindings(result.pattern_groups ?? [], guestInstances(result), result.batch_report.game_count) : []),
-    [result]
-  )
+  const { groups, findings } = useMemo(() => {
+    if (!result) return { groups: [], findings: [] }
+    const standAlone: StandAloneByTag = new Map()
+    const instances = guestInstances(result, standAlone)
+    const recounted = recountGroups(result.pattern_groups ?? [], instances, standAlone)
+    return { groups: recounted, findings: buildFindings(recounted, instances, result.batch_report.game_count) }
+  }, [result])
   const fatigue = useMemo(() => (result ? guestFatigue(result) : null), [result])
-  const stripGroup = useMemo(() => selectFindings(result?.pattern_groups ?? []).ordered[0] ?? null, [result])
+  const stripGroup = useMemo(() => selectFindings(groups).ordered[0] ?? null, [groups])
 
   if (state === 'loading') return null
+
+  if (state === 'error') {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)' }}>
+        <div className="text-center flex flex-col gap-3">
+          <p className="text-base" style={{ color: 'var(--text)' }}>{"The report didn't load. Try again in a moment."}</p>
+          <a href="/report" className="text-sm" style={{ color: 'var(--brass)' }}>Try again →</a>
+        </div>
+      </main>
+    )
+  }
 
   if (state === 'missing' || !result) {
     return (
@@ -71,8 +91,16 @@ export default function GuestReportPage() {
   const gameIds = result.batch_report.game_ids ?? []
   const affected = new Set(stripGroup?.gameIds ?? [])
   const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
-  const storedVerdict = result.batch_report.verdict
-  const verdict = verdictFor(storedVerdict, (result.pattern_groups ?? []).some((g) => g.recurring))
+  const prose = checkBatchProse({
+    storedVerdict: result.batch_report.verdict,
+    narrative: result.batch_report.claude_narrative,
+    generatedAt: null,
+    gameCount: result.batch_report.game_count,
+    storedGroups: result.pattern_groups ?? [],
+    recounted: groups,
+    results: new Map(result.games.map((g) => [g.analysis_data.gameId, g.result])),
+  })
+  const verdict = prose.verdict
   const gamesById = new Map(result.games.map((g) => [g.analysis_data.gameId, g]))
 
   return (
@@ -83,7 +111,7 @@ export default function GuestReportPage() {
             chess<span style={{ color: 'var(--brass)' }}>ics</span>
           </a>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {result.batch_report.game_count} games analyzed
+            {countNoun(result.batch_report.game_count, 'game')} analyzed
           </p>
         </div>
 
@@ -103,9 +131,9 @@ export default function GuestReportPage() {
             </a>
           )}
           <RecurrenceStrip bars={bars} />
-          {result.batch_report.claude_narrative !== storedVerdict && (
+          {prose.tail && (
             <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
-              {withoutEmDash(result.batch_report.claude_narrative.slice(storedVerdict.length).trim())}
+              {prose.tail}
             </p>
           )}
         </div>
@@ -141,7 +169,7 @@ export default function GuestReportPage() {
               <div key={id} className="flex items-center gap-4 py-2.5" style={{ borderTop: '1px solid var(--border)' }}>
                 <span style={{ width: 3, alignSelf: 'stretch', background: isAffected ? 'var(--brass)' : 'transparent' }} />
                 <span className="text-sm flex-1 truncate" style={{ color: 'var(--text)' }}>
-                  {game.opponent_username ?? 'Unknown opponent'}
+                  {game.opponent_username || 'Unknown opponent'}
                 </span>
                 <span
                   className="text-sm capitalize"

@@ -163,6 +163,40 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   outline: none;
 }
 
+.analyzing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  max-width: 28rem;
+}
+@media (min-width: 640px) {
+  .analyzing-layout {
+    max-width: 400px;
+  }
+  .analyzing-layout--single {
+    max-width: 28rem;
+  }
+}
+@media (min-width: 900px) {
+  .analyzing-layout {
+    grid-template-columns: minmax(0, 26rem) minmax(0, calc(400px + 57px));
+    column-gap: 56px;
+    max-width: calc(26rem + 56px + 400px + 57px);
+    margin-left: auto;
+    margin-right: auto;
+    align-items: start;
+  }
+  .analyzing-layout--single {
+    grid-template-columns: minmax(0, 26rem);
+    max-width: 26rem;
+    margin-left: 0;
+  }
+  .analyzing-puzzle {
+    border-left: 1px solid var(--border);
+    padding-left: 56px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ANALYZE_MORE_ID } from '@/lib/diagnosis/verdict'
+import { uuid } from '@/lib/uuid'
 
 type TimeControlFilter = 'rapid_blitz' | 'all'
 
 const FILTER_OPTIONS: Array<{ value: TimeControlFilter; label: string }> = [
-  { value: 'rapid_blitz', label: 'Rapid & Blitz only' },
+  { value: 'rapid_blitz', label: 'Rapid & blitz only' },
   { value: 'all', label: 'All games' },
 ]
 
@@ -79,7 +80,7 @@ export default function BatchControls({
         batchSize,
         calibrationLevel: level,
         timeControlFilter: filter,
-        ...(isGuest ? { sessionToken: sessionToken ?? crypto.randomUUID() } : {}),
+        ...(isGuest ? { sessionToken: sessionToken ?? uuid() } : {}),
       })
     )
     router.push('/analyzing')
@@ -113,7 +114,7 @@ export default function BatchControls({
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {isGuest ? 'Sign up to analyze more games' : 'Analyze more games'}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[25, 50, 100].map((n) => (
             <button
               key={n}
@@ -140,7 +141,7 @@ export default function BatchControls({
           <span style={{ color: 'var(--text)' }}>{COACHING_LEVELS[level]}</span>
           {saving && <span style={{ color: 'var(--text-dim)' }}> (saving…)</span>}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {COACHING_LEVELS.map((label, i) => (
             <button
               key={i}
@@ -170,7 +171,7 @@ export default function BatchControls({
             <span style={{ color: 'var(--text-dim)' }}> (bullet and daily excluded)</span>
           )}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}

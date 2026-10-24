@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+
 export const INTRO_STEPS = [
   'Every position comes from one of your own games, at the moment things started to go wrong.',
   'Find the best move. Drag a piece to draw an arrow. It snaps back, so you can try a few. Then press Commit.',
@@ -23,13 +25,17 @@ export function IntroSteps() {
 }
 
 export default function TrainingIntro({ onStart }: { onStart: () => void }) {
+  const startRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    startRef.current?.focus({ preventScroll: true })
+  }, [])
   return (
     <div className="training-intro">
       <h1 className="training-title">How training works</h1>
       <IntroSteps />
       <p className="training-hint">There&apos;s no clock. Take your time.</p>
       <div className="training-actions">
-        <button className="training-btn training-btn-primary" onClick={onStart} autoFocus>
+        <button ref={startRef} className="training-btn training-btn-primary" onClick={onStart}>
           Start training
         </button>
       </div>

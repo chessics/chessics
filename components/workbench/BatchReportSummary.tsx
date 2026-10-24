@@ -4,7 +4,9 @@ import Link from 'next/link'
 import RecurrenceStrip from './RecurrenceStrip'
 import type { BatchPatternGroup, Trajectory } from '@/lib/supabase/types'
 import { firstSentence } from '@/lib/first-sentence'
-import { verdictFor } from '@/lib/diagnosis/verdict'
+import { checkBatchProse } from '@/lib/prose/check'
+import { sentenceCase } from '@/lib/diagnosis/finding'
+import { countNoun } from '@/lib/count-noun'
 
 interface BatchReportSummaryProps {
   latestBatch: {
@@ -20,6 +22,8 @@ interface BatchReportSummaryProps {
   } | null
   trajectories: Record<string, Trajectory>
   allBatches: Array<{ overall_accuracy: number | null; generated_at: string }>
+  results?: Record<string, 'win' | 'loss' | 'draw' | null>
+  recounted?: BatchPatternGroup[]
 }
 
 function formatDate(dateStr: string): string {
@@ -87,6 +91,8 @@ export default function BatchReportSummary({
   latestBatch,
   trajectories,
   allBatches,
+  results,
+  recounted,
 }: BatchReportSummaryProps) {
   if (!latestBatch) {
     return (
@@ -111,14 +117,25 @@ export default function BatchReportSummary({
     )
   }
 
-  const groups = [...(latestBatch.pattern_groups ?? [])].sort((a, b) => b.score - a.score)
+  const byScore = (list: BatchPatternGroup[]) => [...list].sort((a, b) => b.score - a.score)
+  const storedGroups = byScore(latestBatch.pattern_groups ?? [])
+  const groups = recounted ? byScore(recounted) : storedGroups
+  const storedHeadline = storedGroups.find((g) => g.recurring) ?? null
   const headline = groups.find((g) => g.recurring) ?? null
   const affected = new Set(headline?.gameIds ?? [])
   const bars = (latestBatch.game_ids ?? []).map((id) =>
     affected.has(id) ? ('affected' as const) : ('quiet' as const)
   )
-  const storedVerdict = headline?.insight ?? (latestBatch.claude_narrative ? firstSentence(latestBatch.claude_narrative) : null)
-  const verdict = verdictFor(storedVerdict, headline !== null)
+  const storedVerdict = storedHeadline?.insight ?? (latestBatch.claude_narrative ? firstSentence(latestBatch.claude_narrative) : null)
+  const verdict = checkBatchProse({
+    storedVerdict,
+    narrative: null,
+    generatedAt: latestBatch.generated_at,
+    gameCount: latestBatch.game_count,
+    storedGroups,
+    recounted: groups,
+    results: results ? new Map(Object.entries(results)) : null,
+  }).verdict
 
   return (
     <div
@@ -134,7 +151,7 @@ export default function BatchReportSummary({
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-          Last {latestBatch.game_count} games · {formatDate(latestBatch.generated_at)}
+          Last {countNoun(latestBatch.game_count, 'game')} · {formatDate(latestBatch.generated_at)}
         </p>
         <div className="flex items-center gap-3">
           {latestBatch.overall_accuracy !== null && (
@@ -169,10 +186,10 @@ export default function BatchReportSummary({
               style={{ borderTop: '1px solid var(--border)' }}
             >
               <span className="text-sm flex-1 min-w-[10rem]" style={{ color: 'var(--text)' }}>
-                {g.label}
+                {sentenceCase(g.label)}
               </span>
               <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-                {g.frequency} of {latestBatch.game_count} games
+                {g.frequency} of {countNoun(latestBatch.game_count, 'game')}
               </span>
               <span className="text-xs" style={{ width: 84, textAlign: 'right' }}>
                 <TrajectoryLabel trajectory={trajectories[g.tag]} />

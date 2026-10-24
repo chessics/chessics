@@ -33,6 +33,7 @@ import {
 } from '@/lib/training/session-store'
 import './training.css'
 import { failureMessage } from '@/lib/ratelimit-message'
+import { uuid } from '@/lib/uuid'
 
 type Phase =
   | { name: 'loading' }
@@ -72,8 +73,8 @@ function sessionStore(): SessionStore | null {
   }
 }
 
-const loadSession = () => loadStoredSession(sessionStore(), Date.now(), () => crypto.randomUUID())
-const newSession = () => newStoredSession(sessionStore(), Date.now(), () => crypto.randomUUID())
+const loadSession = () => loadStoredSession(sessionStore(), Date.now(), () => uuid())
+const newSession = () => newStoredSession(sessionStore(), Date.now(), () => uuid())
 
 type NextFetch = { kind: 'ok'; body: NextResponse } | { kind: 'signin' } | { kind: 'error' }
 

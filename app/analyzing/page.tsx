@@ -141,7 +141,7 @@ export default function AnalyzingPage() {
           return
         }
 
-        const data = (await res.json()) as { jobId: string; authed?: boolean }
+        const data = (await res.json()) as { jobId: string; authed?: boolean; foreign?: boolean }
         if (cancelled) return
         const authed = data.authed ?? !session!.sessionToken
 
@@ -149,7 +149,7 @@ export default function AnalyzingPage() {
         if (raw) {
           try {
             const stored = JSON.parse(raw) as ChessicsSession
-            localStorage.setItem('chessics_session', JSON.stringify({ ...stored, jobId: data.jobId, authed }))
+            localStorage.setItem('chessics_session', JSON.stringify({ ...stored, jobId: data.jobId, authed, ...(data.foreign ? { foreign: true } : {}) }))
           } catch {  }
         }
 

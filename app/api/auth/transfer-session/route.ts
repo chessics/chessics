@@ -1,3 +1,5 @@
+import { accountMayHold, ownerName, OWNER_SAMPLE } from '@/lib/sync/owner'
+import type { GameForName } from '@/lib/sync/user-from-games'
 import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
@@ -117,6 +119,22 @@ async function transfer(sessionToken: string, userId: string, supabase: UserClie
 
   const guestResult: GuestSessionResult =
     typeof raw === 'string' ? JSON.parse(raw) : (raw as GuestSessionResult)
+
+  for (const platform of Array.from(new Set(guestResult.games.map(g => g.platform)))) {
+    const guestName = ownerName(guestResult.games as GameForName[], platform)
+    if (!guestName) continue
+    const { data: earliest, error: ownerError } = await supabase
+      .from('games')
+      .select('pgn, platform, user_color')
+      .eq('user_id', userId)
+      .eq('platform', platform)
+      .order('created_at', { ascending: true })
+      .limit(OWNER_SAMPLE)
+    if (ownerError) return failed('read account owner')
+    if (!accountMayHold(Array.isArray(earliest) ? earliest : [], platform, guestName)) {
+      return NextResponse.json({ error: 'not_your_games' }, { status: 403 })
+    }
+  }
 
   let admin: SupabaseClient
   try {

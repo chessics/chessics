@@ -7,6 +7,7 @@ import type { SyncedGame } from '@/lib/sync/chess-com'
 import type { LichessSyncedGame } from '@/lib/sync/lichess'
 import { checkLimits, ipKey, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
 import { batchSizeAllowed, noGamesCode, parseSyncBody, SIGN_UP_FOR_LARGER_BATCHES } from '@/lib/sync/request'
+import { accountMayHold, NOT_YOUR_USERNAME, OWNER_SAMPLE } from '@/lib/sync/owner'
 
 export const maxDuration = 30
 
@@ -56,6 +57,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : { rule: RATE_LIMITS.guestAnalysis, key: ipKey(req.headers) },
   ])
   if (!perCaller.allowed) return tooManyRequests(perCaller)
+
+  let accountUserId = userId
+  if (userId) {
+    const { data: earliest, error: ownerError } = await supabase
+      .from('games')
+      .select('pgn, platform, user_color')
+      .eq('user_id', userId)
+      .eq('platform', platform)
+      .order('created_at', { ascending: true })
+      .limit(OWNER_SAMPLE)
+    if (ownerError) {
+      console.error('[sync] owner read error:', ownerError)
+      return NextResponse.json({ error: 'Failed to read account' }, { status: 500 })
+    }
+    if (!accountMayHold(Array.isArray(earliest) ? earliest : [], platform, username)) {
+      if (!sessionToken) return NextResponse.json({ error: NOT_YOUR_USERNAME }, { status: 403 })
+      accountUserId = null
+    }
+  }
 
   type AnyGame = SyncedGame | LichessSyncedGame
 
@@ -117,9 +137,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  if (userId) {
+  if (accountUserId) {
     const gameInserts = games.map((g) => ({
-      user_id: userId,
+      user_id: accountUserId,
       pgn: g.pgn,
       platform: g.platform,
       platform_game_id: g.platform_game_id,
@@ -168,7 +188,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         platform,
         batchSize,
         calibrationLevel: finalCalibration,
-        userId: userId ?? null,
+        userId: accountUserId ?? null,
         sessionToken: sessionToken ?? null,
         gameCount,
         queuedAt: new Date().toISOString(),
@@ -194,7 +214,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     jobId,
     gameCount,
-    authed: !!userId,
+    authed: !!accountUserId,
+    ...(userId && !accountUserId ? { foreign: true } : {}),
     estimatedMinutes: estimatedMinutes(gameCount),
   })
 }

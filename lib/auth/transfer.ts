@@ -23,7 +23,7 @@ export function transferGuestSession(
 
 async function run(storage: SessionStorage | undefined, doFetch: typeof fetch): Promise<TransferOutcome> {
   let store: SessionStorage
-  let saved: { sessionToken?: string; jobId?: string; authed?: boolean } | null
+  let saved: { sessionToken?: string; jobId?: string; authed?: boolean; foreign?: boolean } | null
   try {
     store = storage ?? window.localStorage
     const raw = store.getItem(GUEST_SESSION_KEY)
@@ -34,6 +34,7 @@ async function run(storage: SessionStorage | undefined, doFetch: typeof fetch): 
   const sessionToken = saved?.sessionToken
   if (!sessionToken) return 'none'
   if (saved?.authed === true) return 'none'
+  if (saved?.foreign === true) return 'none'
 
   let res: Response
   try {
@@ -61,6 +62,7 @@ async function run(storage: SessionStorage | undefined, doFetch: typeof fetch): 
     }
     return 'gone'
   }
+  if (res.status === 403) return 'none'
   return res.status === 409 || res.status === 429 ? 'not_ready' : 'failed'
 }
 

@@ -9,9 +9,14 @@ import { puzzleCaption } from '@/lib/puzzles/caption'
 
 export const COORD_GUTTER = 12
 
-export function puzzleBoardSize(columnWidth: number): number {
-  if (columnWidth >= 400) return 400
-  return Math.max(200, Math.floor((columnWidth - COORD_GUTTER) / 8) * 8)
+export const PUZZLE_BOARD_MAX = 640
+export const PUZZLE_CHROME_HEIGHT = 240
+
+export function puzzleBoardSize(columnWidth: number, viewportHeight = Infinity): number {
+  const byWidth = columnWidth - COORD_GUTTER
+  const byHeight = viewportHeight - PUZZLE_CHROME_HEIGHT
+  const fit = Math.min(PUZZLE_BOARD_MAX, byWidth, byHeight)
+  return Math.max(200, Math.floor(fit / 8) * 8)
 }
 
 export const REPLY_DELAY_MS = 450
@@ -49,12 +54,16 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    const measure = () => setSize(puzzleBoardSize(el.clientWidth))
+    const measure = () => setSize(puzzleBoardSize(el.clientWidth, window.innerHeight))
     measure()
     if (typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(measure)
     ro.observe(el)
-    return () => ro.disconnect()
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
   }, [])
 
   useEffect(() => {
@@ -107,11 +116,11 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
         </span>
       </div>
 
-      <div ref={wrapRef} className="w-full" style={{ maxWidth: 400 }}>
+      <div ref={wrapRef} className="w-full" style={{ maxWidth: PUZZLE_BOARD_MAX }}>
         <PuzzleBoard state={state} size={size} onMove={onMove} onAnnounce={setSaid} />
       </div>
 
-      <div className="flex items-center justify-between gap-4" style={{ minHeight: 40, maxWidth: 400 }}>
+      <div className="flex items-center justify-between gap-4" style={{ minHeight: 40, maxWidth: size }}>
         <p className="text-sm" style={{ color: over ? 'var(--brass)' : 'var(--text)' }} data-testid="puzzle-message">
           {message ?? ' '}
         </p>
@@ -139,7 +148,7 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
       </div>
 
       {caption && (
-        <p className="text-xs" style={{ color: 'var(--text-muted)', maxWidth: 400 }} data-testid="puzzle-caption">
+        <p className="text-xs" style={{ color: 'var(--text-muted)', maxWidth: size }} data-testid="puzzle-caption">
           {caption}
         </p>
       )}

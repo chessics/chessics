@@ -17,10 +17,10 @@ import { withoutPawnFigure } from '@/lib/review/pawn-figure'
 import { checkReviewProse } from '@/lib/prose/check'
 import { evalWords, evalReceipt } from '@/lib/review/eval-words'
 import { useLitSquares, LitProse } from '@/components/board/lit-squares'
-import { scrollBehavior } from '@/lib/motion'
 import { formatTimeControl } from '@/lib/review/time-control'
 import { reviewBoardSize } from '@/lib/review/board-size'
 import { moveListKey, tabStopPly } from '@/lib/review/move-list-keys'
+import { scrollListToMove } from '@/lib/review/move-list-scroll'
 import type {
   Game,
   Move,
@@ -349,7 +349,8 @@ export default function GameReviewClient({
 
   const setActiveMoveRef = useCallback(
     (node: HTMLButtonElement | null) => {
-      if (node) node.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() })
+      const list = moveListRef.current
+      if (node && list) scrollListToMove(list, node, 'auto')
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentPly]

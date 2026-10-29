@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import BatchReportSummary from '@/components/workbench/BatchReportSummary'
 import GuestTransferRetry from '@/components/auth/GuestTransferRetry'
+import AutoImport from '@/components/workbench/AutoImport'
+import { autoImportEnabled } from '@/lib/flags'
 import type { BatchPatternGroup, BatchReport, Game, Trajectory, UserPattern } from '@/lib/supabase/types'
 import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
 
@@ -72,6 +74,7 @@ export default async function WorkbenchPage() {
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto">
       <GuestTransferRetry signedIn={!!session} />
+      <AutoImport signedIn={!!session} enabled={autoImportEnabled()} />
       <div>
         <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
           Workbench

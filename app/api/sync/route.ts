@@ -6,8 +6,11 @@ import { fetchLichessGames } from '@/lib/sync/lichess'
 import type { SyncedGame } from '@/lib/sync/chess-com'
 import type { LichessSyncedGame } from '@/lib/sync/lichess'
 import { checkLimits, ipKey, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
-import { batchSizeAllowed, noGamesCode, parseSyncBody, SIGN_UP_FOR_LARGER_BATCHES } from '@/lib/sync/request'
+import { ALL_GAMES_ANALYSED, batchSizeAllowed, noGamesCode, parseSyncBody, SIGN_UP_FOR_LARGER_BATCHES } from '@/lib/sync/request'
 import { accountMayHold, NOT_YOUR_USERNAME, OWNER_SAMPLE } from '@/lib/sync/owner'
+import { batchFromLibrary, type LibraryBatch } from '@/lib/import/analyse'
+import { IMPORT_BUDGET_MS } from '@/lib/import/run'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const maxDuration = 30
 
@@ -22,7 +25,30 @@ function estimatedMinutes(gameCount: number): number {
   return 15
 }
 
+function fetchErrorResponse(apiErr: Error & { status?: number; code?: string }): NextResponse {
+  if (apiErr.code === 'no_recent_rapid_blitz_games') {
+    return NextResponse.json({ error: apiErr.code }, { status: 422 })
+  }
+  if (apiErr.status === 404) {
+    return NextResponse.json({ error: 'Username not found' }, { status: 404 })
+  }
+  if (apiErr.status === 429) {
+    return NextResponse.json(
+      { error: 'Rate limited, try again shortly' },
+      { status: 429 }
+    )
+  }
+  console.error('[sync] fetch error:', apiErr)
+  return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 })
+}
+
+async function libraryHasGames(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await supabase.from('games').select('id').eq('user_id', userId).limit(1)
+  return Array.isArray(data) && data.length > 0
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const startedAt = Date.now()
   let raw: unknown
   try {
     raw = await req.json()
@@ -79,46 +105,65 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   type AnyGame = SyncedGame | LichessSyncedGame
 
-  let games: AnyGame[]
+  let ratingsOf: Array<number | null>
+  let gameCount: number
+  let guestGames: AnyGame[] | null = null
+  if (accountUserId) {
+    let batch: LibraryBatch
+    try {
+      batch = await batchFromLibrary({
+        supabase,
+        redis,
+        userId: accountUserId,
+        platform,
+        username,
+        batchSize,
+        filter: timeControlFilter,
+        deadline: startedAt + IMPORT_BUDGET_MS,
+      })
+    } catch (err) {
+      console.error('[sync] library import error:', err)
+      return NextResponse.json({ error: 'Failed to save games' }, { status: 500 })
+    }
+    if (batch.games.length === 0) {
+      if (batch.fetchError) return fetchErrorResponse(batch.fetchError)
+      if (batch.cut) return NextResponse.json({ error: 'no_recent_rapid_blitz_games' }, { status: 422 })
+      if (await libraryHasGames(supabase, accountUserId)) {
+        return NextResponse.json({ error: ALL_GAMES_ANALYSED }, { status: 422 })
+      }
+      return NextResponse.json({ error: noGamesCode(timeControlFilter) }, { status: 422 })
+    }
+    ratingsOf = batch.games.map((g) => g.user_rating_at_time)
+    gameCount = batch.games.length
+  } else {
+    let games: AnyGame[]
+    try {
+      if (platform === 'chess_com') {
+        games = await fetchChessComGames(username, batchSize, timeControlFilter)
+      } else if (platform === 'lichess') {
+        games = await fetchLichessGames(username, batchSize, timeControlFilter)
+      } else {
+        return NextResponse.json({ error: 'Invalid platform' }, { status: 400 })
+      }
+    } catch (err: unknown) {
+      return fetchErrorResponse(err as Error & { status?: number; code?: string })
+    }
 
-  try {
-    if (platform === 'chess_com') {
-      games = await fetchChessComGames(username, batchSize, timeControlFilter)
-    } else if (platform === 'lichess') {
-      games = await fetchLichessGames(username, batchSize, timeControlFilter)
-    } else {
-      return NextResponse.json({ error: 'Invalid platform' }, { status: 400 })
+    if (games.length === 0) {
+      return NextResponse.json({ error: noGamesCode(timeControlFilter) }, { status: 422 })
     }
-  } catch (err: unknown) {
-    const apiErr = err as Error & { status?: number; code?: string }
-    if (apiErr.code === 'no_recent_rapid_blitz_games') {
-      return NextResponse.json({ error: apiErr.code }, { status: 422 })
-    }
-    if (apiErr.status === 404) {
-      return NextResponse.json({ error: 'Username not found' }, { status: 404 })
-    }
-    if (apiErr.status === 429) {
-      return NextResponse.json(
-        { error: 'Rate limited, try again shortly' },
-        { status: 429 }
-      )
-    }
-    console.error('[sync] fetch error:', err)
-    return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 })
-  }
 
-  if (games.length === 0) {
-    return NextResponse.json({ error: noGamesCode(timeControlFilter) }, { status: 422 })
+    guestGames = games
+    ratingsOf = games.map((g) => g.user_rating_at_time)
+    gameCount = games.length
   }
 
   const siteWide = await checkLimits([{ rule: RATE_LIMITS.allAnalyses, key: SITE_KEY }])
   if (!siteWide.allowed) return tooManyRequests(siteWide)
 
-  const gameCount = games.length
   const jobId = crypto.randomUUID()
 
-  const ratings = games
-    .map((g) => g.user_rating_at_time)
+  const ratings = ratingsOf
     .filter((r): r is number => typeof r === 'number' && r > 0)
   const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
   const autoCalibration =
@@ -137,40 +182,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  if (accountUserId) {
-    const gameInserts = games.map((g) => ({
-      user_id: accountUserId,
-      pgn: g.pgn,
-      platform: g.platform,
-      platform_game_id: g.platform_game_id,
-      played_at: g.played_at,
-      time_control: g.time_control,
-      opening_name: g.opening_name,
-      opening_eco: g.opening_eco,
-      user_color: g.user_color,
-      opponent_username: g.opponent_username,
-      result: g.result,
-      user_rating_at_time: g.user_rating_at_time,
-      opponent_rating_at_time: g.opponent_rating_at_time,
-      is_analyzed: false,
-    }))
-
-    const { error: insertError } = await supabase
-      .from('games')
-      .upsert(gameInserts, {
-        onConflict: 'platform,platform_game_id,user_id',
-        ignoreDuplicates: false,
-      })
-
-    if (insertError) {
-      console.error('[sync] game insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to save games' }, { status: 500 })
-    }
-  } else {
+  if (guestGames) {
     try {
       await redis.set(
         `guest:${sessionToken}:games`,
-        JSON.stringify(games),
+        JSON.stringify(guestGames),
         { ex: 7 * 24 * 3600 }
       )
     } catch (err) {

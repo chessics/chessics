@@ -77,6 +77,7 @@ const MESSAGES: Record<string, string> = {
   sign_up_for_larger_batches: 'Sign up to analyse 25, 50 or 100 games at a time.',
   no_rapid_blitz_games: 'That account has no rapid or blitz games to analyse yet.',
   no_games: 'That account has no games to analyse yet.',
+  all_games_analysed: 'Every game in your library is analysed. Play a few more and come back.',
   not_your_username: 'That name is not the one on your account. Analyse it from the home page instead.',
   no_recent_rapid_blitz_games: "That account's recent months have no rapid or blitz games to analyse.",
   'Username not found': 'That username was not found. Check the spelling and the site.',

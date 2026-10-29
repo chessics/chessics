@@ -17,6 +17,7 @@ export const RATE_LIMITS = {
   gameAnalysis: { name: 'analysis-game', requests: 30, window: '1 h' },
   allAnalyses: { name: 'analysis-all', requests: 100, window: '1 d' },
   commit: { name: 'commit', requests: 60, window: '1 m' },
+  gameImport: { name: 'import', requests: 6, window: '1 h' },
   transfer: { name: 'transfer', requests: 10, window: '10 m' },
 } as const satisfies Record<string, RateRule>
 

@@ -1,4 +1,4 @@
-import type { SyncedGame, TimeControlFilter } from './chess-com'
+import type { FetchWindow, SyncedGame, TimeControlFilter, WindowResult } from './chess-com'
 export type { SyncedGame }
 
 interface LichessPlayer {
@@ -143,16 +143,82 @@ export async function fetchLichessGames(
   const games: LichessSyncedGame[] = []
 
   for (const line of lines) {
-    try {
-      const raw = JSON.parse(line) as LichessGame
-      if (timeControlFilter === 'rapid_blitz' && raw.speed !== undefined && !KEPT_SPEEDS.has(raw.speed)) continue
-      if (raw.variant !== undefined && raw.variant !== 'standard') continue
-      if (raw.status === 'aborted' || raw.status === 'noStart') continue
-      const mapped = mapLichessGame(raw, username)
-      games.push({ ...mapped, platform: 'lichess' })
-    } catch {
-    }
+    const kept = keptGame(line, username, timeControlFilter)
+    if (kept) games.push(kept)
   }
 
   return games.slice(0, batchSize)
+}
+
+function keptGame(line: string, username: string, timeControlFilter: TimeControlFilter): LichessSyncedGame | null {
+  try {
+    const raw = JSON.parse(line) as LichessGame
+    if (timeControlFilter === 'rapid_blitz' && raw.speed !== undefined && !KEPT_SPEEDS.has(raw.speed)) return null
+    if (raw.variant !== undefined && raw.variant !== 'standard') return null
+    if (raw.status === 'aborted' || raw.status === 'noStart') return null
+    return { ...mapLichessGame(raw, username), platform: 'lichess' }
+  } catch {
+    return null
+  }
+}
+
+export async function fetchLichessWindow(
+  username: string,
+  w: FetchWindow,
+  { now = Date.now }: { now?: () => number } = {}
+): Promise<WindowResult<LichessSyncedGame>> {
+  const params = new URLSearchParams({ max: String(w.max), pgnInJson: 'true' })
+  if (w.after !== null) params.set('since', String(w.after + 1))
+  if (w.before !== null) params.set('until', String(w.before - 1))
+  if (w.order === 'asc') params.set('sort', 'dateAsc')
+  if (w.filter === 'rapid_blitz') params.set('perfType', 'blitz,rapid')
+  const url = `${LICHESS_BASE}/games/user/${encodeURIComponent(username)}?${params}`
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), Math.max(0, w.deadline - now()))
+  const games: LichessSyncedGame[] = []
+  let lines = 0
+  try {
+    let res: Response
+    try {
+      res = await fetch(url, {
+        headers: { Accept: 'application/x-ndjson', 'User-Agent': 'Chessics/1.0' },
+        signal: controller.signal,
+      })
+    } catch {
+      return { games, complete: false }
+    }
+    if (res.status === 404) throw Object.assign(new Error('Username not found'), { status: 404 })
+    if (res.status === 429) throw Object.assign(new Error('Rate limited, try again shortly'), { status: 429 })
+    if (!res.ok || !res.body) return { games, complete: false }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const take = (line: string) => {
+      if (!line.trim()) return
+      lines++
+      const kept = keptGame(line, username, w.filter)
+      if (!kept) return
+      const at = Date.parse(kept.played_at)
+      if ((w.after === null || at > w.after) && (w.before === null || at < w.before)) games.push(kept)
+    }
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>
+      try {
+        chunk = await reader.read()
+      } catch {
+        return { games, complete: false }
+      }
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+      const parts = buffer.split('\n')
+      buffer = parts.pop() ?? ''
+      parts.forEach(take)
+    }
+    take(buffer)
+    return { games, complete: lines < w.max }
+  } finally {
+    clearTimeout(timer)
+  }
 }

@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { allRows } from '@/lib/supabase/row-cap'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
+import AutoImport from '@/components/workbench/AutoImport'
+import { autoImportEnabled } from '@/lib/flags'
 import { withAccuracy, type GameWithAccuracy, type GameWithEmbeddedAnalysis } from '@/lib/games/accuracy'
 
 export const metadata: Metadata = { title: 'Games' }
@@ -41,6 +43,7 @@ export default async function GamesPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <AutoImport signedIn enabled={autoImportEnabled()} />
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1
@@ -68,7 +71,7 @@ export default async function GamesPage() {
             display: 'inline-block',
           }}
         >
-          + Import games
+          Analyze games
         </Link>
       </div>
 

@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { Game } from '@/lib/supabase/types'
 import { failureMessage } from '@/lib/ratelimit-message'
 import { formatTimeControl } from '@/lib/review/time-control'
+import { createStatusPoller, POLL_INTERVAL_MS } from '@/lib/sync/poll'
+import { nextRowJob, rowJobLabel, STATUS_LOST_LABEL, type RowJob } from '@/lib/games/analyze-job'
 
 const RETRY_LABEL = "Couldn't queue, retry"
 export const NOT_STANDARD_LABEL = "Variant, can't analyze"
@@ -109,7 +112,9 @@ export default function GamesLibraryClient({ games }: Props) {
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [colorFilter, setColorFilter] = useState<ColorFilter>('all')
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
-  const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set())
+  const [jobs, setJobs] = useState<Map<string, RowJob>>(new Map())
+  const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const router = useRouter()
   const [failedIds, setFailedIds] = useState<Map<string, string>>(new Map())
 
   const filtered = useMemo(() => {
@@ -122,6 +127,49 @@ export default function GamesLibraryClient({ games }: Props) {
     })
   }, [games, resultFilter, colorFilter])
 
+  useEffect(() => {
+    const running = timers.current
+    return () => running.forEach((t) => clearInterval(t))
+  }, [])
+
+  const stopWatching = (gameId: string) => {
+    const t = timers.current.get(gameId)
+    if (t) clearInterval(t)
+    timers.current.delete(gameId)
+  }
+
+  const setJob = useCallback((gameId: string, job: RowJob) => {
+    setJobs((prev) => new Map(prev).set(gameId, job))
+  }, [])
+
+  const watchJob = (gameId: string, jobId: string) => {
+    stopWatching(gameId)
+    let current: RowJob = { phase: 'starting', jobId }
+    setJob(gameId, current)
+    const tick = createStatusPoller<{ status?: unknown }>({
+      fetchStatus: () => fetch(`/api/sync/status?jobId=${encodeURIComponent(jobId)}`),
+      onStatus: (body) => {
+        const next = nextRowJob(current, body)
+        if (!next) return
+        current = next
+        setJob(gameId, next)
+        if (next.phase === 'done') {
+          stopWatching(gameId)
+          router.refresh()
+        } else if (next.phase === 'failed') {
+          stopWatching(gameId)
+        }
+      },
+      onGiveUp: () => {
+        stopWatching(gameId)
+        current = { phase: 'failed', label: STATUS_LOST_LABEL }
+        setJob(gameId, current)
+      },
+    })
+    void tick()
+    timers.current.set(gameId, setInterval(() => void tick(), POLL_INTERVAL_MS))
+  }
+
   const handleAnalyze = async (gameId: string) => {
     setAnalyzingId(gameId)
     try {
@@ -131,7 +179,8 @@ export default function GamesLibraryClient({ games }: Props) {
         body: JSON.stringify({ gameId }),
       })
       const ok = res.ok
-      setQueuedIds((prev) => (ok ? new Set([...Array.from(prev), gameId]) : prev))
+      const jobId = ok ? ((await res.json().catch(() => ({}))) as { jobId?: unknown }).jobId : undefined
+      if (typeof jobId === 'string') watchJob(gameId, jobId)
       setFailedIds((prev) => {
         const next = new Map(prev)
         if (ok) next.delete(gameId)
@@ -249,7 +298,8 @@ export default function GamesLibraryClient({ games }: Props) {
           </div>
 
           {filtered.map((game, idx) => {
-            const isQueued = queuedIds.has(game.id)
+            const job = jobs.get(game.id)
+            const jobFailed = job?.phase === 'failed' ? job.label : undefined
             const isBeingAnalyzed = analyzingId === game.id
             const rowStyle: React.CSSProperties = {
               padding: '10px 16px',
@@ -371,16 +421,34 @@ export default function GamesLibraryClient({ games }: Props) {
                       <span className="games-label-full">View review</span>
                       <span className="games-label-short">Review</span>
                     </span>
-                  ) : isQueued ? (
-                    <span
+                  ) : job?.phase === 'done' ? (
+                    <Link
+                      href={`/games/${game.id}/review`}
                       style={{
-                        fontSize: 11,
-                        color: 'var(--text-dim)',
-                        padding: '4px 10px',
                         display: 'inline-block',
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: 'var(--gold)',
+                        border: '1px solid rgba(201,165,92,0.25)',
+                        textDecoration: 'none',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      Queued ✓
+                      Review
+                    </Link>
+                  ) : job && job.phase !== 'failed' ? (
+                    <span
+                      role="status"
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--text-muted)',
+                        padding: '4px 10px',
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {rowJobLabel(job)}
                     </span>
                   ) : (
                     <button
@@ -394,7 +462,7 @@ export default function GamesLibraryClient({ games }: Props) {
                         background: 'transparent',
                         border: '1px solid var(--border)',
                         cursor: isBeingAnalyzed ? 'default' : 'pointer',
-                        whiteSpace: failedIds.has(game.id) ? 'normal' : 'nowrap',
+                        whiteSpace: failedIds.has(game.id) || jobFailed ? 'normal' : 'nowrap',
                         opacity: isBeingAnalyzed ? 0.6 : 1,
                         transition: 'border-color 0.15s, color 0.15s',
                       }}
@@ -409,7 +477,7 @@ export default function GamesLibraryClient({ games }: Props) {
                         e.currentTarget.style.color = 'var(--text-muted)'
                       }}
                     >
-                      {isBeingAnalyzed ? 'Queuing…' : failedIds.get(game.id) ?? 'Analyze'}
+                      {isBeingAnalyzed ? 'Queuing…' : failedIds.get(game.id) ?? jobFailed ?? 'Analyze'}
                     </button>
                   )}
                 </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkLimits, RATE_LIMITS, SITE_KEY, tooManyRequests, userKey } from '@/lib/ratelimit'
 import { pgnAnalysable, pgnParses } from '@/lib/sync/standard'
+import { RUNNING_JOB_WINDOW_MS } from '@/lib/games/analyze-job'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -53,6 +54,18 @@ export async function POST(request: NextRequest) {
   if (!pgnAnalysable(game.pgn) || !pgnParses(game.pgn)) {
     return NextResponse.json({ error: 'not_standard_chess' }, { status: 422 })
   }
+
+  const { data: running } = await supabase
+    .from('analysis_jobs')
+    .select('id')
+    .eq('game_id', gameId)
+    .eq('user_id', userId)
+    .eq('status', 'queued')
+    .gte('queued_at', new Date(Date.now() - RUNNING_JOB_WINDOW_MS).toISOString())
+    .order('queued_at', { ascending: false })
+    .limit(1)
+  const runningId = Array.isArray(running) ? (running[0] as { id?: unknown } | undefined)?.id : undefined
+  if (typeof runningId === 'string') return NextResponse.json({ jobId: runningId, alreadyRunning: true })
 
   const siteWide = await checkLimits([{ rule: RATE_LIMITS.allAnalyses, key: SITE_KEY }])
   if (!siteWide.allowed) return tooManyRequests(siteWide)

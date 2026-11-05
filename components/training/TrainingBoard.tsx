@@ -29,9 +29,12 @@ interface TrainingBoardProps {
   size: number
   locked?: boolean
   onAnnounce?: (text: string) => void
+  fixedArrows?: { from: string; to: string }[]
 }
 
 type Dests = Map<Key, Key[]>
+
+const NO_FIXED: { from: string; to: string }[] = []
 
 const MOVE_ANIMATION_MS = 220
 const SNAP_BACK_SETTLE_MS = MOVE_ANIMATION_MS + 60
@@ -43,18 +46,25 @@ const BRUSHES = {
   yellow: { key: 'yellow', color: '#e68f00', opacity: 0.8, lineWidth: 10 },
   pencil: { key: 'pencil', color: '#e8e0d0', opacity: 0.45, lineWidth: 9 },
   pencil_chosen: { key: 'pencil_chosen', color: '#e8e0d0', opacity: 0.9, lineWidth: 15 },
+  played: { key: 'played', color: '#d6344f', opacity: 0.85, lineWidth: 12 },
 }
 
 const CURSOR_SVG =
   '<rect x="3" y="3" width="94" height="94" fill="none" stroke="#1a1512" stroke-width="6"/>' +
   '<rect x="9" y="9" width="82" height="82" fill="none" stroke="#f3ede2" stroke-width="5"/>'
 
-function toShapes(arrows: DrawnArrow[], selected: number | null, cursor: string | null = null): DrawShape[] {
-  const shapes: DrawShape[] = arrows.map((a, i) => ({
+function toShapes(
+  arrows: DrawnArrow[],
+  selected: number | null,
+  cursor: string | null = null,
+  fixed: readonly { from: string; to: string }[] = []
+): DrawShape[] {
+  const shapes: DrawShape[] = fixed.map(a => ({ orig: a.from as Key, dest: a.to as Key, brush: 'played' }))
+  shapes.push(...arrows.map((a, i) => ({
     orig: a.from as Key,
     dest: a.to as Key,
     brush: i === selected ? 'pencil_chosen' : 'pencil',
-  }))
+  })))
   if (cursor) shapes.push({ orig: cursor as Key, customSvg: { html: CURSOR_SVG } })
   return shapes
 }
@@ -77,13 +87,14 @@ export default function TrainingBoard({
   size,
   locked = false,
   onAnnounce,
+  fixedArrows = NO_FIXED,
 }: TrainingBoardProps) {
   const elRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cgRef = useRef<any>(null)
 
-  const latest = useRef({ arrows, selected, onDraw, onSelectArrow, locked })
-  latest.current = { arrows, selected, onDraw, onSelectArrow, locked }
+  const latest = useRef({ arrows, selected, onDraw, onSelectArrow, locked, fixedArrows })
+  latest.current = { arrows, selected, onDraw, onSelectArrow, locked, fixedArrows }
 
   useEffect(() => {
     if (!elRef.current) return
@@ -137,7 +148,7 @@ export default function TrainingBoard({
           enabled: false,
           visible: true,
           brushes: BRUSHES,
-          autoShapes: toShapes(latest.current.arrows, latest.current.selected),
+          autoShapes: toShapes(latest.current.arrows, latest.current.selected, null, latest.current.fixedArrows),
         },
       })
     })
@@ -158,8 +169,8 @@ export default function TrainingBoard({
 
   const shownCursor = locked ? null : cursor
   useEffect(() => {
-    cgRef.current?.setAutoShapes(toShapes(arrows, selected, shownCursor))
-  }, [arrows, selected, shownCursor])
+    cgRef.current?.setAutoShapes(toShapes(arrows, selected, shownCursor, fixedArrows))
+  }, [arrows, selected, shownCursor, fixedArrows])
 
   useEffect(() => {
     cgRef.current?.set({ movable: { color: locked ? undefined : orientation } })

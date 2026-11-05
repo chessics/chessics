@@ -1,0 +1,6 @@
+# torch is installed separately from the CPU wheel index (see Dockerfile), so
+# the image does not pull the CUDA build. maia2 0.11.0 pins torch>=2.8,<2.9.
+maia2==0.11.0
+chess==1.11.2
+fastapi==0.162.0
+uvicorn==0.54.0

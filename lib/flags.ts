@@ -4,6 +4,7 @@ export const FLAGS = {
   standaloneBlunderPositions: false,
   waitingPuzzles: true,
   autoImport: true,
+  sharePositions: false,
 } as const
 
 export function reasonGateEnabled(
@@ -23,4 +24,13 @@ export function standaloneBlunderPositionsEnabled(env: Record<string, string | u
 export function autoImportEnabled(env: Record<string, string | undefined> = process.env): boolean {
   if (env.AUTO_IMPORT === 'off') return false
   return FLAGS.autoImport
+}
+
+export function sharePositionsEnabled(
+  where: 'live' | 'fixture',
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  if (where === 'fixture') return env.NODE_ENV === 'development'
+  if (env.SHARE_POSITIONS === 'on') return true
+  return FLAGS.sharePositions
 }

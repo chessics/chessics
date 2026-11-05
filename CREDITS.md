@@ -20,6 +20,7 @@ Chessics is built on the open-source software below. Each keeps its own license.
 | [clsx](https://github.com/lukeed/clsx) | MIT | Luke Edwards |
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) (build time) | MIT | Tailwind Labs |
 | Cormorant Garamond, DM Sans, JetBrains Mono, via Google Fonts | SIL Open Font License 1.1 | their designers |
+| [@vercel/analytics](https://github.com/vercel/analytics) 2.0.1: cookieless page-view counts | MIT | Vercel |
 
 ## On the server
 
@@ -28,10 +29,15 @@ Chessics is built on the open-source software below. Each keeps its own license.
 | [Stockfish](https://github.com/official-stockfish/Stockfish) | GPL-3.0 | Every evaluation in the analysis. Runs on the analysis worker; never sent to the browser |
 | [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) | MIT | Calls Claude to write the game narratives. Stockfish supplies every chess fact; the model writes language only |
 | [@upstash/redis](https://github.com/upstash/redis-js) and [@upstash/ratelimit](https://github.com/upstash/ratelimit-js) | MIT | Job queue and rate limits |
+| [@vercel/functions](https://github.com/vercel/vercel/tree/main/packages/functions) 1.6.0 | Apache-2.0 | Lets the product-event counts finish writing after the response is sent |
+| [Maia-2](https://github.com/CSSLab/maia2) 0.11.0 and its rapid weights | MIT | The human-like opponent in "play it out", run by the move service in `maia-service/`. Never sent to the browser |
+| [python-chess](https://github.com/niklasf/python-chess) 1.11.2 | GPL-3.0-or-later | Move rules inside the move service |
+| [FastAPI](https://github.com/fastapi/fastapi) 0.162.0 and [Uvicorn](https://github.com/encode/uvicorn) 0.54.0 | MIT and BSD-3-Clause | The move service's web server |
+| [PyTorch](https://github.com/pytorch/pytorch) (CPU build, through Maia-2) | BSD-3-Clause | Runs the Maia-2 model inside the move service |
 
 ## Services
 
-Supabase (database and accounts), Upstash (Redis), Vercel (the site), Railway (the analysis
+Supabase (database and accounts), Upstash (Redis), Vercel (the site, and Web Analytics for anonymous visit counts), Railway (the analysis
 worker), [chess-api.com](https://chess-api.com) (Stockfish evaluations used to grade training
 answers), and Anthropic's Claude (narratives, as above). Games are imported from Chess.com's
 public API.

@@ -7,8 +7,11 @@ import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
 import { isUnderFloor } from '@/lib/training/timing'
 import { gradeCommit, gradingColumns, gradingFromRow, legalUci, type Grading, type StoredGrading } from '@/lib/training/grading'
 import { createGradingEngine, gradingEngineUrl } from '@/lib/training/grading-engine'
-import { reasonGateEnabled } from '@/lib/flags'
+import { reasonGateEnabled, sharePositionsEnabled } from '@/lib/flags'
+import { isShareable } from '@/lib/share/payload'
 import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
+import { track } from '@/lib/analytics/track'
+import { playFromPosition } from '@/lib/play/engine'
 import { SESSION_UUID } from '@/lib/training/next-step'
 import { checkReason, GOAL_BUDGET_MS } from '@/lib/training/goals'
 import {
@@ -277,6 +280,7 @@ export async function POST(
         { status: 500, headers: NO_STORE_HEADERS }
       )
     }
+    track('training_commit', { userId: user.id })
   }
 
   const recurrence =
@@ -309,6 +313,10 @@ export async function POST(
       },
 
       recurrence,
+
+      play_from: playFromPosition(position.game_id, position.root_ply),
+
+      ...(sharePositionsEnabled('live') ? { shareable: isShareable(position) } : {}),
 
       ...(reasonGate ? { reason } : {}),
 

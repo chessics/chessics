@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { livePlayEnabled } from '@/lib/play/engine'
 import GameReviewClient, {
   type ChainWithNodes,
 } from '@/components/workbench/GameReviewClient'
@@ -84,6 +85,7 @@ export default async function GameReviewPage({ params, searchParams }: Props) {
       analysis={analysis}
       causalChains={causalChains}
       initialChainRootPly={Number.isFinite(chainRootPly) ? chainRootPly : null}
+      takeOver={(game as Game).user_id === userId && livePlayEnabled() ? 'live' : null}
     />
   )
 }

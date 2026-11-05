@@ -1,0 +1,7 @@
+maia2_models/
+**/__pycache__/
+.pytest_cache/
+*.pt
+.venv/
+venv/
+results/*.raw.json

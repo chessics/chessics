@@ -117,7 +117,7 @@ export async function fetchLichessGames(
   timeControlFilter: TimeControlFilter = 'rapid_blitz'
 ): Promise<LichessSyncedGame[]> {
   const perfTypeParam = timeControlFilter === 'rapid_blitz' ? '&perfType=blitz,rapid' : ''
-  const url = `${LICHESS_BASE}/games/user/${encodeURIComponent(username)}?max=${batchSize}&pgnInJson=true${perfTypeParam}`
+  const url = `${LICHESS_BASE}/games/user/${encodeURIComponent(username)}?max=${batchSize}&pgnInJson=true&clocks=true${perfTypeParam}`
 
   const headers = {
     Accept: 'application/x-ndjson',
@@ -167,7 +167,7 @@ export async function fetchLichessWindow(
   w: FetchWindow,
   { now = Date.now }: { now?: () => number } = {}
 ): Promise<WindowResult<LichessSyncedGame>> {
-  const params = new URLSearchParams({ max: String(w.max), pgnInJson: 'true' })
+  const params = new URLSearchParams({ max: String(w.max), pgnInJson: 'true', clocks: 'true' })
   if (w.after !== null) params.set('since', String(w.after + 1))
   if (w.before !== null) params.set('until', String(w.before - 1))
   if (w.order === 'asc') params.set('sort', 'dateAsc')

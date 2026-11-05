@@ -17,6 +17,8 @@ import { withLitSquares } from '@/lib/board/squares'
 import { tagLabel } from '@/lib/training/session'
 import { GOAL_LABEL, reasonWords, type CheckStatus, type GoalCheck } from '@/lib/training/reason'
 import { keyBelongsToControl } from '@/lib/training/shortcut'
+import ShareButton from './ShareButton'
+import type { ShareMode } from '@/lib/share/api-types'
 
 interface RevealProps {
   fen: string
@@ -30,6 +32,8 @@ interface RevealProps {
   onNext: () => void
   onWatch: () => void
   onThreat?: () => void
+  playHref?: string | null
+  share?: { mode: ShareMode; positionId: string } | null
 }
 
 const BRUSH = {
@@ -75,7 +79,7 @@ function checkWords(c: GoalCheck): string {
   return `${words[c.status]}${numbers}`
 }
 
-export default function Reveal({ fen, orientation, kind, commit, chosenMove, size, watched, nextLabel, onNext, onWatch, onThreat }: RevealProps) {
+export default function Reveal({ fen, orientation, kind, commit, chosenMove, size, watched, nextLabel, onNext, onWatch, onThreat, playHref = null, share = null }: RevealProps) {
   const chosenSan = sanOf(fen, chosenMove)
   const moveLines = revealLines(kind, commit, chosenSan)
   const reason = commit.reason ?? null
@@ -183,6 +187,12 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
               See the threat{threatSan ? `: ${threatSan}` : ''}
             </button>
           )}
+          {playHref && (
+            <a className="training-btn training-btn-quiet" href={playHref} data-testid="play-it-out">
+              Play it out
+            </a>
+          )}
+          {share && <ShareButton mode={share.mode} positionId={share.positionId} />}
         </div>
 
         <details className="training-receipt">

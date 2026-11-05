@@ -11,6 +11,7 @@ import { accountMayHold, NOT_YOUR_USERNAME, OWNER_SAMPLE } from '@/lib/sync/owne
 import { batchFromLibrary, type LibraryBatch } from '@/lib/import/analyse'
 import { IMPORT_BUDGET_MS } from '@/lib/import/run'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { track, trackSignup } from '@/lib/analytics/track'
 
 export const maxDuration = 30
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user?.id ?? null
+  trackSignup(user)
 
   if (!userId && !sessionToken) {
     return NextResponse.json(
@@ -226,6 +228,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error('[sync] redis error:', err)
     return NextResponse.json({ error: 'Failed to queue analysis job' }, { status: 500 })
   }
+
+  track(userId ? 'analysis_started' : 'guest_analysis_started', { userId, guestToken: userId ? null : sessionToken, props: { platform, game_count: gameCount, time_class: timeControlFilter } })
 
   return NextResponse.json({
     jobId,

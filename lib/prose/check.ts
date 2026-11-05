@@ -31,6 +31,7 @@ export type ProseRule =
   | 'result_contradicted'
   | 'stand_alone'
   | 'count_changed'
+  | 'category_headline'
 
 export interface ProseChange {
   old: string
@@ -234,14 +235,13 @@ export function checkBatchProse(input: BatchProseInput): BatchProse {
 
   let verdict: Verdict | null
   if (!head) verdict = verdictFor(input.storedVerdict, false)
-  else if (storedHead && storedHead.tag === head.tag && !groupChanged(storedHead, head) && input.storedVerdict) {
-    const { text, rules } = checkSentence(input.storedVerdict, ctxFor(storedHead.gameIds))
-    if (rules.length === 0) verdict = verdictFor(text, true)
-    else {
-      verdict = { text: habitVerdict(head.label, head.frequency, input.gameCount), needsMoreGames: false }
-      changes.push({ old: input.storedVerdict, new: verdict.text, rules })
+  else {
+    verdict = { text: habitVerdict(head.tag, head.label, head.frequency, input.gameCount), needsMoreGames: false }
+    if (storedHead && storedHead.tag === head.tag && !groupChanged(storedHead, head) && input.storedVerdict) {
+      const { rules } = checkSentence(input.storedVerdict, ctxFor(storedHead.gameIds))
+      changes.push({ old: input.storedVerdict, new: verdict.text, rules: [...rules, 'category_headline'] })
     }
-  } else verdict = { text: habitVerdict(head.label, head.frequency, input.gameCount), needsMoreGames: false }
+  }
 
   const headCountChanged = !!storedHead && (!head || head.tag !== storedHead.tag || groupChanged(storedHead, head))
 

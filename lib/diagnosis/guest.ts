@@ -1,7 +1,7 @@
 import type { GuestSessionResult } from '@/types/guest'
 import type { InstanceFacts } from './finding'
 import { makeInstance, noteStandAlone, terminalStoodAlone, type MoveFacts, type StandAloneByTag } from './instance'
-import { fatigueLine, type BlunderMove, type FatigueLine, type HistoryGame, type ScopeGame } from './sittings'
+import { hasEngineEvals, sittingReport, type BlunderMove, type HistoryGame, type ScopeGame, type SittingReport } from './sittings'
 
 export function guestInstances(result: GuestSessionResult, standAlone?: StandAloneByTag): Map<string, InstanceFacts[]> {
   const out = new Map<string, InstanceFacts[]>()
@@ -33,7 +33,7 @@ export function guestInstances(result: GuestSessionResult, standAlone?: StandAlo
   return out
 }
 
-export function guestFatigue(result: GuestSessionResult): FatigueLine | null {
+export function guestFatigue(result: GuestSessionResult): SittingReport | null {
   const history: HistoryGame[] = result.games.map((g) => ({
     id: g.analysis_data.gameId,
     platform: g.platform,
@@ -47,11 +47,12 @@ export function guestFatigue(result: GuestSessionResult): FatigueLine | null {
     result: g.result,
     userColor: g.user_color,
     analysed: g.analysis_data.moves.length > 0,
+    evaluated: hasEngineEvals(g.analysis_data.moves),
   }))
   const blunders: BlunderMove[] = result.games.flatMap((g) =>
     g.analysis_data.moves
       .filter((m) => m.classification === 'blunder')
       .map((m) => ({ gameId: g.analysis_data.gameId, ply: m.ply_number, evalBefore: m.eval_before, evalAfter: m.eval_after }))
   )
-  return fatigueLine(history, scope, blunders)
+  return sittingReport(history, scope, blunders, 'report')
 }

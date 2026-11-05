@@ -21,6 +21,11 @@ import { formatTimeControl } from '@/lib/review/time-control'
 import { reviewBoardSize } from '@/lib/review/board-size'
 import { moveListKey, tabStopPly } from '@/lib/review/move-list-keys'
 import { scrollListToMove } from '@/lib/review/move-list-scroll'
+import { reviewClock, stripMarks, timeStripBars } from '@/lib/review/clock-view'
+import { formatClock } from '@/lib/clock/format'
+import TimeStrip from './TimeStrip'
+import { takeOverHref, takeOverPlies } from '@/lib/review/take-over'
+import type { PlayMode } from '@/lib/play/setup'
 import type {
   Game,
   Move,
@@ -181,10 +186,11 @@ interface MoveCellProps {
   isActive: boolean
   onClick: () => void
   tabIndex: number
+  clockMs?: number
 }
 
 const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
-  ({ move, isActive, onClick, tabIndex }, ref) => {
+  ({ move, isActive, onClick, tabIndex, clockMs }, ref) => {
     const cls = move.classification
     const color = cls ? CLASS_COLOR[cls] : undefined
     const sym = cls ? CLASS_SYMBOL[cls] : undefined
@@ -246,6 +252,23 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
             {sym}
           </span>
         )}
+        {clockMs !== undefined && (
+          <span
+            data-clock={clockMs}
+            style={{
+              marginLeft: 'auto',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10,
+              color: 'var(--text-muted)',
+              letterSpacing: -0.2,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span className="sr-only">, </span>
+            {formatClock(clockMs)}
+            <span className="sr-only"> left</span>
+          </span>
+        )}
       </button>
     )
   }
@@ -258,6 +281,7 @@ interface Props {
   analysis: GameAnalysis | null
   causalChains: ChainWithNodes[]
   initialChainRootPly?: number | null
+  takeOver?: PlayMode | null
 }
 
 export default function GameReviewClient({
@@ -266,6 +290,7 @@ export default function GameReviewClient({
   analysis,
   causalChains,
   initialChainRootPly = null,
+  takeOver = null,
 }: Props) {
   const [currentPly, setCurrentPly] = useState(0)
   const [activeChainId, setActiveChainId] = useState<string | null>(null)
@@ -361,6 +386,20 @@ export default function GameReviewClient({
     [causalChains, moves, game.user_color]
   )
   const realChainCount = causalChains.length - standAloneIds.size
+
+  const clock = useMemo(() => reviewClock(game.pgn, moves), [game.pgn, moves])
+  const playable = useMemo(
+    () => (takeOver ? takeOverPlies(game.pgn, game.user_color) : null),
+    [takeOver, game.pgn, game.user_color]
+  )
+  const takeOverLink = takeOverHref(takeOver, game.id, currentPly, playable)
+  const timeBars = useMemo(
+    () =>
+      clock
+        ? timeStripBars({ moves, clock, userColor: game.user_color, marks: stripMarks(causalChains, moves, standAloneIds) })
+        : null,
+    [clock, moves, game.user_color, causalChains, standAloneIds]
+  )
 
   const prose = useMemo(
     () =>
@@ -511,6 +550,12 @@ export default function GameReviewClient({
           />
         </div>
 
+        {timeBars && (
+          <div style={{ paddingLeft: 22 }}>
+            <TimeStrip bars={timeBars} currentPly={currentPly} width={boardSize} onSelect={goTo} />
+          </div>
+        )}
+
         <div
           style={{
             display: 'flex',
@@ -595,6 +640,24 @@ export default function GameReviewClient({
           </span>
         </div>
 
+        {takeOverLink && (
+          <div style={{ paddingLeft: 22 }}>
+            <a
+              href={takeOverLink}
+              data-testid="take-over"
+              style={{
+                fontSize: 13,
+                color: 'var(--brass)',
+                textDecoration: 'none',
+                borderBottom: '1px solid var(--border-strong)',
+                paddingBottom: 1,
+              }}
+            >
+              Take over from here
+            </a>
+          </div>
+        )}
+
         <div
           ref={moveListRef}
           role="group"
@@ -645,6 +708,7 @@ export default function GameReviewClient({
                 isActive={currentPly === white.ply_number}
                 onClick={() => goTo(white.ply_number)}
                 tabIndex={listStop === white.ply_number ? 0 : -1}
+                clockMs={clock?.remaining.get(white.ply_number)}
                 ref={
                   currentPly === white.ply_number ? setActiveMoveRef : undefined
                 }
@@ -655,6 +719,7 @@ export default function GameReviewClient({
                   isActive={currentPly === black.ply_number}
                   onClick={() => goTo(black.ply_number)}
                   tabIndex={listStop === black.ply_number ? 0 : -1}
+                  clockMs={clock?.remaining.get(black.ply_number)}
                   ref={
                     currentPly === black.ply_number
                       ? setActiveMoveRef

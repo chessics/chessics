@@ -1,5 +1,6 @@
 import { sentenceCase, type GroupFacts } from './finding'
-import { groupChanged } from './recount'
+import { tagSentences } from './tag-sentences'
+import { countNoun } from '../count-noun'
 
 export const ANALYZE_MORE_ID = 'analyze-more'
 
@@ -21,19 +22,18 @@ export function verdictFor(stored: string | null, recurring: boolean): Verdict |
   return { text: withoutEmDash(stored), needsMoreGames: false }
 }
 
-export function habitVerdict(label: string, frequency: number, gameCount: number): string {
-  return `${sentenceCase(label)} came up in ${frequency} of your ${gameCount} games.`
+export function habitVerdict(tag: string, label: string, frequency: number, gameCount: number): string {
+  const s = tagSentences(tag)
+  const games = countNoun(gameCount, 'game')
+  return s ? `In ${frequency} of your ${games}, ${s.headline}.` : `${sentenceCase(label)} came up in ${frequency} of your ${games}.`
 }
 
 export function reportVerdict(
   stored: string | null,
-  storedGroups: readonly GroupFacts[],
   recounted: readonly GroupFacts[],
   gameCount: number
 ): Verdict | null {
   const head = recounted.find((g) => g.recurring)
   if (!head) return verdictFor(stored, false)
-  const storedHead = storedGroups.find((g) => g.recurring)
-  if (storedHead && storedHead.tag === head.tag && !groupChanged(storedHead, head)) return verdictFor(stored, true)
-  return { text: habitVerdict(head.label, head.frequency, gameCount), needsMoreGames: false }
+  return { text: habitVerdict(head.tag, head.label, head.frequency, gameCount), needsMoreGames: false }
 }

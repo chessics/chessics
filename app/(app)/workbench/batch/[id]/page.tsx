@@ -13,7 +13,7 @@ import { userNameFromGames } from '@/lib/sync/user-from-games'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { checkBatchProse } from '@/lib/prose/check'
 import { countNoun } from '@/lib/count-noun'
-import { HISTORY_LOOKBACK_MS, fatigueLine, type BlunderMove, type HistoryGame } from '@/lib/diagnosis/sittings'
+import { loadAccountSittings } from '@/lib/diagnosis/sittings-load'
 import type { BatchPatternGroup, BatchReport, Game, GameAnalysis, Profile } from '@/lib/supabase/types'
 
 export const metadata: Metadata = { title: 'Batch report' }
@@ -52,6 +52,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
 
   const batch = batchResult.data as BatchReport | null
   if (!batch) notFound()
+  const fatigueRead = loadAccountSittings(supabase, userId)
   const profile = (profileResult.data ?? null) as Profile | null
 
   const storedGroups = (batch.pattern_groups ?? []) as BatchPatternGroup[]
@@ -87,41 +88,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
   const stripGroup = selectFindings(groups).ordered[0] ?? null
   const findings = buildFindings(groups, instances, batch.game_count)
 
-  const batchTimes = orderedGames.flatMap((g) => (g.played_at ? [Date.parse(g.played_at)] : [])).filter((t) => !Number.isNaN(t))
-  const historyCols = 'id, platform, played_at, time_control'
-  const windowStart = batchTimes.length > 0 ? new Date(Math.min(...batchTimes) - HISTORY_LOOKBACK_MS).toISOString() : null
-  const windowEnd = batchTimes.length > 0 ? new Date(Math.max(...batchTimes)).toISOString() : null
-  const [windowResult, beforeResult, blundersResult] = await Promise.all([
-    windowStart && windowEnd
-      ? supabase.from('games').select(historyCols).eq('user_id', userId).gte('played_at', windowStart).lte('played_at', windowEnd).order('played_at').limit(5000)
-      : Promise.resolve({ data: [], error: null }),
-    windowStart
-      ? supabase.from('games').select(historyCols).eq('user_id', userId).lt('played_at', windowStart).order('played_at', { ascending: false }).limit(1)
-      : Promise.resolve({ data: [], error: null }),
-    gameIds.length > 0
-      ? supabase.from('moves').select('game_id, ply_number, eval_before, eval_after').in('game_id', gameIds).eq('classification', 'blunder')
-      : Promise.resolve({ data: [], error: null }),
-  ])
-  type HistoryRow = { id: string; platform: string | null; played_at: string | null; time_control: string | null }
-  const fatigue =
-    windowResult.error || beforeResult.error || blundersResult.error
-      ? null
-      : fatigueLine(
-          [...((beforeResult.data ?? []) as HistoryRow[]), ...((windowResult.data ?? []) as HistoryRow[])].map(
-            (g): HistoryGame => ({ id: g.id, platform: g.platform, playedAt: g.played_at, timeControl: g.time_control })
-          ),
-          orderedGames.map((g) => ({
-            id: g.id,
-            playedAt: g.played_at,
-            opponent: g.opponent_username,
-            result: g.result,
-            userColor: g.user_color,
-            analysed: g.is_analyzed,
-          })),
-          ((blundersResult.data ?? []) as { game_id: string; ply_number: number; eval_before: number | null; eval_after: number | null }[]).map(
-            (m): BlunderMove => ({ gameId: m.game_id, ply: m.ply_number, evalBefore: m.eval_before, evalAfter: m.eval_after })
-          )
-        )
+  const fatigue = await fatigueRead
 
   const affected = new Set(stripGroup?.gameIds ?? [])
   const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))

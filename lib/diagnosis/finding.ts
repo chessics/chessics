@@ -1,5 +1,6 @@
 import { standing } from '@/lib/training/reveal'
 import { countNoun } from '../count-noun'
+import { tagSentences } from './tag-sentences'
 
 export type GameResult = 'win' | 'loss' | 'draw'
 
@@ -53,12 +54,13 @@ export interface SourceRow {
 
 export interface ClaimSentence {
   text: string
-  door?: boolean
+  door?: boolean | string
 }
 
 export interface Finding {
   tag: string
   label: string
+  checked: string | null
   frequency: number
   gameCount: number
   recurring: boolean
@@ -124,25 +126,42 @@ function sharedStanding(cps: number[], signWord: 'ahead' | 'behind'): string {
   return bands.size === 1 ? Array.from(bands)[0]! : signWord
 }
 
-function resultsSentence(games: { result: GameResult | null }[], sameAsTimes: boolean): string | null {
-  if (games.length === 0 || games.some((g) => g.result === null)) return null
-  const lost = games.filter((g) => g.result === 'loss').length
-  const drew = games.filter((g) => g.result === 'draw').length
-  const won = games.filter((g) => g.result === 'win').length
-  if (games.length === 1) {
-    return `You ${lost ? 'lost' : drew ? 'drew' : 'won'} that game.`
-  }
-  const noun = sameAsTimes ? '' : ' games'
-  if (lost === games.length) return `You lost all ${games.length}${noun}.`
-  if (drew === games.length) return `You drew all ${games.length}${noun}.`
-  if (won === games.length) return `You won all ${games.length}${noun}.`
+type Verb = 'lost' | 'drew' | 'won'
+const VERB: Record<GameResult, Verb> = { loss: 'lost', draw: 'drew', win: 'won' }
+
+function resultList(lost: number, drew: number, won: number): string {
   const parts = [
     lost ? `lost ${lost}` : null,
     drew ? `drew ${drew}` : null,
     won ? `won ${won}` : null,
   ].filter((p): p is string => p !== null)
-  const list = parts.length === 3 ? `${parts[0]}, ${parts[1]} and ${parts[2]}` : `${parts[0]} and ${parts[1]}`
-  return sameAsTimes ? `You ${list}.` : `Of those ${games.length} games you ${list}.`
+  return parts.length === 3 ? `${parts[0]}, ${parts[1]} and ${parts[2]}` : `${parts[0]} and ${parts[1]}`
+}
+
+function resultsSentence(games: { result: GameResult | null }[], times: number): string | null {
+  if (games.length === 0 || games.some((g) => g.result === null)) return null
+  const n = games.length
+  const lost = games.filter((g) => g.result === 'loss').length
+  const drew = games.filter((g) => g.result === 'draw').length
+  const won = games.filter((g) => g.result === 'win').length
+  const same: Verb | null = lost === n ? 'lost' : drew === n ? 'drew' : won === n ? 'won' : null
+  if (n === 1) {
+    const verb = VERB[games[0]!.result!]
+    if (times === 1) return `You ${verb} that game.`
+    return `${times === 2 ? 'Both' : `All ${times}`} came in one game, and you ${verb} it.`
+  }
+  const allOf = n === 2 ? 'both' : `all ${n}`
+  if (n === times) {
+    return same ? `You ${same} ${allOf} games.` : `Of those ${n} games, you ${resultList(lost, drew, won)}.`
+  }
+  return same ? `They came in ${n} games, and you ${same} ${allOf}.` : `They came in ${n} games: you ${resultList(lost, drew, won)}.`
+}
+
+function countPhrase(counted: number, total: number): string {
+  if (counted < total) return `${counted} of the ${total} times`
+  if (total === 1) return 'Once'
+  if (total === 2) return 'Both times'
+  return `All ${total} times`
 }
 
 export function buildClaim(
@@ -156,14 +175,11 @@ export function buildClaim(
   }
   const before = sharedStanding(counted.map((i) => i.beforeCp!), 'ahead')
   const after = sharedStanding(counted.map((i) => i.afterCp!), 'behind')
-  const k = counted.length
-  const n = instances.length
-  const count = k === n ? (k === 1 ? 'Once.' : `${k} times.`) : `${k} of the ${n} times.`
+  const count = countPhrase(counted.length, instances.length)
   const games = Array.from(new Map(counted.map((i) => [i.gameId, { result: i.result }])).values())
-  const outcome = resultsSentence(games, games.length === k)
+  const outcome = resultsSentence(games, counted.length)
   return [
-    { text: `You were ${before} before this move and ${after} after the slide it started.` },
-    { text: count, door: true },
+    { text: `${count}, you were ${before} before this move and ${after} after the blunder that ended its slide.`, door: count },
     ...(outcome ? [{ text: outcome }] : []),
   ]
 }
@@ -192,6 +208,7 @@ export function buildFindings(
     return {
       tag: g.tag,
       label: sentenceCase(g.label),
+      checked: tagSentences(g.tag)?.finding ?? null,
       frequency: g.frequency,
       gameCount,
       recurring: g.recurring,

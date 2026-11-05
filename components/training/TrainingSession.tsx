@@ -18,6 +18,7 @@ import {
   type TrainingMode,
 } from '@/lib/training/api-types'
 import { nextButtonLabel, planReveal, type RevealKind } from '@/lib/training/reveal'
+import { playHref } from '@/lib/play/links'
 import type { Goal } from '@/lib/training/reason'
 import { announcement } from '@/lib/training/announce'
 import { arrowUci } from '@/lib/training/keyboard-board'
@@ -95,6 +96,12 @@ function arrowSan(fen: string, a: DrawnArrow): string {
   } catch {
     return arrowUci(a)
   }
+}
+
+export function revealPlayHref(mode: TrainingMode, commit: CommitResponse): string | null {
+  const from = commit.play_from
+  if (!from || typeof from.game_id !== 'string' || !Number.isInteger(from.ply) || from.ply < 0) return null
+  return playHref(mode === 'live' ? 'live' : 'fixture', from.game_id, from.ply, 'train')
 }
 
 function useBoardSize(ref: React.RefObject<HTMLDivElement>): number {
@@ -381,6 +388,8 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
           nextLabel={nextButtonLabel(upcoming)}
           onWatch={() => setPhase({ ...phase, name: 'punish' })}
           onThreat={() => setPhase({ ...phase, name: 'threat' })}
+          playHref={revealPlayHref(mode, phase.commit)}
+          share={phase.commit.shareable ? { mode, positionId: phase.position.position_id } : null}
         />
       )}
 

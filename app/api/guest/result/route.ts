@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import type { GuestSessionResult } from '@/types/guest'
+import { trackReportViewed } from '@/lib/analytics/track'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -21,7 +22,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const result: GuestSessionResult =
     typeof raw === 'string' ? JSON.parse(raw) : (raw as GuestSessionResult)
 
-  return NextResponse.json(withoutTrainingPositions(result))
+  const body = withoutTrainingPositions(result)
+  trackReportViewed(sessionToken)
+  return NextResponse.json(body)
 }
 
 function withoutTrainingPositions(result: GuestSessionResult) {

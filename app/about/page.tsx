@@ -33,6 +33,10 @@ const SECTIONS: ReadonlyArray<{ heading: string; paragraphs: readonly string[] }
     ],
   },
   {
+    heading: 'Privacy',
+    paragraphs: ['Chessics counts visits anonymously and without cookies.'],
+  },
+  {
     heading: 'Open source',
     paragraphs: ['Chessics is free software under the AGPL-3.0-or-later license. Anyone can read the code.'],
   },

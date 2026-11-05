@@ -24,11 +24,13 @@ interface DiagnosisProps {
   sourcesNote?: string
   reducedMotion?: boolean
   initialTag?: string
+  opponentsRemoved?: boolean
+  defaultDoorOpen?: boolean
 }
 
-export default function Diagnosis({ findings, reviewLinks, sourcesNote, reducedMotion, initialTag }: DiagnosisProps) {
+export default function Diagnosis({ findings, reviewLinks, sourcesNote, reducedMotion, initialTag, opponentsRemoved, defaultDoorOpen }: DiagnosisProps) {
   const [selected, setSelected] = useState(initialTag ?? findings[0]?.tag ?? null)
-  const [doorOpen, setDoorOpen] = useState(false)
+  const [doorOpen, setDoorOpen] = useState(defaultDoorOpen === true)
   const sectionRef = useRef<HTMLElement>(null)
 
   const finding = findings.find((f) => f.tag === selected) ?? findings[0] ?? null
@@ -65,38 +67,72 @@ export default function Diagnosis({ findings, reviewLinks, sourcesNote, reducedM
               {finding.note}
             </p>
           )}
-          <div className="flex items-baseline justify-between gap-4 flex-wrap">
-            <h2 id="diagnosis-finding" className="font-headline" style={{ fontSize: 28, lineHeight: 1.2, color: 'var(--text)', fontWeight: 500 }}>
-              {finding.label}
-            </h2>
-            <p className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
-              {finding.status}
-            </p>
-          </div>
+          {finding.checked ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-4 flex-wrap">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }} data-finding-label>
+                  {finding.label}
+                </p>
+                <p className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
+                  {finding.status}
+                </p>
+              </div>
+              <h2 id="diagnosis-finding" className="font-headline" style={{ fontSize: 26, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
+                {finding.checked}
+              </h2>
+            </div>
+          ) : (
+            <div className="flex items-baseline justify-between gap-4 flex-wrap">
+              <h2 id="diagnosis-finding" className="font-headline" style={{ fontSize: 28, lineHeight: 1.2, color: 'var(--text)', fontWeight: 500 }}>
+                {finding.label}
+              </h2>
+              <p className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
+                {finding.status}
+              </p>
+            </div>
+          )}
 
           <p className="text-lg" style={{ color: 'var(--text)', lineHeight: 1.6 }} data-claim>
-            {finding.claim.map((s, i) => (
-              <span key={i}>
-                {i > 0 && ' '}
-                {s.door ? (
-                  <button
-                    type="button"
-                    className="diagnosis-door"
-                    aria-expanded={doorOpen}
-                    aria-controls="diagnosis-sources"
-                    onClick={() => setDoorOpen((o) => !o)}
-                  >
-                    {s.text}
-                  </button>
-                ) : (
-                  s.text
-                )}
-              </span>
-            ))}
+            {finding.claim.map((s, i) => {
+              const door = (text: string) => (
+                <button
+                  type="button"
+                  className="diagnosis-door"
+                  aria-expanded={doorOpen}
+                  aria-controls="diagnosis-sources"
+                  onClick={() => setDoorOpen((o) => !o)}
+                >
+                  {text}
+                </button>
+              )
+              const lead = typeof s.door === 'string' && s.door !== '' && s.text.startsWith(s.door) ? s.door : null
+              return (
+                <span key={i}>
+                  {i > 0 && ' '}
+                  {lead !== null ? (
+                    <>
+                      {door(lead)}
+                      {s.text.slice(lead.length)}
+                    </>
+                  ) : s.door ? (
+                    door(s.text)
+                  ) : (
+                    s.text
+                  )}
+                </span>
+              )
+            })}
           </p>
 
           {doorOpen && (
-            <Sources id="diagnosis-sources" rule={finding.rule} rows={finding.sources} reviewLinks={reviewLinks} note={sourcesNote} />
+            <Sources
+              id="diagnosis-sources"
+              rule={finding.rule}
+              rows={finding.sources}
+              reviewLinks={reviewLinks}
+              note={sourcesNote}
+              opponentsRemoved={opponentsRemoved}
+            />
           )}
         </div>
 
@@ -143,12 +179,14 @@ function Sources({
   rows,
   reviewLinks,
   note,
+  opponentsRemoved,
 }: {
   id: string
   rule: string
   rows: SourceRow[]
   reviewLinks: boolean
   note?: string
+  opponentsRemoved?: boolean
 }) {
   const anyCounted = rows.some((r) => r.counted)
   return (
@@ -163,7 +201,7 @@ function Sources({
               {r.playedAt ? formatDate(r.playedAt) : 'Undated'}
             </span>
             <span className="text-sm flex-1 truncate" style={{ color: 'var(--text)', minWidth: 120 }}>
-              {r.opponent ? `vs ${r.opponent}` : 'Unknown opponent'}
+              {opponentsRemoved ? 'Name removed' : r.opponent ? `vs ${r.opponent}` : 'Unknown opponent'}
             </span>
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
               move {r.moveNumber}

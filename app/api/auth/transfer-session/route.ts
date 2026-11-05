@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { Redis } from '@upstash/redis'
 import type { GuestSessionResult } from '@/types/guest'
 import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
+import { trackSignup } from '@/lib/analytics/track'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const userId = user.id
+  trackSignup(user, sessionToken)
 
   const limited = await checkLimits([{ rule: RATE_LIMITS.transfer, key: userKey(userId) }])
   if (!limited.allowed) return tooManyRequests(limited)

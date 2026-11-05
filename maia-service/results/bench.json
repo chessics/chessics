@@ -1,0 +1,131 @@
+{
+  "machine": {
+    "python": "3.11.18",
+    "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "avx512": true,
+    "avx2": true,
+    "logical_cpus": 4,
+    "ram_total_gb": 15.7,
+    "torch": "2.8.0+cu128",
+    "torch_threads_default": 4
+  },
+  "positions": 204,
+  "source": "bench/positions.txt",
+  "cold": [
+    {
+      "start_to_health_ms": 2794,
+      "first_request_client_ms": 35.4,
+      "first_request_server_ms": 33
+    },
+    {
+      "start_to_health_ms": 2634,
+      "first_request_client_ms": 25.0,
+      "first_request_server_ms": 23
+    },
+    {
+      "start_to_health_ms": 3450,
+      "first_request_client_ms": 32.4,
+      "first_request_server_ms": 30
+    }
+  ],
+  "memory_after_load_mb": {
+    "VmHWM": 1101.7,
+    "VmRSS": 869.3
+  },
+  "http": {
+    "client_round_trip_ms": {
+      "n": 612,
+      "p50": 11.06,
+      "p95": 15.97,
+      "mean": 11.73,
+      "min": 7.95,
+      "max": 44.42
+    },
+    "server_ms_field": {
+      "n": 612,
+      "p50": 9.5,
+      "p95": 14.0,
+      "mean": 10.16,
+      "min": 7,
+      "max": 40
+    },
+    "threads": "torch default"
+  },
+  "memory_after_warm_mb": {
+    "VmHWM": 1101.7,
+    "VmRSS": 870.3
+  },
+  "forward": {
+    "threads_1": {
+      "n": 612,
+      "p50": 18.74,
+      "p95": 23.51,
+      "mean": 19.25,
+      "min": 15.76,
+      "max": 31.43
+    },
+    "threads_2": {
+      "n": 612,
+      "p50": 12.86,
+      "p95": 16.59,
+      "mean": 13.34,
+      "min": 10.22,
+      "max": 29.69
+    },
+    "threads_4": {
+      "n": 612,
+      "p50": 7.69,
+      "p95": 10.95,
+      "mean": 8.18,
+      "min": 6.23,
+      "max": 28.14
+    }
+  },
+  "batch": {
+    "threads_1": {
+      "1": {
+        "batches": 204,
+        "ms_per_batch": 19.73,
+        "ms_per_position": 19.73
+      },
+      "8": {
+        "batches": 25,
+        "ms_per_batch": 73.69,
+        "ms_per_position": 9.21
+      },
+      "32": {
+        "batches": 6,
+        "ms_per_batch": 244.32,
+        "ms_per_position": 7.63
+      },
+      "64": {
+        "batches": 3,
+        "ms_per_batch": 505.99,
+        "ms_per_position": 7.91
+      }
+    },
+    "threads_4": {
+      "1": {
+        "batches": 204,
+        "ms_per_batch": 8.18,
+        "ms_per_position": 8.18
+      },
+      "8": {
+        "batches": 25,
+        "ms_per_batch": 30.25,
+        "ms_per_position": 3.78
+      },
+      "32": {
+        "batches": 6,
+        "ms_per_batch": 96.55,
+        "ms_per_position": 3.02
+      },
+      "64": {
+        "batches": 3,
+        "ms_per_batch": 150.69,
+        "ms_per_position": 2.35
+      }
+    }
+  }
+}

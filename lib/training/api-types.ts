@@ -29,6 +29,8 @@ export interface CommitResponse {
   root_move_uci: string | null
   grading: Omit<Grading, 'correct'>
   recurrence: Recurrence | null
+  play_from: { game_id: string; ply: number } | null
+  shareable?: boolean
   reason?: ReasonResult | null
   receipt: {
     engine: string | null

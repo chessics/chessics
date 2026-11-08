@@ -1,0 +1,35 @@
+.stage { position: relative; height: clamp(500px, 68vh, 780px); margin: 0 -40px 0 -32px; isolation: isolate; }
+
+/* The board settles in from slightly below once the first frame is on the canvas. */
+.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transform: translateY(14px) scale(.985); touch-action: pan-y; cursor: grab; transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform 1.1s cubic-bezier(.16, .84, .24, 1); }
+.scene:active { cursor: grabbing; }
+.stage[data-status='ready'] .scene { opacity: 1; transform: none; }
+.stage[data-status='failed'] .scene { display: none; }
+
+.caption { position: absolute; z-index: 3; transform: translate(-50%, -100%); padding: 7px 10px; background: #211b17ed; border: 1px solid var(--border); color: var(--gold-bright); font-size: 13px; line-height: 18px; white-space: nowrap; pointer-events: none; opacity: 0; }
+.caption::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 22px; background: var(--gold); }
+.stage:not([data-status='ready']) .caption { visibility: hidden; }
+/* Follows the board in; afterwards the scene drives the caption's opacity inline. */
+.stage[data-status='ready'] .caption { animation: caption-in .5s .45s cubic-bezier(.2, .7, .2, 1) backwards; }
+@keyframes caption-in { from { opacity: 0; transform: translate(-50%, calc(-100% + 6px)); } }
+
+.fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-muted); font-size: 14px; }
+
+/* The bleed never exceeds the page's side padding at each breakpoint, so nothing scrolls sideways. */
+@media (max-width: 1150px) {
+  .stage { margin: 0 -28px 0 -20px; }
+}
+@media (max-width: 850px) {
+  .stage { margin: 0 -20px 0 -12px; }
+}
+@media (max-width: 690px) {
+  /* The board is width-bound on phones; pull the stage up so its empty top band tucks under the form. */
+  .stage { height: 340px; margin: -64px -16px -12px; }
+}
+@media (max-width: 370px) {
+  .stage { height: 300px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene { transform: none; transition: none; }
+  .stage[data-status='ready'] .caption { animation: none; }
+}

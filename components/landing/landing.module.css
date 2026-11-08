@@ -1,0 +1,61 @@
+.page { --border: #39312a; --border-strong: #55483b; width: min(100%, 1360px); margin: 0 auto; padding: 0 48px; position: relative; }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 20px 0; }
+.logo { font: 400 32px/1 'Old Standard TT', Georgia, serif; letter-spacing: -.6px; color: var(--text); text-decoration: none; }
+.logo span { color: var(--gold); }
+.header nav { display: flex; gap: 28px; align-items: center; font-size: 12px; color: var(--text-muted); }
+.header nav a { display: flex; gap: 7px; align-items: center; }
+.header nav a:hover { color: var(--text); }
+.header nav .signInButton { justify-content: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--border-strong); color: var(--text); white-space: nowrap; }
+.header nav .signInButton:hover { background: var(--surface-2); border-color: var(--text-muted); }
+.signInButton:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.layout { display: grid; grid-template-columns: minmax(300px, .78fr) minmax(0, 1.5fr); gap: 56px; padding: 40px 0; align-items: center; }
+.showcase { min-width: 0; }
+.intro { margin-bottom: 38px; }
+.intro h1 { font: 400 clamp(38px, 4.1vw, 56px)/1.06 'Old Standard TT', Georgia, serif; letter-spacing: -1.1px; color: var(--text); }
+.intro h1 > span { display: block; }
+.intro p { margin-top: 20px; font-size: 16px; line-height: 24px; color: var(--text-muted); }
+.headlineAccent { color: var(--text-muted); margin-top: 12px; }
+.accessPanel { min-width: 0; padding: 0; max-width: 400px; }
+.platformPicker { display: flex; gap: 24px; border-bottom: 1px solid var(--border); }
+.platformButton { min-height: 44px; padding: 8px 0; font-size: 13px; border-bottom: 2px solid transparent; color: var(--text-muted); }
+.platformButton[aria-pressed="true"] { border-color: var(--gold); color: var(--text); }
+.platformButton:hover { color: var(--text); }
+.platformButton:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
+/* Flat brass: one solid color, a touch lighter on hover and darker when pressed. */
+.analyzeButton { min-height: 52px; padding: 0 20px; border: 0; background: #d4a85a; color: #1c130a; font: 600 15px/1 'DM Sans', sans-serif; letter-spacing: .01em; cursor: pointer; transition: background-color .2s cubic-bezier(.2, .7, .2, 1); }
+.analyzeButton:hover { background: #ddb46a; }
+.analyzeButton:active { background: #c49a4e; }
+.accessPanel input { min-height: 48px; transition: border-color .15s ease; }
+.accessPanel input:hover { border-color: var(--gold-dim) !important; }
+.accessPanel input:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+.signupLink { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 4px; margin-top: 16px; font-size: 13px; line-height: 20px; color: var(--text-muted); }
+.signupLink a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; }
+.signupLink a:hover { color: var(--gold-bright); }
+.footer { display: flex; justify-content: space-between; gap: 20px; padding: 22px 0 30px; color: var(--text-muted); font-size: 11px; line-height: 18px; }
+.page [hidden] { display: none !important; }
+.page button:focus-visible, .page a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+@media (max-width: 1150px) {
+  .page { padding: 0 32px; }
+  .layout { grid-template-columns: minmax(270px, .85fr) minmax(0, 1.15fr); gap: 36px; padding: 48px 0; }
+}
+@media (max-width: 850px) {
+  .page { padding: 0 24px; }
+  .layout { grid-template-columns: 270px minmax(0, 1fr); gap: 24px; }
+  .intro h1 { font-size: 43px; }
+}
+@media (max-width: 690px) {
+  .page { padding: 0 20px; }
+  .header { padding: 22px 0; }
+  .logo { font-size: 30px; }
+  .header nav { gap: 20px; }
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 34px; padding: 32px 0; }
+  .intro { margin-bottom: 25px; }
+  .intro h1 { font-size: clamp(40px, 9vw, 56px); letter-spacing: -1px; }
+  .accessPanel { padding: 0; width: 100%; max-width: 420px; margin: 0 auto; }
+  .accessPanel input { font-size: 16px; }
+  .footer { font-size: 10px; }
+}
+@media (max-width: 365px) {
+  .header nav { gap: 13px; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) { .accessPanel input, .analyzeButton { transition: none; } }

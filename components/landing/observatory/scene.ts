@@ -19,8 +19,6 @@ const SURFACE = 0.076
 const PIECE_SCALE = 1.08
 const square = (s: string) => new THREE.Vector3(s.charCodeAt(0) - 97 - 3.5, SURFACE, 8 - Number(s[1]) - 3.5)
 
-/* Timeline (ms). The loop opens on the final position with the lesson showing, so the poster
-   frame and the first live frame match; then the pieces glide home and the game replays. */
 const GAME = plies()
 const OPEN = 900, PLY = 1050, MOVE = 620
 const LAST_LAND = OPEN + (GAME.length - 1) * PLY + MOVE
@@ -38,7 +36,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   const small = matchMedia('(max-width: 690px)')
   const pixelRatio = () => Math.min(devicePixelRatio, small.matches ? 1.5 : 2)
 
-  /* ---------- Renderer, camera, light ---------- */
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(pixelRatio())
   renderer.shadowMap.enabled = true
@@ -63,7 +60,7 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   key.shadow.bias = -0.0003
   key.shadow.radius = 5
   scene.add(key)
-  const rim = new THREE.DirectionalLight(0xe9cf9f, 3.2) // back light: separates dark pieces from dark squares
+  const rim = new THREE.DirectionalLight(0xe9cf9f, 3.2)
   rim.position.set(4, 6, -9)
   scene.add(rim)
   const fill = new THREE.DirectionalLight(0xc9d4e3, 0.7)
@@ -71,11 +68,9 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   scene.add(fill)
 
   const world = new THREE.Group()
-  world.rotation.y = -0.18 // HOME_ROTATION, the default viewing angle
+  world.rotation.y = -0.18
   scene.add(world)
 
-  /* ---------- Materials ---------- */
-  // Boxwood and ebonised wood: faint grain in the color, and in the roughness so highlights streak along it.
   const [grainMap, grainRoughness] = pieceGrainTextures(renderer)
   const ivory = new THREE.MeshPhysicalMaterial({ color: 0xeadcc0, map: grainMap, roughness: 0.4, roughnessMap: grainRoughness, clearcoat: 0.55, clearcoatRoughness: 0.22, sheen: 0.3, sheenColor: 0xfff2dc })
   const ebony = new THREE.MeshPhysicalMaterial({ color: 0x2e241c, map: grainMap, roughness: 0.4, roughnessMap: grainRoughness, clearcoat: 0.8, clearcoatRoughness: 0.16 })
@@ -92,7 +87,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
     return m
   }
 
-  /* ---------- Board: plinth, walnut frame, brass hairline, marquetry top ---------- */
   add(new THREE.BoxGeometry(9.05, 0.14, 9.05), walnutDark).position.y = -0.36
   add(new THREE.BoxGeometry(8.7, 0.3, 8.7), walnut).position.y = -0.14
   add(new THREE.BoxGeometry(8.2, 0.03, 8.2), brass).position.y = 0.02
@@ -101,12 +95,10 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   top.rotation.x = -Math.PI / 2
   top.position.y = 0.0755
 
-  // Shadow catcher below the floating board: the only thing grounding it on the page.
   const ground = add(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: 0.28 }), scene, false)
   ground.rotation.x = -Math.PI / 2
   ground.position.y = -0.65
 
-  /* ---------- Pieces: one track per piece, built by replaying the game once ---------- */
   const piece = createPieceFactory({ ivory, ebony, brass, contact: radialTexture(0.05), segments: small.matches ? 40 : 64 })
   const occupant = new Map<string, Track>()
   const tracks: Track[] = startingPieces().map((p, order) => {
@@ -141,7 +133,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
     object.visible = true
     object.scale.setScalar(PIECE_SCALE)
     if (t >= HOLD_END) {
-      // Reset: survivors glide home in a gentle wave; captured pieces grow back in place.
       const begin = HOLD_END + (track.order / 31) * RESET_STAGGER
       const r = span(t, begin, begin + RESET_MOVE)
       if (track.capturedAt !== null) {
@@ -170,7 +161,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
     }
   }
 
-  /* ---------- The lesson: the two black pieces that never moved, and the mated king ---------- */
   const glowTex = squareGlowTexture()
   const glowGeo = new THREE.PlaneGeometry(0.98, 0.98).rotateX(-Math.PI / 2)
   const glows = IDLE_SQUARES.map(sq => {
@@ -184,8 +174,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   const ringMat = new THREE.MeshStandardMaterial({ color: 0x6e1a18, emissive: 0x8a1c18, emissiveIntensity: 0, roughness: 0.35, metalness: 0.4, transparent: true, opacity: 0 })
   add(new THREE.TorusGeometry(0.47, 0.022, 10, 72).rotateX(Math.PI / 2), ringMat, world, false, false).position.copy(kingPos).setY(SURFACE + 0.02)
 
-  // The idle pieces themselves: a brass ring at each base, a lift off the square, and a
-  // spotlight on the corner while the rest of the board dims.
   const idleTracks = tracks.filter(t => IDLE_SQUARES.includes(t.square))
   const idleRingMat = new THREE.MeshStandardMaterial({ color: 0xc9a55c, emissive: 0xd8a64a, emissiveIntensity: 0, roughness: 0.3, metalness: 0.7, transparent: true, opacity: 0 })
   const idleRingGeo = new THREE.TorusGeometry(0.45, 0.024, 10, 72).rotateX(Math.PI / 2)
@@ -207,7 +195,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
     return span(t, LESSON_START, LESSON_END)
   }
 
-  /* ---------- Drawing ---------- */
   let elapsed = FIRST_FRAME, last = 0, raf = 0, visible = true
 
   function anchorCaption() {
@@ -223,7 +210,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   function draw(t: number) {
     for (const track of tracks) placeTrack(track, t)
     const k = lessonStrength(t)
-    // A slow breath while holding; full strength at the hold's start (reduced motion's still frame).
     const breath = t > LESSON_END && t < HOLD_END ? 0.85 + 0.15 * Math.cos(((t - LESSON_END) / 2400) * Math.PI * 2) : 1
     for (const track of idleTracks) track.object.position.y += ease(k) * LIFT
     idleRingMat.opacity = k
@@ -251,8 +237,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
 
   function frame(now: number) {
     raf = 0
-    // Reading motion.matches refreshes Chrome's cached value, which can swallow the 'change'
-    // event when it flips mid-loop, so the loop handles the switch itself.
     if (motion.matches) { syncMotion(); return }
     if (!visible || document.hidden) { last = 0; return }
     if (last) elapsed = (elapsed + Math.min(now - last, 80)) % CYCLE
@@ -270,11 +254,9 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   document.addEventListener('visibilitychange', onVisibility)
   motion.addEventListener('change', syncMotion)
 
-  /* ---------- Drag to spin: full 360°, coasts on release, then eases back to the home view ---------- */
   const HOME_ROTATION = -0.18, RADIANS_PER_PX = 0.006, RETURN_DELAY = 2500
   let dragging = false, lastX = 0, lastMoveAt = 0, velocity = 0, releasedAt = 0, spinRaf = 0, spinLast = 0
 
-  // Shortest signed angle from `from` to `to`, so the return never unwinds extra full turns.
   const angleTo = (from: number, to: number) => Math.atan2(Math.sin(to - from), Math.cos(to - from))
 
   function spinFrame(now: number) {
@@ -298,7 +280,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
       place(distance)
       changed = true
     }
-    // The replay loop renders on its own; only draw here when it is stopped.
     if (changed && !raf) draw(elapsed)
     if (dragging || Math.abs(velocity) > 0.00002 || world.rotation.y !== HOME_ROTATION || distance !== goal) spinRaf = requestAnimationFrame(spinFrame)
     else spinLast = 0
@@ -327,7 +308,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   const onUp = (e: PointerEvent) => {
     if (!dragging) return
     dragging = false
-    // A pause before release means the user stopped the board deliberately: no coasting.
     if (e.timeStamp - lastMoveAt > 80) velocity = 0
     releasedAt = performance.now()
     wakeSpin()
@@ -337,15 +317,12 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
   canvas.addEventListener('pointerup', onUp)
   canvas.addEventListener('pointercancel', onUp)
 
-  /* ---------- Framing: tight on the home view, pulled back to a rotation-safe fit while spinning ---------- */
   const viewDir = new THREE.Vector3(0.43, 0.52, 0.68).normalize(), target = new THREE.Vector3(0, 0.3, 0)
-  // Spin fit: a cylinder around the plinth's corners, valid at any rotation.
   const spinPoints: THREE.Vector3[] = []
   for (let i = 0; i < 32; i++) {
     const a = (i / 32) * Math.PI * 2
     for (const y of [-0.5, 1.5]) spinPoints.push(new THREE.Vector3(Math.cos(a) * 6.4, y, Math.sin(a) * 6.4))
   }
-  // Home fit: the plinth's real corners plus the tallest pieces over the playing area, at HOME_ROTATION.
   const homePoints: THREE.Vector3[] = []
   for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     homePoints.push(new THREE.Vector3(x * 4.53, -0.43, z * 4.53), new THREE.Vector3(x * 4.53, 0.08, z * 4.53), new THREE.Vector3(x * 3.5, 1.75, z * 3.5))
@@ -376,7 +353,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
     renderer.setSize(box.width, box.height, false)
     camera.aspect = box.width / box.height
     camera.updateProjectionMatrix()
-    // Leave headroom above the home view for the lesson caption.
     homeDistance = fitDistance(homePoints, 0.7)
     spinDistance = Math.max(homeDistance, fitDistance(spinPoints, 0.86))
     distance = spinning() ? spinDistance : homeDistance
@@ -413,7 +389,6 @@ export function mountObservatory({ stage, canvas, caption }: ObservatoryElements
       })
       disposed.forEach(d => d.dispose())
       environment.dispose()
-      // No forceContextLoss: React Strict Mode remounts onto the same canvas.
       renderer.dispose()
       delete stage.dataset.ready
     },

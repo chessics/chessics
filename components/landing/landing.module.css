@@ -21,7 +21,6 @@
 .platformButton[aria-pressed="true"] { border-color: var(--gold); color: var(--text); }
 .platformButton:hover { color: var(--text); }
 .platformButton:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
-/* Flat brass: one solid color, a touch lighter on hover and darker when pressed. */
 .analyzeButton { min-height: 52px; padding: 0 20px; border: 0; background: #d4a85a; color: #1c130a; font: 600 15px/1 'DM Sans', sans-serif; letter-spacing: .01em; cursor: pointer; transition: background-color .2s cubic-bezier(.2, .7, .2, 1); }
 .analyzeButton:hover { background: #ddb46a; }
 .analyzeButton:active { background: #c49a4e; }

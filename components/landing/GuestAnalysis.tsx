@@ -48,7 +48,7 @@ export default function GuestAnalysis() {
       try {
         session = JSON.parse(raw) as ChessicsSession
       } catch {
-        try { localStorage.removeItem('chessics_session') } catch { /* Storage may be unavailable. */ }
+        try { localStorage.removeItem('chessics_session') } catch {  }
         setResumeState('idle')
         return
       }
@@ -76,7 +76,6 @@ export default function GuestAnalysis() {
   const inputRef = useRef<HTMLInputElement>(null)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // The button stays fully lit; an empty submit just sends focus to the field.
     if (!username.trim()) { inputRef.current?.focus(); return }
     let savedFilter: ChessicsSession['timeControlFilter']
     try {
@@ -100,7 +99,7 @@ export default function GuestAnalysis() {
   }
 
   const handleStartFresh = () => {
-    try { localStorage.removeItem('chessics_session') } catch { /* Storage may be unavailable. */ }
+    try { localStorage.removeItem('chessics_session') } catch {  }
     setResumeState('idle')
     setResumeSession(null)
   }

@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 
-// Seeded RNG: the veneer grain is identical on every load, so the poster matches the live scene.
 function rng(seed = 7) {
   return () => {
     seed = (seed * 16807) % 2147483647
@@ -22,7 +21,6 @@ function canvas2d(size: number) {
   return { canvas, ctx }
 }
 
-// Faint, gently wavering strokes along one axis: reads as cut-wood grain at board scale.
 function grain(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, horizontal: boolean, rand: () => number, strength: number) {
   ctx.save()
   ctx.beginPath()
@@ -59,8 +57,6 @@ function colorTexture(canvas: HTMLCanvasElement, renderer: THREE.WebGLRenderer) 
   return texture
 }
 
-// Marquetry board: parchment maple and walnut veneers, grain alternating direction per square.
-// Canvas row 0 maps to rank 8 and column 0 to the a-file (see the board plane in scene.ts).
 export function boardTexture(size: number, renderer: THREE.WebGLRenderer) {
   const { canvas, ctx } = canvas2d(size)
   const rand = rng(11)
@@ -95,8 +91,6 @@ export function walnutTexture(renderer: THREE.WebGLRenderer) {
   return colorTexture(canvas, renderer)
 }
 
-// Turned-wood grain for the pieces: fine strokes running along each piece's height (the lathe's v axis),
-// on white so it can tint a material's color and modulate its roughness. Returns [color, roughness].
 export function pieceGrainTextures(renderer: THREE.WebGLRenderer) {
   const { canvas, ctx } = canvas2d(512)
   ctx.fillStyle = '#fff'
@@ -111,7 +105,6 @@ export function pieceGrainTextures(renderer: THREE.WebGLRenderer) {
   return [color, roughness] as const
 }
 
-// Soft radial falloff, used as an alpha map for contact shadows and the king's halo.
 export function radialTexture(inner = 0.15) {
   const { canvas, ctx } = canvas2d(128)
   const g = ctx.createRadialGradient(64, 64, 64 * inner, 64, 64, 64)
@@ -122,7 +115,6 @@ export function radialTexture(inner = 0.15) {
   return new THREE.CanvasTexture(canvas)
 }
 
-// Vertical falloff for light columns: opaque at the base, gone by the top. Canvas row 0 is the top.
 export function beamTexture() {
   const { canvas, ctx } = canvas2d(16)
   canvas.height = 128
@@ -135,8 +127,6 @@ export function beamTexture() {
   return new THREE.CanvasTexture(canvas)
 }
 
-// Alpha mask for a lit square: a soft wash with a bright, slightly blurred inlay edge.
-// The edge carries the highlight on light veneers, where a flat tint would vanish.
 export function squareGlowTexture() {
   const { canvas, ctx } = canvas2d(128)
   ctx.fillStyle = '#000'
@@ -151,7 +141,6 @@ export function squareGlowTexture() {
   return new THREE.CanvasTexture(canvas)
 }
 
-// A tiny studio rendered into a PMREM: gives lacquer and brass real reflections to work with.
 export function studioEnvironment(renderer: THREE.WebGLRenderer) {
   const pmrem = new THREE.PMREMGenerator(renderer)
   const room = new THREE.Scene()

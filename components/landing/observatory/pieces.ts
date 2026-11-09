@@ -4,8 +4,6 @@ import type { PieceType } from './game'
 type Point = [number, number]
 type Run = Point[]
 
-// A lathe profile is a list of runs. Each run is a smooth spline; joins between runs stay crisp,
-// which is what gives turned Staunton pieces their sharp collars and soft bodies.
 function profile(runs: Run[], density: (run: number) => number = () => 8) {
   const points: THREE.Vector2[] = []
   runs.forEach((run, index) => {
@@ -19,7 +17,6 @@ function profile(runs: Run[], density: (run: number) => number = () => 8) {
   return points
 }
 
-// Shared foot: flat base, rounded bead, cove, then into the stem at [0.74R, 0.15].
 function foot(R: number): Run[] {
   return [
     [[0, 0], [R, 0]],
@@ -89,7 +86,6 @@ function beveledBox(w: number, h: number, d: number, bevel = 0.018) {
   return g
 }
 
-// Rook battlements: five annular sectors with soft bevels.
 function battlements() {
   const parts: THREE.BufferGeometry[] = []
   const inner = 0.2, outer = 0.29, count = 5, span = (Math.PI * 2) / count, solid = span * 0.64
@@ -107,7 +103,6 @@ function battlements() {
   return parts
 }
 
-// Queen coronet: a ring of small beads around the crown.
 function coronet() {
   const parts: THREE.BufferGeometry[] = []
   for (let i = 0; i < 8; i++) {
@@ -118,24 +113,22 @@ function coronet() {
   return parts
 }
 
-// Knight head in profile (x points toward the muzzle): mane, two ears, forehead, nose, a cut mouth,
-// jaw and throat. Extruded with a deep bevel, then tapered so the muzzle is slimmer than the neck.
 function knightShape() {
   const s = new THREE.Shape()
   s.moveTo(-0.21, 0.2)
-  s.bezierCurveTo(-0.25, 0.32, -0.275, 0.45, -0.255, 0.56) // back of the neck
-  s.bezierCurveTo(-0.235, 0.7, -0.19, 0.83, -0.12, 0.92) // mane up to the poll
-  s.lineTo(-0.1, 1.08) // rear ear
+  s.bezierCurveTo(-0.25, 0.32, -0.275, 0.45, -0.255, 0.56)
+  s.bezierCurveTo(-0.235, 0.7, -0.19, 0.83, -0.12, 0.92)
+  s.lineTo(-0.1, 1.08)
   s.bezierCurveTo(-0.075, 1.03, -0.055, 0.99, -0.04, 0.975)
-  s.lineTo(-0.005, 1.06) // front ear
+  s.lineTo(-0.005, 1.06)
   s.bezierCurveTo(0.015, 1.0, 0.03, 0.965, 0.05, 0.945)
-  s.bezierCurveTo(0.14, 0.9, 0.24, 0.8, 0.3, 0.7) // forehead down to the nose
-  s.bezierCurveTo(0.345, 0.65, 0.36, 0.61, 0.335, 0.58) // rounded nose
-  s.lineTo(0.268, 0.566) // mouth
+  s.bezierCurveTo(0.14, 0.9, 0.24, 0.8, 0.3, 0.7)
+  s.bezierCurveTo(0.345, 0.65, 0.36, 0.61, 0.335, 0.58)
+  s.lineTo(0.268, 0.566)
   s.lineTo(0.3, 0.535)
-  s.bezierCurveTo(0.29, 0.5, 0.26, 0.48, 0.22, 0.48) // chin
-  s.bezierCurveTo(0.16, 0.48, 0.09, 0.51, 0.045, 0.575) // jaw back to the throat
-  s.bezierCurveTo(0.06, 0.45, 0.19, 0.33, 0.215, 0.2) // throat and chest
+  s.bezierCurveTo(0.29, 0.5, 0.26, 0.48, 0.22, 0.48)
+  s.bezierCurveTo(0.16, 0.48, 0.09, 0.51, 0.045, 0.575)
+  s.bezierCurveTo(0.06, 0.45, 0.19, 0.33, 0.215, 0.2)
   return s
 }
 
@@ -148,7 +141,6 @@ function knightHead() {
   const n = new THREE.Vector3()
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i)
-    // Slim muzzle, a little flare at the chest where the head meets the collar.
     const f = (1 - 0.38 * smooth(0.04, 0.32, x) * smooth(0.42, 0.72, y)) * (1 + 0.25 * (1 - smooth(0.18, 0.46, y)))
     pos.setZ(i, pos.getZ(i) * f)
     n.set(nrm.getX(i), nrm.getY(i), nrm.getZ(i) / f).normalize()
@@ -157,7 +149,6 @@ function knightHead() {
   return g
 }
 
-// The mane: a raised, ridged strip along the back of the neck, thinner than the head.
 function knightMane() {
   const s = new THREE.Shape()
   s.moveTo(-0.205, 0.26)
@@ -173,11 +164,8 @@ function knightMane() {
   return g
 }
 
-// Bishop: carve the classic mitre slit by pressing a narrow, tilted band of the lathe inward
-// on one side of the head. Vertex colors darken the cut, since the scene has no ambient occlusion.
 function carveMitre(g: THREE.BufferGeometry) {
   const pos = g.attributes.position
-  // The slit is cut into the half facing the default camera and tilts across it, so it reads as a diagonal.
   const side = new THREE.Vector3(0.6, 0, 0.8), tilt = new THREE.Vector3(0.8, 0, -0.6)
   const normal = new THREE.Vector3(0, 1, 0).addScaledVector(tilt, 0.8).normalize(), origin = new THREE.Vector3(0, 0.93, 0)
   const width = 0.02
@@ -192,7 +180,7 @@ function carveMitre(g: THREE.BufferGeometry) {
     if (Math.abs(d) > width * 1.6) continue
     carved.push(i)
     if (Math.abs(d) > width) continue
-    const fade = Math.min(1, (facing + 0.02) / 0.08) // the slit runs out toward the sides
+    const fade = Math.min(1, (facing + 0.02) / 0.08)
     const depth = (1 - (d / width) ** 2) * fade
     const press = 0.06 * depth
     colors.fill(1 - 0.75 * depth, i * 3, i * 3 + 3)
@@ -203,7 +191,6 @@ function carveMitre(g: THREE.BufferGeometry) {
     pos.setXYZ(i, radial.x, v.y, radial.z)
   }
   g.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  // Recompute normals only around the cut, so the lathe seam elsewhere keeps its smooth normals.
   const original = (g.attributes.normal.array as Float32Array).slice()
   g.computeVertexNormals()
   const keep = new Set(carved), normals = g.attributes.normal
@@ -219,7 +206,6 @@ export function createPieceFactory({ ivory, ebony, brass, contact, segments }: P
   function parts(type: PieceType) {
     const cached = cache.get(type)
     if (cached) return cached
-    // Bishops get a denser mitre (the last two runs) so the carved slit has enough vertices to stay clean.
     const lathe = type === 'b' ? new THREE.LatheGeometry(profile(PROFILES.b, run => (run >= PROFILES.b.length - 2 ? 28 : 8)), segments * 2) : new THREE.LatheGeometry(profile(PROFILES[type]), segments)
     const list: THREE.BufferGeometry[] = [type === 'b' ? carveMitre(lathe) : lathe]
     if (type === 'r') list.push(...battlements())
@@ -233,7 +219,6 @@ export function createPieceFactory({ ivory, ebony, brass, contact, segments }: P
     cache.set(type, list)
     return list
   }
-  // Bishops' lathe carries vertex colors for the mitre cut, so it needs its own material variant.
   const carvedMaterials = new Map<'w' | 'b', THREE.Material>()
   function carved(color: 'w' | 'b') {
     let m = carvedMaterials.get(color)
@@ -261,12 +246,11 @@ export function createPieceFactory({ ivory, ebony, brass, contact, segments }: P
       rings.set(type, ring)
     }
     group.add(new THREE.Mesh(ring, brass))
-    const shadow = new THREE.Mesh(shadowGeo, shadowMat)
-    shadow.scale.setScalar(RADIUS[type] * 3)
-    shadow.position.y = 0.003
-    shadow.renderOrder = -1
-    group.add(shadow)
-    // Knights turn their profile to the camera, each facing the opponent's side.
+    const contactShadow = new THREE.Mesh(shadowGeo, shadowMat)
+    contactShadow.scale.setScalar(RADIUS[type] * 3)
+    contactShadow.position.y = 0.003
+    contactShadow.renderOrder = -1
+    group.add(contactShadow)
     if (type === 'n') group.rotation.y = color === 'w' ? 0.74 : Math.PI + 0.74
     group.scale.setScalar(1.08)
     return group

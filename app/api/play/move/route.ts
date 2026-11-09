@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
 import { maiaFromEnv } from '@/lib/play/engine'
+import { track } from '@/lib/analytics/track'
 import { loadOwnGame } from '@/lib/play/load'
 import { engineReply, parseMoveBody } from '@/lib/play/move'
 
@@ -33,5 +34,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { client, engine } = maiaFromEnv()
   const answer = await engineReply(game.context, body, client, engine, Math.random)
+  if (answer.status === 200 && body.moves.length <= 1) track('play_started', { userId: user.id })
   return NextResponse.json(answer.body, { status: answer.status, headers: NO_STORE_HEADERS })
 }

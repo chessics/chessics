@@ -19,7 +19,8 @@ Chessics is built on the open-source software below. Each keeps its own license.
 | [Lucide](https://github.com/lucide-icons/lucide) (lucide-react): icons | ISC | Lucide contributors |
 | [clsx](https://github.com/lukeed/clsx) | MIT | Luke Edwards |
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) (build time) | MIT | Tailwind Labs |
-| Cormorant Garamond, DM Sans, JetBrains Mono, via Google Fonts | SIL Open Font License 1.1 | their designers |
+| Cormorant Garamond, Old Standard TT, DM Sans, JetBrains Mono, via Google Fonts | SIL Open Font License 1.1 | their designers |
+| [three.js](https://github.com/mrdoob/three.js) 0.170.0: the 3D board on the landing page | MIT | three.js authors |
 | [@vercel/analytics](https://github.com/vercel/analytics) 2.0.1: cookieless page-view counts | MIT | Vercel |
 
 ## On the server

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { createClient } from '@/lib/supabase/server'
+import { trackSignup } from '@/lib/analytics/track'
 import { autoImportEnabled } from '@/lib/flags'
 import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
 import { accountOwners, IMPORT_EVERY_S, importAccountPlatform, ImportWriteError, PLATFORMS, recentKey } from '@/lib/import/account'
@@ -20,6 +21,7 @@ export async function POST(): Promise<NextResponse> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  trackSignup(user)
 
   const limit = await checkLimits([{ rule: RATE_LIMITS.gameImport, key: userKey(user.id) }])
   if (!limit.allowed) return tooManyRequests(limit)

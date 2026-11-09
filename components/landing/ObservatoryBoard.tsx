@@ -5,9 +5,6 @@ import { GAME_DESCRIPTION, LESSON } from './observatory/game'
 import type { Observatory } from './observatory/scene'
 import styles from './observatory.module.css'
 
-// Hero board: a looping 3D replay of the Opera Game that ends on why Black lost.
-// three.js loads only when the stage nears the viewport. The canvas fades in once its first frame is
-// drawn, so the page never shows a stand-in image that differs from the live board.
 export default function ObservatoryBoard() {
   const stageRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)

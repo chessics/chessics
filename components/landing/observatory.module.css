@@ -5,7 +5,7 @@
 .stage[data-status='ready'] .scene { opacity: 1; transform: none; }
 .stage[data-status='failed'] .scene { display: none; }
 
-.caption { position: absolute; z-index: 3; transform: translate(-50%, -100%); padding: 7px 10px; background: #211b17ed; border: 1px solid var(--border); color: var(--gold-bright); font-size: 13px; line-height: 18px; white-space: nowrap; pointer-events: none; opacity: 0; }
+.caption { position: absolute; z-index: 3; transform: translate(-50%, -100%); padding: 7px 10px; background: #211b17ed; border: 1px solid var(--border); color: var(--gold-bright); font-family: 'Literata', Georgia, serif; font-weight: 400; font-size: 15px; line-height: 20px; white-space: nowrap; pointer-events: none; opacity: 0; }
 .caption::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 22px; background: var(--gold); }
 .stage:not([data-status='ready']) .caption { visibility: hidden; }
 .stage[data-status='ready'] .caption { animation: caption-in .5s .45s cubic-bezier(.2, .7, .2, 1) backwards; }
@@ -24,6 +24,9 @@
 }
 @media (max-width: 370px) {
   .stage { height: 300px; }
+}
+@media (max-width: 359px) {
+  .caption { font-size: 13px; line-height: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .scene { transform: none; transition: none; }

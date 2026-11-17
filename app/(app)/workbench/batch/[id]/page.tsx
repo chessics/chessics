@@ -13,6 +13,7 @@ import { userNameFromGames } from '@/lib/sync/user-from-games'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { checkBatchProse } from '@/lib/prose/check'
 import { countNoun } from '@/lib/count-noun'
+import { openFinding } from '@/lib/workbench/finding-link'
 import { loadAccountSittings } from '@/lib/diagnosis/sittings-load'
 import type { BatchPatternGroup, BatchReport, Game, GameAnalysis, Profile } from '@/lib/supabase/types'
 
@@ -20,6 +21,7 @@ export const metadata: Metadata = { title: 'Batch report' }
 
 interface BatchPageProps {
   params: { id: string }
+  searchParams?: { finding?: string | string[] }
 }
 
 function formatDate(dateStr: string): string {
@@ -30,7 +32,7 @@ function formatDate(dateStr: string): string {
   })
 }
 
-export default async function BatchReportPage({ params }: BatchPageProps) {
+export default async function BatchReportPage({ params, searchParams }: BatchPageProps) {
   const supabase = await createClient()
 
   const {
@@ -160,7 +162,7 @@ export default async function BatchReportPage({ params }: BatchPageProps) {
         )}
       </div>
 
-      <Diagnosis findings={findings} reviewLinks />
+      <Diagnosis findings={findings} reviewLinks initialTag={openFinding(findings, searchParams?.finding)} />
 
       <SittingLine line={fatigue} reviewLinks />
 

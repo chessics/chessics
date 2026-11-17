@@ -7,6 +7,8 @@ import { firstSentence } from '@/lib/first-sentence'
 import { checkBatchProse } from '@/lib/prose/check'
 import { sentenceCase } from '@/lib/diagnosis/finding'
 import { countNoun } from '@/lib/count-noun'
+import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
+import { findingHref } from '@/lib/workbench/finding-link'
 
 interface BatchReportSummaryProps {
   latestBatch: {
@@ -37,7 +39,8 @@ function formatDate(dateStr: string): string {
 function TrajectoryLabel({ trajectory }: { trajectory: Trajectory | undefined }) {
   if (trajectory === 'improving') return <span style={{ color: 'var(--good)' }}>↑ improving</span>
   if (trajectory === 'declining') return <span style={{ color: 'var(--oxblood)' }}>↓ worsening</span>
-  return <span style={{ color: 'var(--text-muted)' }}>→ stable</span>
+  if (trajectory === 'stable') return <span style={{ color: 'var(--text-muted)' }}>→ stable</span>
+  return null
 }
 
 function Sparkline({ batches }: { batches: Array<{ overall_accuracy: number | null; generated_at: string }> }) {
@@ -104,7 +107,7 @@ export default function BatchReportSummary({
           No analysis yet
         </p>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Analyze your last games to find the habit behind your losses
+          Analyze your last games to find the habit behind your losses.
         </p>
         <Link
           href="/"
@@ -147,6 +150,15 @@ export default function BatchReportSummary({
           {verdict.text}
         </p>
       )}
+      {verdict?.needsMoreGames && (
+        <Link
+          href={`/workbench/batch/${latestBatch.id}#${ANALYZE_MORE_ID}`}
+          className="text-sm w-fit"
+          style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+        >
+          {MORE_GAMES_HINT}
+        </Link>
+      )}
       {bars.length > 0 && <RecurrenceStrip bars={bars} height={22} />}
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -180,21 +192,25 @@ export default function BatchReportSummary({
       {groups.length > 0 && (
         <div className="flex flex-col">
           {groups.slice(0, 5).map((g) => (
-            <div
+            <Link
               key={g.tag}
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2"
-              style={{ borderTop: '1px solid var(--border)' }}
+              href={findingHref(latestBatch.id, g.tag)}
+              className="workbench-pattern flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2"
+              style={{ borderTop: '1px solid var(--border)', color: 'inherit', textDecoration: 'none' }}
             >
               <span className="text-sm flex-1 min-w-[10rem]" style={{ color: 'var(--text)' }}>
                 {sentenceCase(g.label)}
               </span>
-              <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+              <span
+                className="text-xs font-mono"
+                style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+              >
                 {g.frequency} of {countNoun(latestBatch.game_count, 'game')}
               </span>
               <span className="text-xs" style={{ width: 84, textAlign: 'right' }}>
                 <TrajectoryLabel trajectory={trajectories[g.tag]} />
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       )}

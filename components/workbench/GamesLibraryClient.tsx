@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation'
 import type { Game } from '@/lib/supabase/types'
 import { failureMessage } from '@/lib/ratelimit-message'
 import { formatTimeControl } from '@/lib/review/time-control'
+import { countNoun } from '@/lib/count-noun'
 import { createStatusPoller, POLL_INTERVAL_MS } from '@/lib/sync/poll'
-import { nextRowJob, rowJobLabel, STATUS_LOST_LABEL, type RowJob } from '@/lib/games/analyze-job'
+import { nextRowJob, rowJobAnnouncement, rowJobLabel, STATUS_LOST_LABEL, type RowJob } from '@/lib/games/analyze-job'
 
 const RETRY_LABEL = "Couldn't queue, retry"
 export const NOT_STANDARD_LABEL = "Variant, can't analyze"
@@ -23,40 +24,44 @@ interface Props {
 type ResultFilter = 'all' | 'win' | 'loss' | 'draw'
 type ColorFilter = 'all' | 'white' | 'black'
 
+export const RESULT_BADGE = {
+  win: { letter: 'W', word: 'Win', color: 'var(--good)', border: 'var(--good)' },
+  loss: { letter: 'L', word: 'Loss', color: 'var(--text)', border: 'var(--oxblood)' },
+  draw: { letter: 'D', word: 'Draw', color: 'var(--text-muted)', border: 'var(--border-strong)' },
+} as const
+
 function ResultBadge({ result }: { result: Game['result'] }) {
-  const map = {
-    win: { label: 'W', bg: 'rgba(39,174,96,0.12)', color: 'var(--good)', border: 'rgba(39,174,96,0.3)' },
-    loss: { label: 'L', bg: 'rgba(192,57,43,0.12)', color: 'var(--blunder)', border: 'rgba(192,57,43,0.3)' },
-    draw: { label: 'D', bg: 'rgba(154,136,120,0.08)', color: 'var(--text-muted)', border: 'rgba(154,136,120,0.25)' },
-  }
-  const s = result ? map[result] : map.draw
+  const s = result ? RESULT_BADGE[result] : null
   return (
     <span
       style={{
         display: 'inline-block',
         width: 22,
         height: 22,
-        lineHeight: '22px',
+        lineHeight: '20px',
         textAlign: 'center',
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 700,
-        background: s.bg,
-        color: s.color,
-        border: `1px solid ${s.border}`,
+        color: s?.color ?? 'var(--text-muted)',
+        border: `1px solid ${s?.border ?? 'var(--border-strong)'}`,
         flexShrink: 0,
       }}
     >
-      {s.label}
+      <span aria-hidden="true">{s?.letter ?? '?'}</span>
+      <span className="sr-only">{s?.word ?? 'Result unknown'}</span>
     </span>
   )
 }
 
 function PlatformDot({ platform }: { platform: Game['platform'] }) {
   const label = platform === 'chess_com' ? 'CC' : platform === 'lichess' ? 'Li' : 'U'
+  const name = platform === 'chess_com' ? 'Chess.com' : platform === 'lichess' ? 'Lichess' : 'Uploaded'
   return (
     <span
       style={{
-        fontSize: 9,
+        display: 'inline-block',
+        whiteSpace: 'nowrap',
+        fontSize: 12,
         padding: '1px 5px',
         background: 'var(--surface-3)',
         color: 'var(--text-dim)',
@@ -65,7 +70,8 @@ function PlatformDot({ platform }: { platform: Game['platform'] }) {
         flexShrink: 0,
       }}
     >
-      {label}
+      <span aria-hidden="true">{label}</span>
+      <span className="sr-only">{name}</span>
     </span>
   )
 }
@@ -79,6 +85,15 @@ function formatDate(iso: string | null): string {
   })
 }
 
+function Placeholder({ words }: { words?: string }) {
+  return (
+    <>
+      <span aria-hidden="true">—</span>
+      {words && <span className="sr-only">{words}</span>}
+    </>
+  )
+}
+
 function FilterTab({
   active,
   onClick,
@@ -90,7 +105,9 @@ function FilterTab({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-pressed={active}
       style={{
         padding: '5px 12px',
         fontSize: 12,
@@ -99,7 +116,7 @@ function FilterTab({
         color: active ? 'var(--gold)' : 'var(--text-muted)',
         border: `1px solid ${active ? 'rgba(201,165,92,0.3)' : 'transparent'}`,
         cursor: 'pointer',
-        transition: 'all 0.15s',
+        transition: 'background-color 0.15s, border-color 0.15s, color 0.15s',
         whiteSpace: 'nowrap',
       }}
     >
@@ -116,6 +133,31 @@ export default function GamesLibraryClient({ games }: Props) {
   const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
   const router = useRouter()
   const [failedIds, setFailedIds] = useState<Map<string, string>>(new Map())
+  const [announcement, setAnnouncement] = useState('')
+  const focusedButton = useRef<string | null>(null)
+  const pendingFocus = useRef<string | null>(null)
+
+  const announce = useCallback(
+    (gameId: string, job: RowJob) => {
+      const opponent = games.find((g) => g.id === gameId)?.opponent_username || null
+      setAnnouncement(rowJobAnnouncement(opponent, job))
+    },
+    [games]
+  )
+
+  useEffect(() => {
+    const id = pendingFocus.current
+    if (!id) return
+    const el = document.querySelector<HTMLElement>(`[data-focus-game="${CSS.escape(id)}"]`)
+    if (!el) return
+    const active = document.activeElement
+    if (active && active !== document.body && active !== el) {
+      pendingFocus.current = null
+      return
+    }
+    el.focus()
+    if (el.classList.contains('games-grid')) pendingFocus.current = null
+  })
 
   const filtered = useMemo(() => {
     return games.filter((g) => {
@@ -138,9 +180,14 @@ export default function GamesLibraryClient({ games }: Props) {
     timers.current.delete(gameId)
   }
 
-  const setJob = useCallback((gameId: string, job: RowJob) => {
-    setJobs((prev) => new Map(prev).set(gameId, job))
-  }, [])
+  const setJob = useCallback(
+    (gameId: string, job: RowJob) => {
+      if (job.phase === 'done' && focusedButton.current === gameId) pendingFocus.current = gameId
+      setJobs((prev) => new Map(prev).set(gameId, job))
+      announce(gameId, job)
+    },
+    [announce]
+  )
 
   const watchJob = (gameId: string, jobId: string) => {
     stopWatching(gameId)
@@ -181,14 +228,17 @@ export default function GamesLibraryClient({ games }: Props) {
       const ok = res.ok
       const jobId = ok ? ((await res.json().catch(() => ({}))) as { jobId?: unknown }).jobId : undefined
       if (typeof jobId === 'string') watchJob(gameId, jobId)
+      const refused = ok ? null : res.status === 422 ? NOT_STANDARD_LABEL : failureMessage(res.status, RETRY_LABEL)
       setFailedIds((prev) => {
         const next = new Map(prev)
-        if (ok) next.delete(gameId)
-        else next.set(gameId, res.status === 422 ? NOT_STANDARD_LABEL : failureMessage(res.status, RETRY_LABEL))
+        if (refused === null) next.delete(gameId)
+        else next.set(gameId, refused)
         return next
       })
+      if (refused !== null) announce(gameId, { phase: 'failed', label: refused })
     } catch {
       setFailedIds((prev) => new Map(prev).set(gameId, RETRY_LABEL))
+      announce(gameId, { phase: 'failed', label: RETRY_LABEL })
     } finally {
       setAnalyzingId(null)
     }
@@ -196,6 +246,9 @@ export default function GamesLibraryClient({ games }: Props) {
 
   return (
     <div>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       <div
         style={{
           display: 'flex',
@@ -205,7 +258,7 @@ export default function GamesLibraryClient({ games }: Props) {
           alignItems: 'center',
         }}
       >
-        <div style={{ display: 'flex', gap: 3 }}>
+        <div role="group" aria-label="Filter by result" style={{ display: 'flex', gap: 3 }}>
           {(['all', 'win', 'loss', 'draw'] as const).map((r) => (
             <FilterTab
               key={r}
@@ -226,14 +279,21 @@ export default function GamesLibraryClient({ games }: Props) {
           }}
         />
 
-        <div style={{ display: 'flex', gap: 3 }}>
+        <div role="group" aria-label="Filter by color" style={{ display: 'flex', gap: 3 }}>
           {(['all', 'white', 'black'] as const).map((c) => (
             <FilterTab
               key={c}
               active={colorFilter === c}
               onClick={() => setColorFilter(c)}
             >
-              {c === 'all' ? 'Both colors' : c === 'white' ? '⬜ White' : '⬛ Black'}
+              {c === 'all' ? (
+                'Both colors'
+              ) : (
+                <>
+                  <span aria-hidden="true">{c === 'white' ? '⬜' : '⬛'} </span>
+                  {c === 'white' ? 'White' : 'Black'}
+                </>
+              )}
             </FilterTab>
           ))}
         </div>
@@ -246,7 +306,7 @@ export default function GamesLibraryClient({ games }: Props) {
             fontFamily: 'JetBrains Mono, monospace',
           }}
         >
-          {filtered.length} game{filtered.length !== 1 ? 's' : ''}
+          {countNoun(filtered.length, 'game')}
         </span>
       </div>
 
@@ -272,6 +332,7 @@ export default function GamesLibraryClient({ games }: Props) {
           }}
         >
           <div
+            aria-hidden="true"
             className="games-grid games-head"
             style={{
               padding: '8px 16px',
@@ -283,9 +344,8 @@ export default function GamesLibraryClient({ games }: Props) {
                 <span
                   key={i}
                   style={{
-                    fontSize: 10,
-                    letterSpacing: '0.08em',
-
+                    fontSize: 12,
+                    letterSpacing: '0.02em',
                     color: 'var(--text-dim)',
                     fontWeight: 600,
                     padding: '0 4px',
@@ -301,6 +361,7 @@ export default function GamesLibraryClient({ games }: Props) {
             const job = jobs.get(game.id)
             const jobFailed = job?.phase === 'failed' ? job.label : undefined
             const isBeingAnalyzed = analyzingId === game.id
+            const running = isBeingAnalyzed || job?.phase === 'starting' || job?.phase === 'analyzing'
             const rowStyle: React.CSSProperties = {
               padding: '10px 16px',
               borderBottom:
@@ -329,7 +390,7 @@ export default function GamesLibraryClient({ games }: Props) {
                     fontFamily: 'JetBrains Mono, monospace',
                   }}
                 >
-                  {formatDate(game.played_at)}
+                  {game.played_at ? formatDate(game.played_at) : <Placeholder />}
                 </span>
 
                 <div className="games-cell-result" style={{ padding: '0 2px' }}>
@@ -346,12 +407,11 @@ export default function GamesLibraryClient({ games }: Props) {
                     fontSize: 13,
                     color: 'var(--text)',
                     padding: '0 4px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    overflowWrap: 'anywhere',
+                    minWidth: 0,
                   }}
                 >
-                  {game.opponent_username || '—'}
+                  {game.opponent_username || <Placeholder words="Opponent unknown" />}
                 </span>
 
                 <span
@@ -361,13 +421,11 @@ export default function GamesLibraryClient({ games }: Props) {
                     fontSize: 12,
                     color: 'var(--text-dim)',
                     padding: '0 4px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    overflowWrap: 'anywhere',
+                    minWidth: 0,
                   }}
-                  title={game.opening_name ?? undefined}
                 >
-                  {game.opening_name ?? '—'}
+                  {game.opening_name ?? <Placeholder />}
                 </span>
 
                 <span
@@ -379,7 +437,7 @@ export default function GamesLibraryClient({ games }: Props) {
                     fontFamily: 'JetBrains Mono, monospace',
                   }}
                 >
-                  {formatTimeControl(game.time_control) ?? '—'}
+                  {formatTimeControl(game.time_control) ?? <Placeholder />}
                 </span>
 
                 <span
@@ -399,9 +457,14 @@ export default function GamesLibraryClient({ games }: Props) {
                     fontWeight: 500,
                   }}
                 >
-                  {game.overall_accuracy != null
-                    ? `${game.overall_accuracy.toFixed(0)}%`
-                    : '—'}
+                  {game.overall_accuracy != null ? (
+                    <>
+                      {`${game.overall_accuracy.toFixed(0)}%`}
+                      <span className="sr-only"> accuracy</span>
+                    </>
+                  ) : (
+                    <Placeholder />
+                  )}
                 </span>
 
                 <div className="games-cell-action" style={{ padding: '0 4px' }}>
@@ -424,6 +487,7 @@ export default function GamesLibraryClient({ games }: Props) {
                   ) : job?.phase === 'done' ? (
                     <Link
                       href={`/games/${game.id}/review`}
+                      data-focus-game={game.id}
                       style={{
                         display: 'inline-block',
                         padding: '4px 10px',
@@ -437,47 +501,46 @@ export default function GamesLibraryClient({ games }: Props) {
                     >
                       Review
                     </Link>
-                  ) : job && job.phase !== 'failed' ? (
-                    <span
-                      role="status"
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--text-muted)',
-                        padding: '4px 10px',
-                        display: 'inline-block',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {rowJobLabel(job)}
-                    </span>
                   ) : (
                     <button
-                      onClick={() => handleAnalyze(game.id)}
-                      disabled={isBeingAnalyzed}
+                      type="button"
+                      onClick={() => {
+                        if (!running) void handleAnalyze(game.id)
+                      }}
+                      onFocus={() => {
+                        focusedButton.current = game.id
+                      }}
+                      onBlur={() => {
+                        if (focusedButton.current === game.id) focusedButton.current = null
+                      }}
+                      aria-disabled={running || undefined}
                       style={{
                         padding: '4px 10px',
                         fontSize: 11,
                         fontWeight: 500,
                         color: 'var(--text-muted)',
                         background: 'transparent',
-                        border: '1px solid var(--border)',
-                        cursor: isBeingAnalyzed ? 'default' : 'pointer',
+                        border: running ? '1px solid transparent' : '1px solid var(--border)',
+                        cursor: running ? 'default' : 'pointer',
                         whiteSpace: failedIds.has(game.id) || jobFailed ? 'normal' : 'nowrap',
-                        opacity: isBeingAnalyzed ? 0.6 : 1,
                         transition: 'border-color 0.15s, color 0.15s',
                       }}
                       onMouseEnter={(e) => {
-                        if (!isBeingAnalyzed) {
+                        if (!running) {
                           e.currentTarget.style.borderColor = 'var(--gold-dim)'
                           e.currentTarget.style.color = 'var(--text)'
                         }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--border)'
+                        e.currentTarget.style.borderColor = running ? 'transparent' : 'var(--border)'
                         e.currentTarget.style.color = 'var(--text-muted)'
                       }}
                     >
-                      {isBeingAnalyzed ? 'Queuing…' : failedIds.get(game.id) ?? jobFailed ?? 'Analyze'}
+                      {isBeingAnalyzed
+                        ? 'Queuing…'
+                        : job && (job.phase === 'starting' || job.phase === 'analyzing')
+                          ? rowJobLabel(job)
+                          : failedIds.get(game.id) ?? jobFailed ?? 'Analyze'}
                     </button>
                   )}
                 </div>
@@ -488,6 +551,7 @@ export default function GamesLibraryClient({ games }: Props) {
               <Link
                 key={game.id}
                 href={`/games/${game.id}/review`}
+                data-focus-game={game.id}
                 className="games-grid"
                 style={{ ...rowStyle, color: 'inherit', textDecoration: 'none' }}
                 {...hover}

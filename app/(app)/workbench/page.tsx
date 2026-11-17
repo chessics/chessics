@@ -6,6 +6,9 @@ import AutoImport from '@/components/workbench/AutoImport'
 import { autoImportEnabled } from '@/lib/flags'
 import type { BatchPatternGroup, BatchReport, Game, Trajectory, UserPattern } from '@/lib/supabase/types'
 import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
+import SignedOut from '@/components/layout/SignedOut'
+import LoadFailed from '@/components/layout/LoadFailed'
+import { trajectoriesWithHistory } from '@/lib/workbench/trajectory'
 
 export const metadata: Metadata = { title: 'Workbench' }
 
@@ -21,6 +24,7 @@ export default async function WorkbenchPage() {
   let allBatches: Array<{ overall_accuracy: number | null; generated_at: string }> = []
   let results: Record<string, 'win' | 'loss' | 'draw' | null> | undefined
   let recounted: BatchPatternGroup[] | undefined
+  let loadFailed = false
 
   if (session) {
     const userId = session.user.id
@@ -34,7 +38,7 @@ export default async function WorkbenchPage() {
         .limit(1)
         .maybeSingle(),
 
-      supabase.from('user_patterns').select('pattern_type, trajectory').eq('user_id', userId),
+      supabase.from('user_patterns').select('pattern_type, trajectory, batch_history').eq('user_id', userId),
 
       supabase
         .from('batch_reports')
@@ -43,11 +47,10 @@ export default async function WorkbenchPage() {
         .order('generated_at', { ascending: true }),
     ])
 
+    loadFailed = !!batchResult.error
     latestBatch = (batchResult.data ?? null) as BatchReport | null
-    trajectories = Object.fromEntries(
-      ((patternsResult.data ?? []) as Pick<UserPattern, 'pattern_type' | 'trajectory'>[]).map(
-        (p) => [p.pattern_type, p.trajectory]
-      )
+    trajectories = trajectoriesWithHistory(
+      (patternsResult.data ?? []) as Pick<UserPattern, 'pattern_type' | 'trajectory' | 'batch_history'>[]
     )
     allBatches = allBatchesResult.data ?? []
 
@@ -80,13 +83,19 @@ export default async function WorkbenchPage() {
           Workbench
         </h1>
       </div>
-      <BatchReportSummary
-        latestBatch={latestBatch}
-        trajectories={trajectories}
-        allBatches={allBatches}
-        results={results}
-        recounted={recounted}
-      />
+      {!session ? (
+        <SignedOut line="Sign in to see your workbench." />
+      ) : loadFailed ? (
+        <LoadFailed what="Your workbench" href="/workbench" />
+      ) : (
+        <BatchReportSummary
+          latestBatch={latestBatch}
+          trajectories={trajectories}
+          allBatches={allBatches}
+          results={results}
+          recounted={recounted}
+        />
+      )}
     </div>
   )
 }

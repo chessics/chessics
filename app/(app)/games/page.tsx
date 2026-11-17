@@ -5,6 +5,9 @@ import { allRows } from '@/lib/supabase/row-cap'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
 import AutoImport from '@/components/workbench/AutoImport'
 import { autoImportEnabled } from '@/lib/flags'
+import SignedOut from '@/components/layout/SignedOut'
+import LoadFailed from '@/components/layout/LoadFailed'
+import { countNoun } from '@/lib/count-noun'
 import { withAccuracy, type GameWithAccuracy, type GameWithEmbeddedAnalysis } from '@/lib/games/accuracy'
 
 export const metadata: Metadata = { title: 'Games' }
@@ -17,15 +20,18 @@ export default async function GamesPage() {
 
   if (!session) {
     return (
-      <div className="max-w-5xl mx-auto">
-        <p style={{ color: 'var(--text-muted)' }}>Please log in to view your games.</p>
+      <div className="max-w-5xl mx-auto flex flex-col gap-6">
+        <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
+          Game library
+        </h1>
+        <SignedOut line="Sign in to see your games." />
       </div>
     )
   }
 
   const userId = session.user.id
 
-  const { data: games } = await allRows<GameWithEmbeddedAnalysis>((from, to) =>
+  const { data: games, error } = await allRows<GameWithEmbeddedAnalysis>((from, to) =>
     supabase
       .from('games')
       .select(`
@@ -40,75 +46,60 @@ export default async function GamesPage() {
   )
 
   const flatGames: GameWithAccuracy[] = ((games ?? []) as GameWithEmbeddedAnalysis[]).map(withAccuracy)
+  const analysed = flatGames.filter((g) => g.is_analyzed).length
 
   return (
     <div className="max-w-5xl mx-auto">
       <AutoImport signedIn enabled={autoImportEnabled()} />
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1
-            className="text-2xl font-semibold"
-            style={{ color: 'var(--text)' }}
-          >
+          <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
             Game library
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            {flatGames.length > 0
-              ? `${flatGames.length} games · ${flatGames.filter((g) => g.is_analyzed).length} analyzed`
-              : 'No games synced yet'}
-          </p>
+          {!error && flatGames.length > 0 && (
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              {countNoun(flatGames.length, 'game')} · {analysed} analyzed
+            </p>
+          )}
         </div>
 
-        <Link
-          href="/"
-          style={{
-            padding: '8px 16px',
-            fontSize: 13,
-            fontWeight: 500,
-            background: 'var(--gold)',
-            color: '#1a1512',
-            textDecoration: 'none',
-            display: 'inline-block',
-          }}
-        >
-          Analyze games
-        </Link>
-      </div>
-
-      {flatGames.length === 0 ? (
-        <div
-          style={{
-            padding: '48px 24px',
-            textAlign: 'center',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            No games imported yet.
-          </p>
-          <p
-            style={{
-              color: 'var(--text-dim)',
-              fontSize: 12,
-              marginTop: 4,
-              marginBottom: 20,
-            }}
-          >
-            Start by entering your Chess.com or Lichess username on the home page.
-          </p>
+        {!error && flatGames.length > 0 && (
           <Link
             href="/"
             style={{
-              padding: '8px 20px',
-              background: 'var(--gold)',
-              color: '#1a1512',
-              textDecoration: 'none',
+              padding: '8px 16px',
               fontSize: 13,
-              fontWeight: 600,
+              fontWeight: 500,
+              background: 'var(--gold)',
+              color: 'var(--bg)',
+              textDecoration: 'none',
+              display: 'inline-block',
             }}
           >
-            Import from Chess.com / Lichess
+            Analyze games
+          </Link>
+        )}
+      </div>
+
+      {error ? (
+        <LoadFailed what="Your games" href="/games" />
+      ) : flatGames.length === 0 ? (
+        <div
+          className="flex flex-col items-start gap-4 p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        >
+          <p className="text-base font-medium" style={{ color: 'var(--text)' }}>
+            No games yet.
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Enter your Chess.com or Lichess username on the start page to analyze your last games.
+          </p>
+          <Link
+            href="/"
+            className="px-5 py-2.5 text-sm font-medium"
+            style={{ background: 'var(--gold)', color: 'var(--bg)', textDecoration: 'none' }}
+          >
+            Analyze my games
           </Link>
         </div>
       ) : (

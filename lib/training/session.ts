@@ -29,21 +29,30 @@ type Schedule =
   | { kind: 'waiting'; dueInMs: number }
   | { kind: 'retired' }
 
+function intervalAfter(streak: number): number {
+  return streak === 0 ? SPACING_MS.afterMiss : SPACING_MS.afterCorrect[streak - 1]
+}
+
 function scheduleFor(rows: HistoryRow[], now: number): Schedule {
   if (rows.length === 0) return { kind: 'new' }
 
   const sorted = [...rows].sort((a, b) => a.at - b.at)
-  const last = sorted[sorted.length - 1]
 
   let streak = 0
-  for (let i = sorted.length - 1; i >= 0 && sorted[i].correct === true; i--) streak++
+  let countedAt: number | null = null
+  for (const r of sorted) {
+    if (r.correct === true) {
+      const early = countedAt !== null && r.at < countedAt + intervalAfter(streak)
+      if (early) continue
+      streak++
+    } else {
+      streak = 0
+    }
+    countedAt = r.at
+    if (streak >= SPACING_MS.retireAfterCorrectStreak) return { kind: 'retired' }
+  }
 
-  if (streak >= SPACING_MS.retireAfterCorrectStreak) return { kind: 'retired' }
-
-  const interval =
-    streak === 0 ? SPACING_MS.afterMiss : SPACING_MS.afterCorrect[streak - 1]
-
-  const dueAt = last.at + interval
+  const dueAt = countedAt! + intervalAfter(streak)
   return dueAt <= now
     ? { kind: 'due', overdueMs: now - dueAt }
     : { kind: 'waiting', dueInMs: dueAt - now }

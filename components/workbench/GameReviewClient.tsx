@@ -11,10 +11,11 @@ import {
 import dynamic from 'next/dynamic'
 import { Chess } from 'chess.js'
 import type { BoardShape } from './ChessBoard'
-import { gameDecidedAt, decidedAtLabel } from '@/lib/review/decided-at'
-import { chainAtRoot, chainStandsAlone, standAloneExplanation } from '@/lib/review/chain-roots'
-import { withoutPawnFigure } from '@/lib/review/pawn-figure'
-import { checkReviewProse } from '@/lib/prose/check'
+import { keyMoment, keyMomentSentences, keyMomentTitle } from '@/lib/review/key-moment'
+import { bringBoardIntoView } from '@/lib/review/board-into-view'
+import { groupChains, groupSentence, middleLabel } from '@/lib/review/chain-groups'
+import { withJudgement } from '@/lib/review/judgement'
+import { chainAtRoot, chainStandsAlone } from '@/lib/review/chain-roots'
 import { evalWords, evalReceipt } from '@/lib/review/eval-words'
 import { useLitSquares, LitProse } from '@/components/board/lit-squares'
 import { formatTimeControl } from '@/lib/review/time-control'
@@ -88,46 +89,6 @@ function formatDate(iso: string | null): string {
 
 export type ChainWithNodes = CausalChain & { nodes: CausalChainNode[] }
 
-interface FullChainNode {
-  ply: number
-  san: string
-  explanation: string
-  kind: 'root' | 'mid' | 'terminal'
-}
-
-function buildChainNodes(chain: ChainWithNodes, standsAlone = false): FullChainNode[] {
-  if (standsAlone) {
-    return [
-      {
-        ply: chain.terminal_blunder_ply,
-        san: chain.terminal_blunder_san,
-        explanation: standAloneExplanation(chain.terminal_blunder_san, chain.terminal_blunder_ply),
-        kind: 'terminal',
-      },
-    ]
-  }
-  return [
-    {
-      ply: chain.root_move_ply,
-      san: chain.root_move_san,
-      explanation: withoutPawnFigure(chain.root_move_explanation),
-      kind: 'root',
-    },
-    ...chain.nodes.map((n) => ({
-      ply: n.move_ply,
-      san: n.move_san,
-      explanation: withoutPawnFigure(n.explanation),
-      kind: 'mid' as const,
-    })),
-    {
-      ply: chain.terminal_blunder_ply,
-      san: chain.terminal_blunder_san,
-      explanation: withoutPawnFigure(chain.terminal_blunder_explanation),
-      kind: 'terminal',
-    },
-  ]
-}
-
 interface EvalBarProps {
   cp: number | null
   height: number
@@ -137,10 +98,10 @@ interface EvalBarProps {
 
 function EvalBar({ cp, height, flipped, words }: EvalBarProps) {
   const whitePercent = evalToWhitePercent(cp)
-  const label = words ?? '—'
 
   return (
     <div
+      title={words ?? '—'}
       style={{
         width: 12,
         height,
@@ -161,21 +122,6 @@ function EvalBar({ cp, height, flipped, words }: EvalBarProps) {
           background: 'var(--text)',
           transition: 'height 0.3s cubic-bezier(0.4,0,0.2,1)',
         }}
-      />
-      <span
-        style={{
-          position: 'absolute',
-          bottom: flipped ? 'auto' : 4,
-          top: flipped ? 4 : 'auto',
-          left: '50%',
-          transform: 'translateX(-50%) rotate(-90deg)',
-          fontSize: 8,
-          fontFamily: 'JetBrains Mono, monospace',
-          color: 'var(--text-dim)',
-          whiteSpace: 'nowrap',
-          letterSpacing: 0,
-        }}
-        title={label}
       />
     </div>
   )
@@ -386,6 +332,9 @@ export default function GameReviewClient({
     [causalChains, moves, game.user_color]
   )
   const realChainCount = causalChains.length - standAloneIds.size
+  const chainGroups = useMemo(() => groupChains(causalChains, standAloneIds), [causalChains, standAloneIds])
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
+  const [activeNodePly, setActiveNodePly] = useState<number | null>(null)
 
   const clock = useMemo(() => reviewClock(game.pgn, moves), [game.pgn, moves])
   const playable = useMemo(
@@ -393,34 +342,27 @@ export default function GameReviewClient({
     [takeOver, game.pgn, game.user_color]
   )
   const takeOverLink = takeOverHref(takeOver, game.id, currentPly, playable)
+  const judgedMoves = useMemo(() => withJudgement(moves), [moves])
   const timeBars = useMemo(
     () =>
       clock
-        ? timeStripBars({ moves, clock, userColor: game.user_color, marks: stripMarks(causalChains, moves, standAloneIds) })
+        ? timeStripBars({ moves, clock, userColor: game.user_color, marks: stripMarks(causalChains, judgedMoves, standAloneIds) })
         : null,
-    [clock, moves, game.user_color, causalChains, standAloneIds]
+    [clock, moves, judgedMoves, game.user_color, causalChains, standAloneIds]
   )
 
-  const prose = useMemo(
-    () =>
-      analysis
-        ? checkReviewProse({
-            narrative: analysis.claude_narrative,
-            keyMoment: analysis.key_moment_explanation,
-            createdAt: analysis.created_at ?? null,
-            userColor: game.user_color,
-            result: game.result,
-            chains: causalChains.map((c) => ({
-              rootSan: c.root_move_san,
-              rootPly: c.root_move_ply,
-              terminalSan: c.terminal_blunder_san,
-              terminalPly: c.terminal_blunder_ply,
-              standsAlone: standAloneIds.has(c.id),
-            })),
-            moves,
-          })
-        : null,
-    [analysis, game.user_color, game.result, causalChains, standAloneIds, moves]
+  const boardRowRef = useRef<HTMLDivElement>(null)
+
+  const showPositionBefore = useCallback(
+    (ply: number, brush: string) => {
+      setCurrentPly(Math.max(0, ply - 1))
+      setActiveChainId(null)
+      const moveData = moves.find((m) => m.ply_number === ply)
+      const sq = moveData ? getMoveSquares(moveData.fen_before, moveData.san) : null
+      setBoardShapes(sq ? [{ orig: sq.from, dest: sq.to, brush }] : [])
+      bringBoardIntoView(boardRowRef.current)
+    },
+    [moves]
   )
 
   const openChainAt = useCallback(
@@ -429,15 +371,11 @@ export default function GameReviewClient({
       if (!chain) return
       const alone = standAloneIds.has(chain.id)
       const ply = alone ? chain.terminal_blunder_ply : chain.root_move_ply
-      setCurrentPly(ply)
+      showPositionBefore(ply, alone ? 'chain_blunder' : 'chain_root')
       setActiveChainId(chain.id)
-      const moveData = moves.find((m) => m.ply_number === ply)
-      if (moveData) {
-        const sq = getMoveSquares(moveData.fen_before, moveData.san)
-        if (sq) setBoardShapes([{ orig: sq.to, brush: alone ? 'chain_blunder' : 'chain_root' }])
-      }
+      setActiveNodePly(ply)
     },
-    [causalChains, moves, standAloneIds]
+    [causalChains, standAloneIds, showPositionBefore]
   )
 
   useEffect(() => {
@@ -446,35 +384,32 @@ export default function GameReviewClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChainRootPly])
 
-  const decidedAt = useMemo(
+  const moment = useMemo(
     () =>
-      gameDecidedAt({
+      keyMoment({
         result: game.result,
         userColor: game.user_color,
         chains: causalChains,
         moves,
+        spent: clock?.spent ?? null,
       }),
-    [game.result, game.user_color, causalChains, moves]
+    [game.result, game.user_color, causalChains, moves, clock]
   )
 
   const handleChainNodeClick = useCallback(
     (ply: number, chainId: string, brush: string) => {
-      setCurrentPly(ply)
+      showPositionBefore(ply, brush)
       setActiveChainId(chainId)
-      const moveData = moves.find((m) => m.ply_number === ply)
-      if (moveData) {
-        const sq = getMoveSquares(moveData.fen_before, moveData.san)
-        if (sq) setBoardShapes([{ orig: sq.to, brush }])
-      }
+      setActiveNodePly(ply)
     },
-    [moves]
+    [showPositionBefore]
   )
 
   const movePairs = useMemo(() => {
     const pairs: Array<{ num: number; white: Move; black: Move | null }> = []
     let i = 0
-    while (i < moves.length) {
-      const w = moves[i]
+    while (i < judgedMoves.length) {
+      const w = judgedMoves[i]
       if (w.ply_number % 2 === 0) {
         pairs.push({ num: Math.ceil(w.ply_number / 2), white: w, black: null })
         i++
@@ -482,13 +417,13 @@ export default function GameReviewClient({
         pairs.push({
           num: Math.ceil(w.ply_number / 2),
           white: w,
-          black: moves[i + 1] ?? null,
+          black: judgedMoves[i + 1] ?? null,
         })
         i += 2
       }
     }
     return pairs
-  }, [moves])
+  }, [judgedMoves])
 
   const resultLabel =
     game.result === 'win' ? 'Win' : game.result === 'loss' ? 'Loss' : 'Draw'
@@ -505,7 +440,6 @@ export default function GameReviewClient({
         ? 'var(--blunder)'
         : 'var(--text-muted)'
 
-  const boardRowRef = useRef<HTMLDivElement>(null)
   const [boardSize, setBoardSize] = useState(reviewBoardSize(0))
   useEffect(() => {
     const el = boardRowRef.current
@@ -516,7 +450,6 @@ export default function GameReviewClient({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const keyLit = lit.bind(prose?.keyMoment ?? '')
 
   return (
     <div
@@ -541,13 +474,15 @@ export default function GameReviewClient({
       >
         <div ref={boardRowRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflow: 'hidden' }}>
           <EvalBar cp={currentEval} height={boardSize} flipped={isFlipped} words={currentWords} />
-          <ChessBoard
-            fen={currentFen}
-            orientation={orientation}
-            lastMove={lastMoveSquares}
-            shapes={shownShapes}
-            size={boardSize}
-          />
+          <div className="board-placeholder" style={{ width: boardSize, height: boardSize, flexShrink: 0 }}>
+            <ChessBoard
+              fen={currentFen}
+              orientation={orientation}
+              lastMove={lastMoveSquares}
+              shapes={shownShapes}
+              size={boardSize}
+            />
+          </div>
         </div>
 
         {timeBars && (
@@ -600,6 +535,7 @@ export default function GameReviewClient({
                 onClick={fn}
                 title={title}
                 aria-label={name}
+                className="review-nav-btn"
                 style={{
                   width: 34,
                   height: 34,
@@ -641,7 +577,7 @@ export default function GameReviewClient({
         </div>
 
         {takeOverLink && (
-          <div style={{ paddingLeft: 22 }}>
+          <div className="review-take-over" style={{ paddingLeft: 22 }}>
             <a
               href={takeOverLink}
               data-testid="take-over"
@@ -660,6 +596,7 @@ export default function GameReviewClient({
 
         <div
           ref={moveListRef}
+          className="review-moves"
           role="group"
           aria-label="Moves. Use the arrow keys to step through them, Home and End for the start and the end."
           onKeyDown={onMoveListKey}
@@ -746,6 +683,7 @@ export default function GameReviewClient({
         }}
       >
         <div
+          className="review-header"
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -823,26 +761,6 @@ export default function GameReviewClient({
                   {game.opening_name}
                 </p>
               )}
-              {decidedAt && (
-                <button
-                  type="button"
-                  data-testid="decided-at"
-                  onClick={() => openChainAt(decidedAt.rootPly)}
-                  style={{
-                    marginTop: 10,
-                    padding: '4px 0',
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: '1px solid var(--border-strong)',
-                    borderRadius: 0,
-                    color: 'var(--brass)',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {decidedAtLabel(decidedAt)}
-                </button>
-              )}
             </div>
 
             {analysis?.overall_accuracy !== null &&
@@ -906,8 +824,60 @@ export default function GameReviewClient({
           )}
         </div>
 
+        {moment && (
+          <section
+            data-testid="key-moment"
+            aria-labelledby="key-moment-title"
+            style={{
+              padding: '16px 18px',
+              background: 'var(--surface)',
+              border: '1px solid rgba(201,165,92,0.45)',
+            }}
+          >
+            <h2
+              id="key-moment-title"
+              style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--brass)', letterSpacing: '0.04em' }}
+            >
+              {keyMomentTitle(moment)}
+            </h2>
+            <p
+              style={{
+                margin: '8px 0 6px',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 18,
+                color: 'var(--gold)',
+                fontWeight: 600,
+              }}
+            >
+              {moment.san}
+            </p>
+            {keyMomentSentences(moment).map((sentence) => (
+              <p key={sentence} style={{ margin: '0 0 4px', fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>
+                {sentence}
+              </p>
+            ))}
+            <button
+              type="button"
+              onClick={() => showPositionBefore(moment.ply, moment.kind === 'decided' ? 'chain_root' : 'chain_blunder')}
+              style={{
+                marginTop: 10,
+                padding: '6px 14px',
+                background: 'none',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 0,
+                color: 'var(--brass)',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              Show the position
+            </button>
+          </section>
+        )}
+
         {causalChains.length > 0 && (
           <div
+            className="review-chains"
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
@@ -932,7 +902,7 @@ export default function GameReviewClient({
                   fontWeight: 600,
                 }}
               >
-                Why you lost this position
+                How it slipped
               </span>
               <span
                 style={{
@@ -951,193 +921,116 @@ export default function GameReviewClient({
             </div>
 
             <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {causalChains.map((chain, chainIdx) => {
-                const nodes = buildChainNodes(chain, standAloneIds.has(chain.id))
-                const isActive = activeChainId === chain.id
-                const terminalMoveNum = Math.ceil(
-                  chain.terminal_blunder_ply / 2
+              {chainGroups.map((group, groupIdx) => {
+                const sentence = groupSentence(group)
+                const open = expandedGroups.has(group.key)
+                const isActive = group.chainIds.includes(activeChainId ?? '')
+                const nodeButton = (
+                  move: { ply: number; san: string; moveNumber: number },
+                  kind: 'root' | 'mid' | 'terminal',
+                  chainId: string
+                ) => {
+                  const brush = kind === 'root' ? 'chain_root' : kind === 'terminal' ? 'chain_blunder' : 'chain_mid'
+                  const pressed = isActive && activeNodePly === move.ply
+                  return (
+                    <button
+                      key={`${kind}-${move.ply}`}
+                      type="button"
+                      aria-pressed={pressed}
+                      onClick={() => handleChainNodeClick(move.ply, chainId, brush)}
+                      className="chain-node"
+                      style={{
+                        minWidth: 84,
+                        padding: '8px 10px',
+                        background: pressed ? 'var(--surface-2)' : 'var(--surface-3)',
+                        border: `1px solid ${
+                          kind === 'root'
+                            ? 'rgba(201,165,92,0.45)'
+                            : kind === 'terminal'
+                              ? 'rgba(192,57,43,0.45)'
+                              : 'var(--border)'
+                        }`,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: 9,
+                          letterSpacing: '0.06em',
+                          color: kind === 'root' ? 'var(--gold-dim)' : kind === 'terminal' ? 'var(--text)' : 'var(--text-dim)',
+                          fontWeight: 600,
+                          marginBottom: 3,
+                        }}
+                      >
+                        {kind === 'root' ? 'Root' : kind === 'terminal' ? 'Blunder' : 'Move'} · move {move.moveNumber}
+                      </span>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: kind === 'root' ? 'var(--gold)' : 'var(--text)',
+                        }}
+                      >
+                        {move.san}
+                      </span>
+                    </button>
+                  )
+                }
+                const arrow = (key: string) => (
+                  <span key={key} aria-hidden style={{ padding: '0 6px', fontSize: 12, color: 'var(--text-dim)', alignSelf: 'center' }}>
+                    →
+                  </span>
                 )
 
                 return (
-                  <div key={chain.id}>
-                    {chainIdx > 0 && (
-                      <div
-                        style={{
-                          height: 1,
-                          background: 'var(--border)',
-                          marginBottom: 16,
-                        }}
-                      />
-                    )}
-
-                    <p
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--text-dim)',
-                        marginBottom: 10,
-                      }}
-                    >
-                      Move {terminalMoveNum} blunder:{' '}
-                      <span
-                        style={{
-                          fontFamily: 'JetBrains Mono, monospace',
-                          color: 'var(--text)',
-                          borderBottom: '1px solid var(--blunder)',
-                        }}
-                      >
-                        {chain.terminal_blunder_san}
-                      </span>
+                  <div key={group.key} data-chain-group={group.key}>
+                    {groupIdx > 0 && <div style={{ height: 1, background: 'var(--border)', marginBottom: 16 }} />}
+                    <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>
+                      <LitProse text={sentence} lit={lit} />
                     </p>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'stretch',
-                        gap: 0,
-                        overflowX: 'auto',
-                        paddingBottom: 4,
-                      }}
-                    >
-                      {nodes.map((node, nodeIdx) => {
-                        const isRoot = node.kind === 'root'
-                        const isTerminal = node.kind === 'terminal'
-                        const nodeBrush = isRoot
-                          ? 'chain_root'
-                          : isTerminal
-                            ? 'chain_blunder'
-                            : 'chain_mid'
-                        const nodeBorderColor = isRoot
-                          ? 'rgba(201,165,92,0.45)'
-                          : isTerminal
-                            ? 'rgba(192,57,43,0.45)'
-                            : 'var(--border)'
-                        const nodeSanColor = isRoot ? 'var(--gold)' : 'var(--text)'
-
-                        const nodeText =
-                          node.explanation.length > 60
-                            ? node.explanation.slice(0, 57) + '…'
-                            : node.explanation
-                        const nodeLit = lit.bind(nodeText)
-
-                        return (
-                          <div
-                            key={nodeIdx}
-                            style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                          >
-                            <button
-                              onFocus={nodeLit.onFocus}
-                              onBlur={nodeLit.onBlur}
-                              data-lit-squares={nodeLit['data-lit-squares']}
-                              onClick={() =>
-                                handleChainNodeClick(
-                                  node.ply,
-                                  chain.id,
-                                  nodeBrush
-                                )
-                              }
-                              style={{
-                                width: 100,
-                                padding: '10px 10px 8px',
-                                background:
-                                  isActive && currentPly === node.ply
-                                    ? 'var(--surface-2)'
-                                    : 'var(--surface-3)',
-                                border: `1px solid ${nodeBorderColor}`,
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                transition: 'background 0.15s, border-color 0.15s',
-                                flexShrink: 0,
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background =
-                                  'var(--surface-2)'
-                                nodeLit.onMouseEnter?.()
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background =
-                                  isActive && currentPly === node.ply
-                                    ? 'var(--surface-2)'
-                                    : 'var(--surface-3)'
-                                nodeLit.onMouseLeave?.()
-                              }}
-                            >
-                              <span
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch', gap: 6 }}>
+                      {group.kind === 'alone' ? (
+                        nodeButton(group.blunder, 'terminal', group.blunder.chainId)
+                      ) : (
+                        <>
+                          {nodeButton(group.root, 'root', group.chainIds[0])}
+                          {arrow('a1')}
+                          {group.middle.length > 0 && (
+                            <>
+                              <button
+                                type="button"
+                                aria-expanded={open}
+                                onClick={() =>
+                                  setExpandedGroups((prev) => {
+                                    const next = new Set(prev)
+                                    if (next.has(group.key)) next.delete(group.key)
+                                    else next.add(group.key)
+                                    return next
+                                  })
+                                }
                                 style={{
-                                  display: 'block',
-                                  fontSize: 8,
-                                  letterSpacing: '0.08em',
-
-                                  color: isRoot
-                                    ? 'var(--gold-dim)'
-                                    : isTerminal
-                                      ? 'var(--text)'
-                                      : 'var(--text-dim)',
-                                  marginBottom: 4,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {isRoot
-                                  ? 'Root'
-                                  : isTerminal
-                                    ? 'Blunder'
-                                    : `Step ${nodeIdx}`}
-                              </span>
-
-                              <span
-                                style={{
-                                  display: 'block',
-                                  fontFamily: 'JetBrains Mono, monospace',
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  color: nodeSanColor,
-                                  marginBottom: 5,
-                                }}
-                              >
-                                {node.san}
-                              </span>
-
-                              <span
-                                style={{
-                                  display: 'block',
-                                  fontSize: 10,
+                                  padding: '8px 10px',
+                                  background: 'none',
+                                  border: '1px dashed var(--border-strong)',
                                   color: 'var(--text-muted)',
-                                  lineHeight: 1.4,
-                                }}
-                              >
-                                {nodeText}
-                              </span>
-                            </button>
-
-                            {nodeIdx < nodes.length - 1 && (
-                              <span
-                                style={{
-                                  padding: '0 6px',
                                   fontSize: 12,
-                                  color: 'var(--text-dim)',
-                                  flexShrink: 0,
+                                  cursor: 'pointer',
                                 }}
                               >
-                                →
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })}
+                                {middleLabel(group.middle.length)}
+                              </button>
+                              {open && group.middle.map((m) => nodeButton(m, 'mid', group.chainIds[0]))}
+                              {arrow('a2')}
+                            </>
+                          )}
+                          {group.blunders.map((b) => nodeButton(b, 'terminal', b.chainId))}
+                        </>
+                      )}
                     </div>
-
-                    {chain.chain_explanation && !standAloneIds.has(chain.id) && (
-                      <p
-                        style={{
-                          marginTop: 10,
-                          fontSize: 12,
-                          color: 'var(--text-muted)',
-                          lineHeight: 1.6,
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        <LitProse text={chain.chain_explanation} lit={lit} />
-                      </p>
-                    )}
                   </div>
                 )
               })}
@@ -1150,6 +1043,7 @@ export default function GameReviewClient({
             analysis.middlegame_accuracy !== null ||
             analysis.endgame_accuracy !== null) && (
             <div
+              className="review-phases"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr 1fr',
@@ -1206,132 +1100,9 @@ export default function GameReviewClient({
             </div>
           )}
 
-        {analysis?.key_moment_move_ply &&
-          prose?.keyMoment && (
-            <button
-              onClick={() => goTo(analysis.key_moment_move_ply!)}
-              onFocus={keyLit.onFocus}
-              onBlur={keyLit.onBlur}
-              data-lit-squares={keyLit['data-lit-squares']}
-              style={{
-                padding: '16px 18px',
-                background: 'var(--surface)',
-                border: '1px solid rgba(201,165,92,0.28)',
-                textAlign: 'left',
-                cursor: 'pointer',
-                width: '100%',
-                transition: 'border-color 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor =
-                  'rgba(201,165,92,0.55)'
-                keyLit.onMouseEnter?.()
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor =
-                  'rgba(201,165,92,0.28)'
-                keyLit.onMouseLeave?.()
-              }}
-            >
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: 9,
-                  letterSpacing: '0.12em',
-
-                  color: 'var(--gold-dim)',
-                  fontWeight: 600,
-                  marginBottom: 8,
-                }}
-              >
-                The turning point
-              </span>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: 15,
-                    color: 'var(--gold)',
-                    fontWeight: 600,
-                  }}
-                >
-                  {moves.find(
-                    (m) =>
-                      m.ply_number === analysis.key_moment_move_ply
-                  )?.san ?? `ply ${analysis.key_moment_move_ply}`}
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  move {Math.ceil(analysis.key_moment_move_ply / 2)}
-                </span>
-              </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 13,
-                  color: 'var(--text-muted)',
-                  lineHeight: 1.65,
-                }}
-              >
-                {prose.keyMoment}
-              </p>
-              <span
-                style={{
-                  display: 'block',
-                  marginTop: 8,
-                  fontSize: 10,
-                  color: 'var(--gold-dim)',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Click to jump →
-              </span>
-            </button>
-          )}
-
-        {prose?.narrative && (
-          <div
-            style={{
-              padding: '18px',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <span
-              style={{
-                display: 'block',
-                fontSize: 9,
-                letterSpacing: '0.12em',
-
-                color: 'var(--text-dim)',
-                fontWeight: 600,
-                marginBottom: 12,
-              }}
-            >
-              Coach analysis
-            </span>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 14,
-                color: 'var(--text)',
-                lineHeight: 1.75,
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              <LitProse text={prose.narrative} lit={lit} />
-            </p>
-          </div>
-        )}
-
         {!analysis && (
           <div
+            className="review-unanalysed"
             style={{
               padding: '24px',
               background: 'var(--surface)',
@@ -1353,19 +1124,21 @@ export default function GameReviewClient({
             >
               Move through the game with the board controls above.
             </p>
-            <button
+            <a
+              href="/games"
+              data-testid="analyze-from-games"
               style={{
+                display: 'inline-block',
                 padding: '8px 20px',
                 background: 'var(--gold)',
                 color: '#1a1512',
-                border: 'none',
-                cursor: 'pointer',
+                textDecoration: 'none',
                 fontSize: 13,
                 fontWeight: 600,
               }}
             >
-              Analyze this game
-            </button>
+              Analyze it from your games
+            </a>
           </div>
         )}
       </div>

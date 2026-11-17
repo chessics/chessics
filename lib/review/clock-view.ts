@@ -40,7 +40,6 @@ export function stripMarks(
   const blunders = new Set<number>()
   for (const c of chains) {
     if (!standAloneIds.has(c.id)) roots.add(c.root_move_ply)
-    blunders.add(c.terminal_blunder_ply)
   }
   for (const m of moves) if (m.classification === 'blunder') blunders.add(m.ply_number)
   return { roots, blunders }

@@ -89,6 +89,12 @@ body::after {
   background-size: 25% 25%;
 }
 
+.board-placeholder {
+  background-color: #7a4f28;
+  background-image: repeating-conic-gradient(#7a4f28 0% 25%, #dfba85 0% 50%);
+  background-size: 25% 25%;
+}
+
 cg-board square.last-move {
   background-color: rgba(201, 165, 92, 0.42);
   will-change: transform;
@@ -212,20 +218,42 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 @media (max-width: 899px) {
   .review-layout {
     flex-direction: column;
-    gap: 28px !important;
+    gap: 14px !important;
   }
   .review-left,
   .review-right {
-    width: 100% !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    border-right: none !important;
+    display: contents !important;
+  }
+  .review-take-over,
+  .review-moves {
+    order: 1;
+  }
+  .review-chains,
+  .review-phases,
+  .review-unanalysed {
+    order: 2;
+  }
+  .review-moves {
+    max-height: 176px !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .review-nav-btn {
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+
+@media (hover: hover) {
+  .workbench-pattern:hover {
+    background: rgba(201, 165, 92, 0.04);
   }
 }
 
 .games-grid {
   display: grid;
-  grid-template-columns: 90px 28px 28px 140px minmax(0, 1fr) 80px 72px 100px;
+  grid-template-columns: 90px 28px 36px 140px minmax(0, 1fr) 80px 72px 100px;
   align-items: center;
 }
 .games-label-short {

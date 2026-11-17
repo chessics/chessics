@@ -3,7 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { evaluateGame, evaluateTopLines, engineLabel, DEFAULT_DEPTH, type EvaluatedMove } from './stockfish.js'
 import { buildStandaloneBlunderPositions, buildTrainingPositions, type TrainingPositionRow } from './training-positions.js'
 import { withTimeFloors } from './time-floor.js'
-import { generateGameReview } from './claude-service.js'
 import { detectGamePatterns, primaryTagForChainRoot, primaryTagForRoot, isMateMissWhileWinning, withheldTagsFor } from './pattern-detector.js'
 import type { DetectedPattern, RootCauseRecord } from './pattern-detector.js'
 
@@ -35,7 +34,7 @@ export interface GameAnalysisData {
     opening_accuracy: number | null
     middlegame_accuracy: number | null
     endgame_accuracy: number | null
-    claude_narrative: string
+    claude_narrative: string | null
     calibration_level_used: number
     key_moment_move_ply: number | null
     key_moment_explanation: string | null
@@ -226,32 +225,6 @@ export async function buildGameAnalysis(
 
   const overallAccuracy = computeAccuracy(evaluatedMoves)
 
-  const { narrative, keyMomentExplanation } = await generateGameReview(
-    {
-      white: '',
-      black: '',
-      result: game.result,
-      userColor: game.user_color,
-      moves: evaluatedMoves,
-    },
-    causalChains.map(c => ({
-      rootMovePly: c.root_move_ply,
-      rootMoveSan: c.root_move_san,
-      rootMoveExplanation: c.root_move_explanation,
-      terminalBlunderPly: c.terminal_blunder_ply,
-      terminalBlunderSan: c.terminal_blunder_san,
-      terminalBlunderExplanation: c.terminal_blunder_explanation,
-      chainExplanation: c.chain_explanation,
-      intermediateNodes: c.nodes.map(n => ({
-        ply: n.move_ply,
-        san: n.move_san,
-        explanation: n.explanation,
-        orderIndex: n.order_index,
-      })),
-    })),
-    calibrationLevel
-  )
-
   const withheld = withheldTagsFor(game)
   const patterns = detectGamePatterns(evaluatedMoves, game.user_color).filter(p => !withheld.has(p.patternType))
 
@@ -336,10 +309,10 @@ export async function buildGameAnalysis(
       opening_accuracy: openingMoves.length ? computeAccuracy(openingMoves) : null,
       middlegame_accuracy: midMoves.length ? computeAccuracy(midMoves) : null,
       endgame_accuracy: endMoves.length ? computeAccuracy(endMoves) : null,
-      claude_narrative: narrative,
+      claude_narrative: null,
       calibration_level_used: calibrationLevel,
       key_moment_move_ply: causalChains[0]?.terminal_blunder_ply ?? null,
-      key_moment_explanation: keyMomentExplanation,
+      key_moment_explanation: null,
     },
     causal_chains: causalChains,
     patterns,

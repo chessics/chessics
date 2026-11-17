@@ -26,3 +26,19 @@ export function nextRowJob(current: RowJob, body: { status?: unknown }): RowJob 
 }
 
 export const RUNNING_JOB_WINDOW_MS = 10 * 60_000
+
+export function rowJobAnnouncement(opponent: string | null, job: RowJob): string {
+  const game = opponent ? `the game against ${opponent}` : 'this game'
+  switch (job.phase) {
+    case 'starting':
+      return `Analysis queued for ${game}.`
+    case 'analyzing':
+      return `Analyzing ${game}.`
+    case 'done':
+      return `Analysis finished: ${game} is ready to review.`
+    case 'failed': {
+      const label = job.label.replace(/\.$/, '')
+      return `${game.charAt(0).toUpperCase()}${game.slice(1)}: ${label.charAt(0).toLowerCase()}${label.slice(1)}.`
+    }
+  }
+}

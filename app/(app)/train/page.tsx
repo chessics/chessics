@@ -16,7 +16,7 @@ export default async function TrainPage() {
   return (
     <>
       <GuestTransferRetry signedIn={!!session} />
-      <TrainingSession mode="live" />
+      <TrainingSession mode="live" signedIn={!!session} />
     </>
   )
 }

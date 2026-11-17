@@ -7,6 +7,7 @@ import TrainingBoard, { type DrawnArrow } from './TrainingBoard'
 import LosingBranch from './LosingBranch'
 import Reveal from './Reveal'
 import TrainingIntro, { IntroSteps } from './TrainingIntro'
+import SignedOutTraining from './SignedOutTraining'
 import SessionEnd from './SessionEnd'
 import type { SessionSummary } from '@/lib/training/summary'
 import type { PublicPosition } from '@/lib/training/position-payload'
@@ -122,9 +123,9 @@ function useBoardSize(ref: React.RefObject<HTMLDivElement>): number {
   return size
 }
 
-export default function TrainingSession({ mode }: { mode: TrainingMode }) {
+export default function TrainingSession({ mode, signedIn = true }: { mode: TrainingMode; signedIn?: boolean }) {
   const [session, setSession] = useState<StoredSession | null>(null)
-  const [phase, setPhase] = useState<Phase>({ name: 'loading' })
+  const [phase, setPhase] = useState<Phase>(signedIn ? { name: 'loading' } : { name: 'signin' })
   const [arrows, setArrows] = useState<DrawnArrow[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [boardMessage, setBoardMessage] = useState<string | null>(null)
@@ -143,9 +144,10 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
   }
 
   useEffect(() => {
-    if (introSeen()) begin(loadSession())
+    if (!signedIn) setPhase({ name: 'signin' })
+    else if (introSeen()) begin(loadSession())
     else setPhase({ name: 'intro' })
-  }, [])
+  }, [signedIn])
 
   const startFromIntro = () => {
     markIntroSeen()
@@ -415,14 +417,7 @@ export default function TrainingSession({ mode }: { mode: TrainingMode }) {
 
       {phase.name === 'done' && <SessionEnd openLoop={phase.openLoop} summary={phase.summary} onAgain={restart} />}
 
-      {phase.name === 'signin' && (
-        <div className="training-done">
-          <p className="training-open-loop">Training runs on your own games, so it needs an account.</p>
-          <div className="training-actions">
-            <a className="training-btn training-btn-primary" href="/login">Sign in</a>
-          </div>
-        </div>
-      )}
+      {phase.name === 'signin' && <SignedOutTraining />}
 
       {phase.name === 'error' && (
         <div className="training-done">

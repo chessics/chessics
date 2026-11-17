@@ -110,14 +110,14 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
       <p className="training-open-loop">{empty ? NOTHING_TO_TRAIN_HINT : openLoop}</p>
 
       <div className="training-actions">
+        <a className="training-btn training-btn-primary" href="/workbench">
+          Back to the workbench
+        </a>
         {!empty && (
-          <button className="training-btn training-btn-primary" onClick={onAgain}>
+          <button className="training-btn training-btn-quiet" onClick={onAgain}>
             Another session
           </button>
         )}
-        <a className={empty ? 'training-btn training-btn-primary' : 'training-btn training-btn-quiet'} href="/workbench">
-          Back to the workbench
-        </a>
       </div>
     </div>
   )

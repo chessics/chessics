@@ -19,8 +19,7 @@ Chessics is built on the open-source software below. Each keeps its own license.
 | [Lucide](https://github.com/lucide-icons/lucide) (lucide-react): icons | ISC | Lucide contributors |
 | [clsx](https://github.com/lukeed/clsx) | MIT | Luke Edwards |
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) (build time) | MIT | Tailwind Labs |
-| Cormorant Garamond, Old Standard TT, DM Sans, JetBrains Mono, Literata, via Google Fonts | SIL Open Font License 1.1 | their designers |
-| [three.js](https://github.com/mrdoob/three.js) 0.170.0: the 3D board on the landing page | MIT | three.js authors |
+| Cormorant Garamond, DM Sans, JetBrains Mono, EB Garamond, Geist, via Google Fonts | SIL Open Font License 1.1 | their designers |
 | [@vercel/analytics](https://github.com/vercel/analytics) 2.0.1: cookieless page-view counts | MIT | Vercel |
 
 ## On the server
@@ -35,6 +34,17 @@ Chessics is built on the open-source software below. Each keeps its own license.
 | [python-chess](https://github.com/niklasf/python-chess) 1.11.2 | GPL-3.0-or-later | Move rules inside the move service |
 | [FastAPI](https://github.com/fastapi/fastapi) 0.162.0 and [Uvicorn](https://github.com/encode/uvicorn) 0.54.0 | MIT and BSD-3-Clause | The move service's web server |
 | [PyTorch](https://github.com/pytorch/pytorch) (CPU build, through Maia-2) | BSD-3-Clause | Runs the Maia-2 model inside the move service |
+
+## Images
+
+The landing page shows three pictures of chess players, all in the public domain:
+
+- Thomas Eakins, *The Chess Players*, 1876, oil on wood. The Metropolitan Museum of Art (81.14),
+  from its [Open Access](https://www.metmuseum.org/art/collection/search/10813) collection (CC0).
+- Henry Maull, *Chess Players*, 1850s, salted paper print. The Metropolitan Museum of Art, from
+  its [Open Access](https://www.metmuseum.org/art/collection/search/286553) collection (CC0).
+- Honoré Daumier, *The Chess Players* (*Les Joueurs d'échecs*), 1860s, oil on wood. Public domain,
+  via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Honor%C3%A9_Daumier_032.jpg).
 
 ## Services
 

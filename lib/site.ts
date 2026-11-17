@@ -1,6 +1,6 @@
 export const SITE_NAME = 'Chessics'
 
-export const SITE_TAGLINE = "Find out why you're losing, not just where."
+export const SITE_TAGLINE = 'Find the move behind the blunder.'
 
 export const SITE_DESCRIPTION =
   'Chessics reviews 10 to 100 of your Chess.com or Lichess games at once, finds the mistake you keep repeating, and trains you on those positions. No signup for your first analysis.'

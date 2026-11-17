@@ -105,116 +105,73 @@ export default function GuestAnalysis() {
   }
 
   const showForm = resumeState === 'idle' || resumeState === 'checking'
+  const platformName = platform === 'chess.com' ? 'Chess.com' : 'Lichess'
 
   return (
-    <div className="w-full flex flex-col gap-5">
+    <div className={styles.access}>
         {errorMessage && (
-          <p role="alert" className="w-full text-sm text-center" style={{ color: 'var(--text)', borderTop: '1px solid var(--oxblood)', paddingTop: 8 }}>
+          <p role="alert" className={styles.alert}>
             {errorMessage}
           </p>
         )}
 
         {resumeState === 'ready' && resumeSession && (
-          <div
-            className="w-full p-5 flex flex-col gap-4"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)' }}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="mt-1 flex-shrink-0 w-2 h-2"
-                style={{ background: 'var(--gold)' }}
-              />
-              <div className="flex flex-col gap-0.5">
-                <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-                  Your analysis is ready
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {resumeSession.username} · {resumeSession.platform === 'chess.com' ? 'Chess.com' : 'Lichess'} · {resumeSession.batchSize ?? 25} games
-                </p>
-              </div>
+          <div className={styles.resume}>
+            <div className={styles.resumeText}>
+              <p className={styles.resumeTitle}>Your analysis is ready</p>
+              <p className={styles.resumeMeta}>
+                {resumeSession.username} · {resumeSession.platform === 'chess.com' ? 'Chess.com' : 'Lichess'} · {resumeSession.batchSize ?? 25} games
+              </p>
             </div>
-
-            <div className="flex flex-col gap-2">
-              <a
-                href="/report"
-                className="w-full py-2.5 text-sm font-medium text-center block"
-                style={{ background: 'transparent', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
-              >
-                View your report
-              </a>
-              <a
-                href="/signup"
-                className="w-full py-2.5 text-sm font-medium text-center block"
-                style={{ background: 'var(--gold)', color: '#1a1512' }}
-              >
-                Sign up to save &amp; view results →
-              </a>
-              <a
-                href="/login"
-                className="w-full py-2.5 text-sm text-center block"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--border-strong)',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                Sign in to existing account
-              </a>
+            <div className={styles.resumeActions}>
+              <a href="/report" className={styles.primary}>View your report</a>
+              <a href="/signup" className={styles.secondary}>Sign up to save &amp; view results →</a>
+              <a href="/login" className={styles.secondary}>Sign in to existing account</a>
             </div>
-
-            <button
-              type="button"
-              onClick={handleStartFresh}
-              className="text-xs text-center w-full"
-              style={{ color: 'var(--text-dim)', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
+            <button type="button" onClick={handleStartFresh} className={styles.textButton}>
               Discard and start a new analysis
             </button>
           </div>
         )}
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-            <div
-              className={styles.platformPicker}
-              role="group"
-              aria-label="Platform"
-            >
-              {(['chess.com', 'lichess'] as Platform[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPlatform(p)}
-                  aria-pressed={platform === p}
-                  className={styles.platformButton}
-                >
-                  {p === 'chess.com' ? 'Chess.com' : 'Lichess'}
-                </button>
-              ))}
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.fields}>
+              <div className={styles.platformPicker} role="group" aria-label="Platform">
+                {(['chess.com', 'lichess'] as Platform[]).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPlatform(p)}
+                    aria-pressed={platform === p}
+                    className={styles.platformButton}
+                  >
+                    {p === 'chess.com' ? 'Chess.com' : 'Lichess'}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={`Your ${platformName} username`}
+                value={username}
+                onChange={handleUsernameChange}
+                aria-label={`${platformName} username`}
+                autoComplete="off"
+                className={styles.username}
+                spellCheck={false}
+                autoCapitalize="none"
+              />
+
+              <button type="submit" className={styles.analyzeButton}>
+                Analyze 10 games
+              </button>
             </div>
-
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder={`Your ${platform === 'chess.com' ? 'Chess.com' : 'Lichess'} username`}
-              value={username}
-              onChange={handleUsernameChange}
-              aria-label={`${platform === 'chess.com' ? 'Chess.com' : 'Lichess'} username`}
-              autoComplete="off"
-              className="w-full px-4 py-3 text-sm"
-              spellCheck={false}
-              autoCapitalize="none"
-              style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border-strong)',
-                color: 'var(--text)',
-                fontFamily: 'DM Sans, sans-serif',
-              }}
-            />
-
-            <button type="submit" className={`w-full ${styles.analyzeButton}`}>
-              Analyze 10 games
-            </button>
+            <p className={styles.note}>
+              <span>Your last 10 games, analyzed together. No signup needed.</span>
+              <a href="/signup">Create an account</a>
+            </p>
           </form>
         )}
 

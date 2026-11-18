@@ -257,8 +257,8 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   font-weight: 500;
 }
 .review-scoresheet button[aria-current] { border-inline-start: 2px solid var(--brass) !important; }
-.review-phases, .workbench-history { border-block-start: 1px solid var(--border); }
-.review-phases summary, .workbench-history summary {
+.review-phases { border-block-start: 1px solid var(--border); }
+.review-phases summary {
   padding-block: 10px;
   color: var(--text-muted);
   cursor: pointer;
@@ -279,7 +279,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 .editorial-action:hover { background: var(--gold); }
 .review-moment .editorial-action { margin-top: 9px; }
 .collection-page { max-width: 1040px; margin-inline: auto; }
-.workbench-page { max-width: 800px; }
 .collection-heading {
   display: flex;
   align-items: center;
@@ -301,12 +300,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 .games-filter[aria-pressed='true'] { border-color: var(--brass); color: var(--text); }
 .games-row:focus-visible { outline-offset: -2px; }
 .games-review-link { color: var(--brass); font-size: 12px; white-space: nowrap; }
-.workbench-brief { display: flex; flex-direction: column; gap: 18px; }
-.workbench-brief-head { display: flex; flex-direction: column; gap: 8px; }
-.workbench-verdict { font-size: clamp(1.65rem, 3vw, 2.45rem); line-height: 1.12; max-width: 33ch; }
-.workbench-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; }
-.workbench-findings h2 { padding-block: 8px; font-size: 15px; font-weight: 500; }
-.workbench-pattern { min-height: 42px; }
 @media (hover: hover) {
   .games-row:hover, .games-filter:hover { background: rgba(201, 165, 92, 0.07); }
 }

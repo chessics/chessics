@@ -141,11 +141,12 @@ export default function BatchReportSummary({
   }).verdict
 
   return (
-    <div className="workbench-brief">
-      <div className="workbench-brief-head">
-        <span className="text-sm" style={{ color: 'var(--brass)' }}>Latest analysis</span>
+    <div
+      className="p-6 flex flex-col gap-5"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+    >
       {verdict && (
-        <p className="font-headline workbench-verdict">
+        <p className="font-headline" style={{ fontSize: 24, lineHeight: 1.3, color: 'var(--text)' }}>
           {verdict.text}
         </p>
       )}
@@ -158,6 +159,8 @@ export default function BatchReportSummary({
           {MORE_GAMES_HINT}
         </Link>
       )}
+      {bars.length > 0 && <RecurrenceStrip bars={bars} height={22} />}
+
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
           Last {countNoun(latestBatch.game_count, 'game')} · {formatDate(latestBatch.generated_at)}
@@ -185,23 +188,14 @@ export default function BatchReportSummary({
           </span>
         </div>
       </div>
-      </div>
-
-      <div className="workbench-actions">
-        <Link href="/train" className="editorial-action">Train these positions</Link>
-        <Link href={`/workbench/batch/${latestBatch.id}`} className="text-sm" style={{ color: 'var(--brass)' }}>
-          Open full report →
-        </Link>
-      </div>
 
       {groups.length > 0 && (
-        <section className="workbench-findings" aria-labelledby="workbench-findings-title">
-          <h2 id="workbench-findings-title">What showed up</h2>
+        <div className="flex flex-col">
           {groups.slice(0, 5).map((g) => (
             <Link
               key={g.tag}
               href={findingHref(latestBatch.id, g.tag)}
-              className="workbench-pattern flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3"
+              className="workbench-pattern flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2"
               style={{ borderTop: '1px solid var(--border)', color: 'inherit', textDecoration: 'none' }}
             >
               <span className="text-sm flex-1 min-w-[10rem]" style={{ color: 'var(--text)' }}>
@@ -213,19 +207,34 @@ export default function BatchReportSummary({
               >
                 {g.frequency} of {countNoun(latestBatch.game_count, 'game')}
               </span>
-              {trajectories[g.tag] && <span className="text-xs"><TrajectoryLabel trajectory={trajectories[g.tag]} /></span>}
+              <span className="text-xs" style={{ width: 84, textAlign: 'right' }}>
+                <TrajectoryLabel trajectory={trajectories[g.tag]} />
+              </span>
             </Link>
           ))}
-        </section>
+        </div>
       )}
 
-      {(bars.length > 0 || allBatches.length > 0) && (
-        <details className="workbench-history">
-          <summary>Batch history</summary>
-          {bars.length > 0 && <RecurrenceStrip bars={bars} height={22} />}
-          {allBatches.length > 0 && <Sparkline batches={allBatches} />}
-        </details>
-      )}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+        <Sparkline batches={allBatches} />
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href={`/workbench/batch/${latestBatch.id}`}
+          className="text-sm transition-opacity hover:opacity-70"
+          style={{ color: 'var(--brass)' }}
+        >
+          Open full report →
+        </Link>
+        <Link
+          href="/train"
+          className="text-sm px-4 py-2 transition-colors"
+          style={{ color: 'var(--bg)', background: 'var(--brass)' }}
+        >
+          Train these positions
+        </Link>
+      </div>
     </div>
   )
 }

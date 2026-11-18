@@ -108,17 +108,7 @@ function FilterTab({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      style={{
-        padding: '5px 12px',
-        fontSize: 12,
-        fontWeight: active ? 500 : 400,
-        background: active ? 'rgba(201,165,92,0.14)' : 'transparent',
-        color: active ? 'var(--gold)' : 'var(--text-muted)',
-        border: `1px solid ${active ? 'rgba(201,165,92,0.3)' : 'transparent'}`,
-        cursor: 'pointer',
-        transition: 'background-color 0.15s, border-color 0.15s, color 0.15s',
-        whiteSpace: 'nowrap',
-      }}
+      className="games-filter"
     >
       {children}
     </button>
@@ -249,15 +239,7 @@ export default function GamesLibraryClient({ games }: Props) {
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      <div
-        style={{
-          display: 'flex',
-          gap: 4,
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          alignItems: 'center',
-        }}
-      >
+      <div className="games-filters">
         <div role="group" aria-label="Filter by result" style={{ display: 'flex', gap: 3 }}>
           {(['all', 'win', 'loss', 'draw'] as const).map((r) => (
             <FilterTab
@@ -290,7 +272,6 @@ export default function GamesLibraryClient({ games }: Props) {
                 'Both colors'
               ) : (
                 <>
-                  <span aria-hidden="true">{c === 'white' ? '⬜' : '⬛'} </span>
                   {c === 'white' ? 'White' : 'Black'}
                 </>
               )}
@@ -326,9 +307,7 @@ export default function GamesLibraryClient({ games }: Props) {
       ) : (
         <div
           style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            overflow: 'hidden',
+            borderBlock: '1px solid var(--border)',
           }}
         >
           <div
@@ -368,15 +347,6 @@ export default function GamesLibraryClient({ games }: Props) {
                 idx < filtered.length - 1
                   ? '1px solid var(--border)'
                   : 'none',
-              transition: 'background 0.1s',
-            }
-            const hover = {
-              onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-                e.currentTarget.style.background = 'rgba(201,165,92,0.04)'
-              },
-              onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-                e.currentTarget.style.background = 'transparent'
-              },
             }
 
             const cells = (
@@ -469,20 +439,10 @@ export default function GamesLibraryClient({ games }: Props) {
 
                 <div className="games-cell-action" style={{ padding: '0 4px' }}>
                   {game.is_analyzed ? (
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '4px 10px',
-                        fontSize: 11,
-                        fontWeight: 500,
-                        color: 'var(--gold)',
-                        background: 'rgba(201,165,92,0.1)',
-                        border: '1px solid rgba(201,165,92,0.25)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
+                    <span className="games-review-link">
                       <span className="games-label-full">View review</span>
                       <span className="games-label-short">Review</span>
+                      <span aria-hidden="true"> →</span>
                     </span>
                   ) : job?.phase === 'done' ? (
                     <Link
@@ -552,14 +512,13 @@ export default function GamesLibraryClient({ games }: Props) {
                 key={game.id}
                 href={`/games/${game.id}/review`}
                 data-focus-game={game.id}
-                className="games-grid"
+                className="games-grid games-row"
                 style={{ ...rowStyle, color: 'inherit', textDecoration: 'none' }}
-                {...hover}
               >
                 {cells}
               </Link>
             ) : (
-              <div key={game.id} className="games-grid" style={rowStyle} {...hover}>
+              <div key={game.id} className="games-grid games-row" style={rowStyle}>
                 {cells}
               </div>
             )

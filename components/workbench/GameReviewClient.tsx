@@ -239,6 +239,7 @@ export default function GameReviewClient({
   takeOver = null,
 }: Props) {
   const [currentPly, setCurrentPly] = useState(0)
+  const [previewPly, setPreviewPly] = useState<number | null>(null)
   const [activeChainId, setActiveChainId] = useState<string | null>(null)
   const [boardShapes, setBoardShapes] = useState<BoardShape[]>([])
   const lit = useLitSquares()
@@ -270,6 +271,7 @@ export default function GameReviewClient({
 
   const goTo = useCallback(
     (ply: number) => {
+      setPreviewPly(null)
       setCurrentPly(Math.max(0, Math.min(ply, totalPlies)))
       setActiveChainId(null)
       setBoardShapes([])
@@ -303,7 +305,12 @@ export default function GameReviewClient({
   }, [goForward, goBackward])
 
   const moveListRef = useRef<HTMLDivElement>(null)
-  const listStop = tabStopPly(currentPly, totalPlies)
+  const selectedPly = previewPly ?? currentPly
+  const selectedMove = moves[selectedPly - 1]
+  const positionLabel = selectedMove
+    ? `${previewPly === null ? 'After' : 'Before'} ${Math.ceil(selectedPly / 2)}${selectedPly % 2 ? '.' : '…'} ${selectedMove.san}`
+    : 'Starting position'
+  const listStop = tabStopPly(selectedPly, totalPlies)
   const onMoveListKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return
     const next = moveListKey(e.key, currentPly, totalPlies)
@@ -324,7 +331,7 @@ export default function GameReviewClient({
       if (node && list) scrollListToMove(list, node, 'auto')
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentPly]
+    [selectedPly]
   )
 
   const standAloneIds = useMemo(
@@ -355,6 +362,7 @@ export default function GameReviewClient({
 
   const showPositionBefore = useCallback(
     (ply: number, brush: string) => {
+      setPreviewPly(ply)
       setCurrentPly(Math.max(0, ply - 1))
       setActiveChainId(null)
       const moveData = moves.find((m) => m.ply_number === ply)
@@ -454,23 +462,144 @@ export default function GameReviewClient({
   return (
     <div
       className="review-layout"
-      style={{
-        display: 'flex',
-        gap: 0,
-        minHeight: 'calc(100vh - 56px - 48px)',
-      }}
     >
+        <div
+          className="review-header"
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <h1 style={{ fontWeight: 500, color: 'var(--text)', margin: 0 }}>
+                  vs {game.opponent_username || 'Unknown'}
+                </h1>
+                <span
+                  style={{
+                    padding: '2px 9px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    background: resultBg,
+                    color: 'var(--text)',
+                    border: `1px solid ${resultColor}`,
+                  }}
+                >
+                  {resultLabel}
+                </span>
+              </div>
+              <div
+                style={{
+                  marginTop: 5,
+                  display: 'flex',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {formatDate(game.played_at)}
+                </span>
+                {game.time_control && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {formatTimeControl(game.time_control)}
+                  </span>
+                )}
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--text-dim)',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {orientation}
+                </span>
+              </div>
+              {game.opening_name && (
+                <p
+                  style={{
+                    marginTop: 5,
+                    fontSize: 12,
+                    color: 'var(--text-dim)',
+                  }}
+                >
+                  {game.opening_name}
+                </p>
+              )}
+            </div>
+
+            {analysis?.overall_accuracy !== null &&
+              analysis?.overall_accuracy !== undefined && (
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 26,
+                      fontWeight: 700,
+                      color: 'var(--gold)',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {analysis.overall_accuracy.toFixed(0)}
+                    <span style={{ fontSize: 14 }}>%</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: 'var(--text-dim)',
+                      marginTop: 3,
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    accuracy
+                  </div>
+                </div>
+              )}
+          </div>
+
+          {(game.user_rating_at_time ?? game.opponent_rating_at_time) && (
+            <div
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+                display: 'flex',
+                gap: 16,
+                fontSize: 12,
+              }}
+            >
+              {game.user_rating_at_time && (
+                <span style={{ color: 'var(--text-muted)' }}>
+                  You:{' '}
+                  <strong style={{ color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {game.user_rating_at_time}
+                  </strong>
+                </span>
+              )}
+              {game.opponent_rating_at_time && (
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Opp:{' '}
+                  <strong style={{ color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
+                    {game.opponent_rating_at_time}
+                  </strong>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
       <div
         className="review-left"
-        style={{
-          width: '60%',
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-          paddingRight: 28,
-          borderRight: '1px solid var(--border)',
-        }}
       >
         <div ref={boardRowRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflow: 'hidden', scrollMarginTop: 'var(--review-scroll-inset, 0px)' }}>
           <EvalBar cp={currentEval} height={boardSize} flipped={isFlipped} words={currentWords} />
@@ -485,11 +614,7 @@ export default function GameReviewClient({
           </div>
         </div>
 
-        {timeBars && (
-          <div style={{ paddingLeft: 22 }}>
-            <TimeStrip bars={timeBars} currentPly={currentPly} width={boardSize} onSelect={goTo} />
-          </div>
-        )}
+        <p className="review-position" aria-live="polite">{positionLabel}</p>
 
         <div
           style={{
@@ -576,6 +701,12 @@ export default function GameReviewClient({
           </span>
         </div>
 
+        {timeBars && (
+          <div style={{ paddingLeft: 22 }}>
+            <TimeStrip bars={timeBars} currentPly={currentPly} width={boardSize} onSelect={goTo} />
+          </div>
+        )}
+
         {takeOverLink && (
           <div className="review-take-over" style={{ paddingLeft: 22 }}>
             <a
@@ -594,6 +725,51 @@ export default function GameReviewClient({
           </div>
         )}
 
+      </div>
+
+      <div
+        className="review-right"
+      >
+        {moment && (
+          <section
+            className="review-moment"
+            data-testid="key-moment"
+            aria-labelledby="key-moment-title"
+          >
+            <h2
+              id="key-moment-title"
+              style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--brass)', letterSpacing: '0.04em' }}
+            >
+              {keyMomentTitle(moment)}
+            </h2>
+            <p
+              style={{
+                margin: '8px 0 6px',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 'clamp(1.6rem, 3vw, 2.3rem)',
+                color: 'var(--text)',
+                fontWeight: 600,
+              }}
+            >
+              {moment.san}
+            </p>
+            {keyMomentSentences(moment).map((sentence) => (
+              <p key={sentence} style={{ margin: '0 0 4px', fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>
+                {sentence}
+              </p>
+            ))}
+            <button
+              className="editorial-action"
+              type="button"
+              onClick={() => showPositionBefore(moment.ply, moment.kind === 'decided' ? 'chain_root' : 'chain_blunder')}
+            >
+              Show the position
+            </button>
+          </section>
+        )}
+
+        <section className="review-scoresheet" aria-labelledby="review-moves-title">
+          <h2 id="review-moves-title">Moves</h2>
         <div
           ref={moveListRef}
           className="review-moves"
@@ -601,9 +777,7 @@ export default function GameReviewClient({
           aria-label="Moves. Use the arrow keys to step through them, Home and End for the start and the end."
           onKeyDown={onMoveListKey}
           style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            padding: '6px 0',
+            padding: '3px 0',
             maxHeight: 300,
             overflowY: 'auto',
           }}
@@ -642,23 +816,23 @@ export default function GameReviewClient({
               </span>
               <MoveCell
                 move={white}
-                isActive={currentPly === white.ply_number}
+                isActive={selectedPly === white.ply_number}
                 onClick={() => goTo(white.ply_number)}
                 tabIndex={listStop === white.ply_number ? 0 : -1}
                 clockMs={clock?.remaining.get(white.ply_number)}
                 ref={
-                  currentPly === white.ply_number ? setActiveMoveRef : undefined
+                  selectedPly === white.ply_number ? setActiveMoveRef : undefined
                 }
               />
               {black ? (
                 <MoveCell
                   move={black}
-                  isActive={currentPly === black.ply_number}
+                  isActive={selectedPly === black.ply_number}
                   onClick={() => goTo(black.ply_number)}
                   tabIndex={listStop === black.ply_number ? 0 : -1}
                   clockMs={clock?.remaining.get(black.ply_number)}
                   ref={
-                    currentPly === black.ply_number
+                    selectedPly === black.ply_number
                       ? setActiveMoveRef
                       : undefined
                   }
@@ -669,211 +843,7 @@ export default function GameReviewClient({
             </div>
           ))}
         </div>
-      </div>
-
-      <div
-        className="review-right"
-        style={{
-          width: '40%',
-          minWidth: 0,
-          paddingLeft: 28,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-        }}
-      >
-        <div
-          className="review-header"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            padding: '16px 18px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <h1 style={{ fontWeight: 500, color: 'var(--text)', fontSize: 'inherit', margin: 0 }}>
-                  vs {game.opponent_username || 'Unknown'}
-                </h1>
-                <span
-                  style={{
-                    padding: '2px 9px',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-
-                    background: resultBg,
-                    color: 'var(--text)',
-                    border: `1px solid ${resultColor}`,
-                  }}
-                >
-                  {resultLabel}
-                </span>
-              </div>
-              <div
-                style={{
-                  marginTop: 5,
-                  display: 'flex',
-                  gap: 10,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {formatDate(game.played_at)}
-                </span>
-                {game.time_control && (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {formatTimeControl(game.time_control)}
-                  </span>
-                )}
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: 'var(--text-dim)',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {orientation}
-                </span>
-              </div>
-              {game.opening_name && (
-                <p
-                  style={{
-                    marginTop: 5,
-                    fontSize: 12,
-                    color: 'var(--text-dim)',
-                  }}
-                >
-                  {game.opening_name}
-                </p>
-              )}
-            </div>
-
-            {analysis?.overall_accuracy !== null &&
-              analysis?.overall_accuracy !== undefined && (
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 700,
-                      color: 'var(--gold)',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {analysis.overall_accuracy.toFixed(0)}
-                    <span style={{ fontSize: 14 }}>%</span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: 'var(--text-dim)',
-                      marginTop: 3,
-                      letterSpacing: '0.08em',
-
-                    }}
-                  >
-                    accuracy
-                  </div>
-                </div>
-              )}
-          </div>
-
-          {(game.user_rating_at_time ?? game.opponent_rating_at_time) && (
-            <div
-              style={{
-                marginTop: 10,
-                paddingTop: 10,
-                borderTop: '1px solid var(--border)',
-                display: 'flex',
-                gap: 16,
-                fontSize: 12,
-              }}
-            >
-              {game.user_rating_at_time && (
-                <span style={{ color: 'var(--text-muted)' }}>
-                  You:{' '}
-                  <strong style={{ color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {game.user_rating_at_time}
-                  </strong>
-                </span>
-              )}
-              {game.opponent_rating_at_time && (
-                <span style={{ color: 'var(--text-muted)' }}>
-                  Opp:{' '}
-                  <strong style={{ color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {game.opponent_rating_at_time}
-                  </strong>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {moment && (
-          <section
-            data-testid="key-moment"
-            aria-labelledby="key-moment-title"
-            style={{
-              padding: '16px 18px',
-              background: 'var(--surface)',
-              border: '1px solid rgba(201,165,92,0.45)',
-            }}
-          >
-            <h2
-              id="key-moment-title"
-              style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--brass)', letterSpacing: '0.04em' }}
-            >
-              {keyMomentTitle(moment)}
-            </h2>
-            <p
-              style={{
-                margin: '8px 0 6px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 18,
-                color: 'var(--gold)',
-                fontWeight: 600,
-              }}
-            >
-              {moment.san}
-            </p>
-            {keyMomentSentences(moment).map((sentence) => (
-              <p key={sentence} style={{ margin: '0 0 4px', fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>
-                {sentence}
-              </p>
-            ))}
-            <button
-              type="button"
-              onClick={() => showPositionBefore(moment.ply, moment.kind === 'decided' ? 'chain_root' : 'chain_blunder')}
-              style={{
-                marginTop: 10,
-                padding: '6px 14px',
-                background: 'none',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 0,
-                color: 'var(--brass)',
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              Show the position
-            </button>
-          </section>
-        )}
+        </section>
 
         {causalChains.length > 0 && (
           <div
@@ -1042,8 +1012,9 @@ export default function GameReviewClient({
           (analysis.opening_accuracy !== null ||
             analysis.middlegame_accuracy !== null ||
             analysis.endgame_accuracy !== null) && (
-            <div
-              className="review-phases"
+            <details className="review-phases">
+              <summary>Accuracy by phase</summary>
+              <div className="review-phase-values"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr 1fr',
@@ -1097,7 +1068,8 @@ export default function GameReviewClient({
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            </details>
           )}
 
         {!analysis && (

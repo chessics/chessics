@@ -20,8 +20,8 @@ export default async function GamesPage() {
 
   if (!session) {
     return (
-      <div className="max-w-5xl mx-auto flex flex-col gap-6">
-        <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
+      <div className="collection-page">
+        <h1 className="collection-heading editorial-title">
           Game library
         </h1>
         <SignedOut line="Sign in to see your games." />
@@ -49,11 +49,11 @@ export default async function GamesPage() {
   const analysed = flatGames.filter((g) => g.is_analyzed).length
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="collection-page">
       <AutoImport signedIn enabled={autoImportEnabled()} />
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="collection-heading">
         <div>
-          <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
+          <h1 className="editorial-title">
             Game library
           </h1>
           {!error && flatGames.length > 0 && (
@@ -64,18 +64,7 @@ export default async function GamesPage() {
         </div>
 
         {!error && flatGames.length > 0 && (
-          <Link
-            href="/"
-            style={{
-              padding: '8px 16px',
-              fontSize: 13,
-              fontWeight: 500,
-              background: 'var(--gold)',
-              color: 'var(--bg)',
-              textDecoration: 'none',
-              display: 'inline-block',
-            }}
-          >
+          <Link href="/" className="editorial-action">
             Analyze games
           </Link>
         )}

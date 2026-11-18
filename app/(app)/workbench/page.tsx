@@ -75,11 +75,11 @@ export default async function WorkbenchPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+    <div className="collection-page workbench-page">
       <GuestTransferRetry signedIn={!!session} />
       <AutoImport signedIn={!!session} enabled={autoImportEnabled()} />
-      <div>
-        <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
+      <div className="collection-heading">
+        <h1 className="editorial-title">
           Workbench
         </h1>
       </div>

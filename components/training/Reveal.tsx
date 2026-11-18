@@ -9,6 +9,7 @@ import {
   ARROW_KEY,
   revealArrows,
   revealLines,
+  immediateGameConsequence,
   revealVerdict,
   squaresNamed,
   type RevealKind,
@@ -64,8 +65,8 @@ function sanAfter(fen: string, first: string, reply: string): string | null {
   }
 }
 
-function capitalise(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1)
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function checkWords(c: GoalCheck): string {
@@ -81,7 +82,8 @@ function checkWords(c: GoalCheck): string {
 
 export default function Reveal({ fen, orientation, kind, commit, chosenMove, size, watched, nextLabel, onNext, onWatch, onThreat, playHref = null, share = null }: RevealProps) {
   const chosenSan = sanOf(fen, chosenMove)
-  const moveLines = revealLines(kind, commit, chosenSan)
+  const consequence = immediateGameConsequence(fen, commit.root_move_uci, commit.refutation_line)
+  const moveLines = revealLines(kind, commit, chosenSan, consequence)
   const reason = commit.reason ?? null
   const sameMove = chosenMove !== null && commit.best_move !== null && chosenMove.slice(0, 4) === commit.best_move.slice(0, 4)
   const reasonText = reason ? reasonWords(reason, chosenSan, commit.best_move_san, sameMove) : null
@@ -153,7 +155,7 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
           ))}
         </div>
 
-        {r && r.games_analysed > 0 && (
+        {!consequence && r && r.games_analysed > 0 && (
           <p className="training-recurrence">
             {capitalise(tagLabel(r.tag))}: the same kind of slip shows up in {r.games_with_tag} of your {r.games_analysed} games.
             {r.exposure_ordinal > 1 && ` You've seen this position ${r.exposure_ordinal} times now.`}

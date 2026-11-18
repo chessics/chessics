@@ -57,7 +57,7 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
 
       {locked.length > 0 && (
         <section className="session-section">
-          <h2 className="session-section-title">Locked in today</h2>
+          <h2 className="session-section-title">Moves that held</h2>
           <p className="training-hint">You found a move that holds in these.</p>
           <div className="locked-grid">
             {locked.map(l => (

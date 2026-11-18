@@ -7,6 +7,8 @@ import { one, type OneOrMany } from '@/lib/supabase/embed'
 import { gamesByPliesQueries } from '@/lib/supabase/row-cap'
 import { preTerminalEvalFromRow, toUserEval } from '@/lib/chains/stands-alone'
 
+const WIDE_GAP_CAPTURE_FLOOR_MS = 3000
+
 export interface NextStepRow {
   id: string
   game_id: string
@@ -19,13 +21,14 @@ export interface NextStepRow {
   refutation_line: string[] | null
   refutation_evals: number[] | null
   span_plies: number
+  time_floor_ms?: number | null
   played_at?: string | null
   chain_root_plies?: number[] | null
   pre_terminal_eval_cp?: number | null
 }
 
 export const TRAINING_QUEUE_SELECT =
-  'id, game_id, root_ply, fen, side_to_move, tag, eval_cp, best_move, refutation_line, refutation_evals, span_plies, games(played_at, game_analyses(causal_chains(root_move_ply)))'
+  'id, game_id, root_ply, fen, side_to_move, tag, eval_cp, best_move, refutation_line, refutation_evals, span_plies, time_floor_ms, games(played_at, game_analyses(causal_chains(root_move_ply)))'
 
 type EmbeddedAnalysis = { causal_chains?: { root_move_ply: number }[] | null }
 type EmbeddedGame = { played_at: string | null; game_analyses?: OneOrMany<EmbeddedAnalysis> }
@@ -140,6 +143,7 @@ export function nextStepBody(
     refutation_line: r.refutation_line ?? [],
     refutation_evals: r.refutation_evals ?? [],
     span_plies: r.span_plies,
+    clear_answer: r.time_floor_ms === WIDE_GAP_CAPTURE_FLOOR_MS,
     pre_terminal_eval_cp: r.pre_terminal_eval_cp ?? null,
   }))
 

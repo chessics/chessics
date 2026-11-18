@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Topbar signedIn={!!session} />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-auto">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-auto [--review-scroll-inset:3.5rem]">
           {children}
         </main>
       </div>

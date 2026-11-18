@@ -42,6 +42,7 @@ function scheduleFor(rows: HistoryRow[], now: number): Schedule {
   let countedAt: number | null = null
   for (const r of sorted) {
     if (r.correct === true) {
+      if (streak >= SPACING_MS.retireAfterCorrectStreak) continue
       const early = countedAt !== null && r.at < countedAt + intervalAfter(streak)
       if (early) continue
       streak++
@@ -49,8 +50,9 @@ function scheduleFor(rows: HistoryRow[], now: number): Schedule {
       streak = 0
     }
     countedAt = r.at
-    if (streak >= SPACING_MS.retireAfterCorrectStreak) return { kind: 'retired' }
   }
+
+  if (streak >= SPACING_MS.retireAfterCorrectStreak) return { kind: 'retired' }
 
   const dueAt = countedAt! + intervalAfter(streak)
   return dueAt <= now
@@ -90,7 +92,7 @@ export function orderPoolForSession(
 
   return [
     ...due.sort((a, b) => b.overdueMs - a.overdueMs).map(x => x.c),
-    ...fresh,
+    ...fresh.sort((a, b) => Number(Boolean(b.clear_answer)) - Number(Boolean(a.clear_answer))),
     ...waiting.sort((a, b) => a.dueInMs - b.dueInMs).map(x => x.c),
   ]
 }

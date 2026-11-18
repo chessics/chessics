@@ -21,12 +21,14 @@ export function moveNumberOfPly(ply: number): number {
   return Math.ceil(ply / 2)
 }
 
-export function gameDecidedAt(input: {
+interface DecidedAtInput {
   result: Result | null
   userColor: Color | null
   chains: readonly DecidedAtChain[]
   moves: readonly DecidedAtMove[]
-}): DecidedAt | null {
+}
+
+export function decidingChain(input: DecidedAtInput): DecidedAtChain | null {
   const { result, userColor, chains, moves } = input
   if (result !== 'loss' && result !== 'draw') return null
   if (userColor !== 'white' && userColor !== 'black') return null
@@ -34,7 +36,7 @@ export function gameDecidedAt(input: {
   const byPly = new Map(moves.map(m => [m.ply_number, m]))
   const forUser = (whiteCp: number) => (userColor === 'white' ? whiteCp : -whiteCp)
 
-  let earliest: number | null = null
+  let earliest: DecidedAtChain | null = null
   for (const c of chains) {
     const before = byPly.get(c.root_move_ply)?.eval_before
     const after = byPly.get(c.terminal_blunder_ply)?.eval_after
@@ -42,10 +44,16 @@ export function gameDecidedAt(input: {
     if (typeof before !== 'number' || typeof after !== 'number' || typeof beforeTerminal !== 'number') continue
     if (blunderStandsAlone(forUser(beforeTerminal))) continue
     if (!(forUser(before) > 0 && forUser(after) < 0)) continue
-    if (earliest === null || c.root_move_ply < earliest) earliest = c.root_move_ply
+    if (!earliest || c.root_move_ply < earliest.root_move_ply ||
+        (c.root_move_ply === earliest.root_move_ply && c.terminal_blunder_ply < earliest.terminal_blunder_ply)) earliest = c
   }
 
-  return earliest === null ? null : { rootPly: earliest, moveNumber: moveNumberOfPly(earliest) }
+  return earliest
+}
+
+export function gameDecidedAt(input: DecidedAtInput): DecidedAt | null {
+  const chain = decidingChain(input)
+  return chain && { rootPly: chain.root_move_ply, moveNumber: moveNumberOfPly(chain.root_move_ply) }
 }
 
 export function decidedAtLabel(d: DecidedAt): string {

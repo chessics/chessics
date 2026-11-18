@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { allRows } from '@/lib/supabase/row-cap'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
+import { previousMove } from '@/lib/training/previous-move'
 import { TRAINING_QUEUE_SOURCE_TABLE } from '@/lib/training/queue'
 import { sessionSummary, type SummaryGame } from '@/lib/training/summary'
 import { reasonGateEnabled, standaloneBlunderPositionsEnabled } from '@/lib/flags'
@@ -107,7 +108,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     reasonGate: reasonGateEnabled('live'),
     standaloneBlunders: standaloneBlunderPositionsEnabled(),
   })
-  if (!('done' in body) || !interactions.some(i => i.session_id === sessionId)) return json(body)
+  if ('position' in body) {
+    const row = rows.find(candidate => candidate.id === body.position.position_id)
+    if (!row || row.root_ply <= 1) return json(body)
+    const { data, error } = await supabase.from('moves')
+      .select('game_id, ply_number, fen_before, san')
+      .eq('game_id', row.game_id)
+      .eq('ply_number', row.root_ply - 1)
+    const prior = !error && data?.find(move => move.game_id === row.game_id && move.ply_number === row.root_ply - 1)
+    const context = prior ? previousMove(body.position.fen, prior) : null
+    return json(context ? { position: { ...body.position, previous_move: context } } : body)
+  }
+  if (!interactions.some(i => i.session_id === sessionId)) return json(body)
 
   const { data: games, error: gamesError } = await allRows<SummaryGame>((from, to) =>
     supabase

@@ -1,7 +1,7 @@
 import type { Color, Result } from '@/lib/supabase/types'
 import { STABLE_CP, toUserEval } from '@/lib/chains/stands-alone'
 import { standing } from '@/lib/training/reveal'
-import { gameDecidedAt, moveNumberOfPly, type DecidedAtChain } from './decided-at'
+import { decidingChain, moveNumberOfPly, type DecidedAtChain } from './decided-at'
 import { winChance } from './win-chance'
 
 export const STANDALONE_DROP = 15
@@ -40,13 +40,10 @@ export function keyMoment(input: {
   const byPly = new Map(moves.map(m => [m.ply_number, m]))
   const spentOn = (ply: number) => spent?.get(ply) ?? null
 
-  const decided = gameDecidedAt({ result, userColor, chains, moves })
+  const decided = decidingChain({ result, userColor, chains, moves })
   if (decided) {
-    const root = byPly.get(decided.rootPly)
-    const terminalPly = Math.min(
-      ...chains.filter(c => c.root_move_ply === decided.rootPly).map(c => c.terminal_blunder_ply)
-    )
-    const terminal = byPly.get(terminalPly)
+    const root = byPly.get(decided.root_move_ply)
+    const terminal = byPly.get(decided.terminal_blunder_ply)
     if (root && terminal && root.eval_before !== null && terminal.eval_after !== null) {
       return {
         kind: 'decided',
@@ -105,7 +102,8 @@ export function keyMomentTitle(k: KeyMoment): string {
   if (k.kind === 'decided') return `Game decided at: move ${k.moveNumber}`
   const turned = k.before !== 'a bit worse' && k.before !== 'clearly worse' && k.before !== 'losing'
     && (k.after === 'a bit worse' || k.after === 'clearly worse' || k.after === 'losing')
-  return turned ? `Where it turned: move ${k.moveNumber}` : `Your costliest move: move ${k.moveNumber}`
+  if (turned) return `Where it turned: move ${k.moveNumber}`
+  return k.kind === 'drop' ? `Your costliest move: move ${k.moveNumber}` : `A costly move: move ${k.moveNumber}`
 }
 
 export function keyMomentSentences(k: KeyMoment): string[] {
@@ -115,7 +113,7 @@ export function keyMomentSentences(k: KeyMoment): string[] {
       `Before ${k.san} you were ${k.before}; by ${k.terminal.san} on move ${k.terminal.moveNumber}, the end of the slide it started, you were ${k.after}.`
     )
   } else if (k.before === k.after) {
-    out.push(`You were ${k.before} before ${k.san} and still ${k.after} after it, though it gave back a large part of your edge.`)
+    out.push(`You were ${k.before} before ${k.san} and still ${k.after} after it, but your position got worse.`)
   } else {
     out.push(`Before ${k.san} you were ${k.before}; after it, ${k.after}.`)
   }

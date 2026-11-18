@@ -305,6 +305,7 @@ export default function TrainingSession({ mode, signedIn = true }: { mode: Train
             <TrainingBoard
               key={phase.position.position_id}
               fen={phase.position.fen}
+              previousMove={phase.position.previous_move}
               orientation={orientation(phase.position)}
               arrows={arrows}
               selected={selected}
@@ -315,6 +316,9 @@ export default function TrainingSession({ mode, signedIn = true }: { mode: Train
               onAnnounce={setBoardMessage}
             />
             <div className="training-panel">
+              {phase.position.previous_move && (
+                <p className="training-hint">Opponent’s last move: {phase.position.previous_move.san}</p>
+              )}
               {phase.position.ask_reason && (
                 <ReasonChips
                   positionId={phase.position.position_id}
@@ -325,7 +329,7 @@ export default function TrainingSession({ mode, signedIn = true }: { mode: Train
               )}
               {needsReason ? null : arrows.length === 0 ? (
                 <div className="training-instructions">
-                  <p className="training-instructions-main">Find the best move.</p>
+                  <p className="training-instructions-main">Find a move that holds.</p>
                   <p className="training-hint">
                     Drag a piece to draw an arrow. It snaps back, so you can try a few. Pick one, then press Commit.
                   </p>

@@ -13,6 +13,7 @@ export interface QueueCandidate {
   refutation_line: string[]
   refutation_evals: number[]
   span_plies: number
+  clear_answer?: boolean
   multipv_gap_cp?: number | null
   pre_terminal_eval_cp?: number | null
 }

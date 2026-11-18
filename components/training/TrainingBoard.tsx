@@ -6,6 +6,7 @@ import type { DrawShape } from 'chessground/draw'
 import 'chessground/assets/chessground.base.css'
 import 'chessground/assets/chessground.cburnett.css'
 import { boardAnimation } from '@/lib/motion'
+import type { PreviousMove } from '@/lib/training/previous-move'
 import {
   arrowFromMove,
   boardKey,
@@ -21,6 +22,7 @@ export type DrawnArrow = DrawnMove
 
 interface TrainingBoardProps {
   fen: string
+  previousMove?: PreviousMove
   orientation: 'white' | 'black'
   arrows: DrawnArrow[]
   selected: number | null
@@ -79,6 +81,7 @@ function focusIsVisible(el: Element): boolean {
 
 export default function TrainingBoard({
   fen,
+  previousMove,
   orientation,
   arrows,
   selected,
@@ -92,6 +95,7 @@ export default function TrainingBoard({
   const elRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cgRef = useRef<any>(null)
+  const introPending = useRef(false)
 
   const latest = useRef({ arrows, selected, onDraw, onSelectArrow, locked, fixedArrows })
   latest.current = { arrows, selected, onDraw, onSelectArrow, locked, fixedArrows }
@@ -99,15 +103,19 @@ export default function TrainingBoard({
   useEffect(() => {
     if (!elRef.current) return
     let cancelled = false
+    let frame: number | undefined
     const turnColor = orientation
     const dests = legalDests(fen) as Dests
+    const animation = boardAnimation(MOVE_ANIMATION_MS)
+    const lastMove = previousMove ? [previousMove.from as Key, previousMove.to as Key] : undefined
+    introPending.current = Boolean(previousMove && animation.enabled)
 
     const snapBack = () => {
       if (cancelled) return
       cgRef.current?.set({
         fen,
         turnColor,
-        lastMove: undefined,
+        lastMove,
         movable: { color: latest.current.locked ? undefined : turnColor, dests },
       })
     }
@@ -116,13 +124,14 @@ export default function TrainingBoard({
       if (cancelled || !elRef.current) return
       cgRef.current?.destroy()
       cgRef.current = Chessground(elRef.current, {
-        fen,
+        fen: introPending.current ? previousMove?.fen : fen,
+        lastMove: introPending.current ? undefined : lastMove,
         orientation,
         turnColor,
         coordinates: true,
         movable: {
           free: false,
-          color: latest.current.locked ? undefined : turnColor,
+          color: latest.current.locked || introPending.current ? undefined : turnColor,
           dests,
           showDests: true,
           events: {
@@ -136,8 +145,8 @@ export default function TrainingBoard({
         premovable: { enabled: false },
         draggable: { enabled: true, showGhost: true },
         selectable: { enabled: true },
-        animation: boardAnimation(MOVE_ANIMATION_MS),
-        highlight: { lastMove: false, check: true },
+        animation,
+        highlight: { lastMove: Boolean(lastMove), check: true },
         events: {
           select: (key: Key) => {
             const i = latest.current.arrows.findIndex(a => a.to === key)
@@ -151,14 +160,24 @@ export default function TrainingBoard({
           autoShapes: toShapes(latest.current.arrows, latest.current.selected, null, latest.current.fixedArrows),
         },
       })
+      if (introPending.current) {
+        frame = requestAnimationFrame(() => {
+          frame = requestAnimationFrame(() => {
+            if (cancelled) return
+            introPending.current = false
+            snapBack()
+          })
+        })
+      }
     })
 
     return () => {
       cancelled = true
+      if (frame !== undefined) cancelAnimationFrame(frame)
       cgRef.current?.destroy()
       cgRef.current = null
     }
-  }, [fen, orientation])
+  }, [fen, orientation, previousMove])
 
   const kb = useRef<KeyboardState | null>(null)
   const [cursor, setCursor] = useState<string | null>(null)
@@ -173,7 +192,7 @@ export default function TrainingBoard({
   }, [arrows, selected, shownCursor, fixedArrows])
 
   useEffect(() => {
-    cgRef.current?.set({ movable: { color: locked ? undefined : orientation } })
+    cgRef.current?.set({ movable: { color: locked || introPending.current ? undefined : orientation } })
   }, [locked, orientation])
 
   const cgSelect = (square: string | null) => {
@@ -206,6 +225,11 @@ export default function TrainingBoard({
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return
+    if (introPending.current && ['Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     const out = boardKey(keyState(), e.key, { fen, orientation, locked })
     if (!out.handled) return
     e.preventDefault()

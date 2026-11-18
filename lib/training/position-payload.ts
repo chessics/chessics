@@ -1,3 +1,5 @@
+import type { PreviousMove } from './previous-move'
+
 export const POSITION_PUBLIC_COLUMNS = ['id', 'fen', 'side_to_move'] as const
 
 export const POSITION_WITHHELD_COLUMNS = [
@@ -26,6 +28,7 @@ export interface PublicPosition {
   position_id: string
   fen: string
   side_to_move: 'white' | 'black'
+  previous_move?: PreviousMove
   ask_reason?: boolean
 }
 

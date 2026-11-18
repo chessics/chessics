@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js'
 import { MATE_SCORE_CP, type Grading } from './grading'
 import type { NextResponse } from './api-types'
 
@@ -44,7 +45,7 @@ export function nextButtonLabel(upcoming: NextResponse | null): string {
 export function revealVerdict(kind: RevealKind): string {
   switch (kind) {
     case 'correct':
-      return 'Correct.'
+      return 'That holds.'
     case 'punish':
       return "That's the move you played in the game."
     case 'reveal_only':
@@ -54,7 +55,7 @@ export function revealVerdict(kind: RevealKind): string {
   }
 }
 
-export function revealLines(kind: RevealKind, r: CommitResult, chosenSan: string | null = null): string[] {
+export function revealLines(kind: RevealKind, r: CommitResult, chosenSan: string | null = null, consequence: string | null = null): string[] {
   const best = r.best_move_san ?? 'the engine move'
   const lines: string[] = []
   const yours = yourMoveLine(kind, r, chosenSan)
@@ -69,8 +70,32 @@ export function revealLines(kind: RevealKind, r: CommitResult, chosenSan: string
     if (yours) lines.push(yours)
   }
 
-  lines.push(gameLine(r))
+  lines.push(consequence ?? gameLine(r))
   return lines
+}
+
+const CAPTURE_PIECES = {
+  p: ['pawn', 1], n: ['knight', 3], b: ['bishop', 3], r: ['rook', 5], q: ['queen', 9], k: ['king', 0],
+} as const
+
+export function immediateGameConsequence(fen: string, rootUci: string | null, line: readonly string[]): string | null {
+  const replyUci = line[0]
+  if (!rootUci || !replyUci) return null
+  try {
+    const board = new Chess(fen)
+    const play = (uci: string) => board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+    const root = play(rootUci)
+    const reply = play(replyUci)
+    if (!root || !reply?.captured) return null
+    const [captured, value] = CAPTURE_PIECES[reply.captured]
+    const [attacker, cost] = CAPTURE_PIECES[reply.piece]
+    if (value < 3 || (reply.piece !== 'k' && value <= cost)) return null
+    if (root.captured && CAPTURE_PIECES[root.captured][1] >= value - cost) return null
+    const side = reply.color === 'w' ? 'White' : 'Black'
+    return `After ${root.san}, ${side}’s ${attacker} took your ${captured} on ${reply.to}.`
+  } catch {
+    return null
+  }
 }
 
 function keepsWords(cp: number): string {

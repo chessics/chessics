@@ -472,7 +472,7 @@ export default function GameReviewClient({
           borderRight: '1px solid var(--border)',
         }}
       >
-        <div ref={boardRowRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflow: 'hidden' }}>
+        <div ref={boardRowRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflow: 'hidden', scrollMarginTop: 'var(--review-scroll-inset, 0px)' }}>
           <EvalBar cp={currentEval} height={boardSize} flipped={isFlipped} words={currentWords} />
           <div className="board-placeholder" style={{ width: boardSize, height: boardSize, flexShrink: 0 }}>
             <ChessBoard

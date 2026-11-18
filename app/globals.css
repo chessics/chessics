@@ -249,7 +249,35 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   color: var(--brass);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
 }
+.review-move-san { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-grade {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
+  color: var(--text);
+  --grade-color: var(--text-muted);
+}
+.review-grade-symbol {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid var(--grade-color);
+  font: 600 10px/1 'JetBrains Mono', monospace;
+}
+.review-grade[data-grade='brilliant'] { --grade-color: var(--brilliant); }
+.review-grade[data-grade='excellent'], .review-grade[data-grade='good'] { --grade-color: var(--good); }
+.review-grade[data-grade='inaccuracy'] { --grade-color: var(--inaccuracy); }
+.review-grade[data-grade='mistake'] { --grade-color: var(--mistake); }
+.review-grade[data-grade='blunder'] { --grade-color: var(--blunder); }
+.review-grade[data-grade='ungraded'] { color: var(--text-muted); }
 .review-scoresheet h2 {
   border-bottom: 1px solid var(--border);
   padding-bottom: 7px;

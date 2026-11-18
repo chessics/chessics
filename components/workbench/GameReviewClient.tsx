@@ -15,6 +15,7 @@ import { keyMoment, keyMomentSentences, keyMomentTitle } from '@/lib/review/key-
 import { bringBoardIntoView } from '@/lib/review/board-into-view'
 import { groupChains, groupSentence, middleLabel } from '@/lib/review/chain-groups'
 import { withJudgement } from '@/lib/review/judgement'
+import { MOVE_GRADES, reviewMoveGrade, type MoveGrade } from '@/lib/review/move-grades'
 import { chainAtRoot, chainStandsAlone } from '@/lib/review/chain-roots'
 import { evalWords, evalReceipt } from '@/lib/review/eval-words'
 import { useLitSquares, LitProse } from '@/components/board/lit-squares'
@@ -33,31 +34,12 @@ import type {
   GameAnalysis,
   CausalChain,
   CausalChainNode,
-  MoveClassification,
 } from '@/lib/supabase/types'
 
 const ChessBoard = dynamic(() => import('./ChessBoard'), { ssr: false })
 
 const STARTING_FEN =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-
-const CLASS_COLOR: Record<MoveClassification, string> = {
-  blunder: 'var(--blunder)',
-  mistake: 'var(--mistake)',
-  inaccuracy: 'var(--inaccuracy)',
-  good: 'var(--good)',
-  excellent: 'var(--good)',
-  brilliant: 'var(--brilliant)',
-}
-
-const CLASS_SYMBOL: Record<MoveClassification, string> = {
-  blunder: '??',
-  mistake: '?',
-  inaccuracy: '?!',
-  good: '!',
-  excellent: '!!',
-  brilliant: '★',
-}
 
 function getMoveSquares(
   fen: string,
@@ -129,18 +111,25 @@ function EvalBar({ cp, height, flipped, words }: EvalBarProps) {
 
 interface MoveCellProps {
   move: Move
+  grade: MoveGrade
   isActive: boolean
   onClick: () => void
   tabIndex: number
   clockMs?: number
 }
 
-const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
-  ({ move, isActive, onClick, tabIndex, clockMs }, ref) => {
-    const cls = move.classification
-    const color = cls ? CLASS_COLOR[cls] : undefined
-    const sym = cls ? CLASS_SYMBOL[cls] : undefined
+function MoveGradeBadge({ grade, named = false }: { grade: MoveGrade; named?: boolean }) {
+  const { label, symbol } = MOVE_GRADES[grade]
+  return (
+    <span className="review-grade" data-grade={grade} title={named ? undefined : label}>
+      <span className="review-grade-symbol" aria-hidden="true">{symbol}</span>
+      <span className={named ? undefined : 'sr-only'}>{named ? label : `, ${label}`}</span>
+    </span>
+  )
+}
 
+const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
+  ({ move, grade, isActive, onClick, tabIndex, clockMs }, ref) => {
     return (
       <button
         ref={ref}
@@ -160,6 +149,7 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
           border: 'none',
           cursor: 'pointer',
           width: '100%',
+          minWidth: 0,
           textAlign: 'left',
           transition: 'background 0.1s',
         }}
@@ -171,18 +161,8 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
           if (!isActive) e.currentTarget.style.background = 'transparent'
         }}
       >
-        {color && (
-          <span
-            aria-hidden
-            style={{
-              width: 6,
-              height: 6,
-              background: color,
-              flexShrink: 0,
-            }}
-          />
-        )}
         <span
+          className="review-move-san"
           style={{
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 12,
@@ -193,11 +173,7 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
         >
           {move.san}
         </span>
-        {sym && cls && (cls === 'blunder' || cls === 'mistake') && (
-          <span style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, marginLeft: 1 }}>
-            {sym}
-          </span>
-        )}
+        <MoveGradeBadge grade={grade} />
         {clockMs !== undefined && (
           <span
             data-clock={clockMs}
@@ -350,6 +326,11 @@ export default function GameReviewClient({
   )
   const takeOverLink = takeOverHref(takeOver, game.id, currentPly, playable)
   const judgedMoves = useMemo(() => withJudgement(moves), [moves])
+  const grades = useMemo(() => new Map(judgedMoves.map((move, index) => [
+    move.ply_number,
+    reviewMoveGrade(move, judgedMoves[index + 1], judgedMoves[index + 2]),
+  ])), [judgedMoves])
+  const selectedGrade = selectedMove ? grades.get(selectedMove.ply_number) : undefined
   const timeBars = useMemo(
     () =>
       clock
@@ -614,7 +595,10 @@ export default function GameReviewClient({
           </div>
         </div>
 
-        <p className="review-position" aria-live="polite">{positionLabel}</p>
+        <p className="review-position" aria-live="polite">
+          <span>{positionLabel}</span>
+          {selectedGrade && <MoveGradeBadge grade={selectedGrade} named />}
+        </p>
 
         <div
           style={{
@@ -798,7 +782,7 @@ export default function GameReviewClient({
               key={num}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '28px 1fr 1fr',
+                gridTemplateColumns: '28px minmax(0, 1fr) minmax(0, 1fr)',
                 alignItems: 'center',
               }}
             >
@@ -816,6 +800,7 @@ export default function GameReviewClient({
               </span>
               <MoveCell
                 move={white}
+                grade={grades.get(white.ply_number) ?? 'ungraded'}
                 isActive={selectedPly === white.ply_number}
                 onClick={() => goTo(white.ply_number)}
                 tabIndex={listStop === white.ply_number ? 0 : -1}
@@ -827,6 +812,7 @@ export default function GameReviewClient({
               {black ? (
                 <MoveCell
                   move={black}
+                  grade={grades.get(black.ply_number) ?? 'ungraded'}
                   isActive={selectedPly === black.ply_number}
                   onClick={() => goTo(black.ply_number)}
                   tabIndex={listStop === black.ply_number ? 0 : -1}

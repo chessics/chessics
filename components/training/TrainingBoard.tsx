@@ -24,6 +24,7 @@ interface TrainingBoardProps {
   fen: string
   previousMove?: PreviousMove
   orientation: 'white' | 'black'
+  movingSide?: 'white' | 'black'
   arrows: DrawnArrow[]
   selected: number | null
   onDraw: (arrow: DrawnArrow) => void
@@ -83,6 +84,7 @@ export default function TrainingBoard({
   fen,
   previousMove,
   orientation,
+  movingSide: turnColor = orientation,
   arrows,
   selected,
   onDraw,
@@ -104,7 +106,6 @@ export default function TrainingBoard({
     if (!elRef.current) return
     let cancelled = false
     let frame: number | undefined
-    const turnColor = orientation
     const dests = legalDests(fen) as Dests
     const animation = boardAnimation(MOVE_ANIMATION_MS)
     const lastMove = previousMove ? [previousMove.from as Key, previousMove.to as Key] : undefined
@@ -177,14 +178,14 @@ export default function TrainingBoard({
       cgRef.current?.destroy()
       cgRef.current = null
     }
-  }, [fen, orientation, previousMove])
+  }, [fen, orientation, turnColor, previousMove])
 
   const kb = useRef<KeyboardState | null>(null)
   const [cursor, setCursor] = useState<string | null>(null)
   useEffect(() => {
     kb.current = null
     setCursor(null)
-  }, [fen, orientation])
+  }, [fen, orientation, turnColor])
 
   const shownCursor = locked ? null : cursor
   useEffect(() => {
@@ -192,8 +193,8 @@ export default function TrainingBoard({
   }, [arrows, selected, shownCursor, fixedArrows])
 
   useEffect(() => {
-    cgRef.current?.set({ movable: { color: locked || introPending.current ? undefined : orientation } })
-  }, [locked, orientation])
+    cgRef.current?.set({ movable: { color: locked || introPending.current ? undefined : turnColor } })
+  }, [locked, turnColor])
 
   const cgSelect = (square: string | null) => {
     const cg = cgRef.current
@@ -203,7 +204,7 @@ export default function TrainingBoard({
   }
 
   const keyState = (): KeyboardState => {
-    kb.current ??= { cursor: initialCursor(fen, orientation, arrows), picked: null }
+    kb.current ??= { cursor: initialCursor(fen, turnColor, arrows), picked: null }
     return kb.current
   }
 
@@ -211,7 +212,7 @@ export default function TrainingBoard({
     if (e.target !== e.currentTarget || !focusIsVisible(e.currentTarget)) return
     const state = keyState()
     setCursor(state.cursor)
-    onAnnounce?.(locked ? LOCKED_MESSAGE : describeSquare({ fen, orientation, locked }, state))
+    onAnnounce?.(locked ? LOCKED_MESSAGE : describeSquare({ fen, orientation, movingSide: turnColor, locked }, state))
   }
 
   const onBlur = (e: React.FocusEvent<HTMLDivElement>) => {
@@ -230,7 +231,7 @@ export default function TrainingBoard({
       e.stopPropagation()
       return
     }
-    const out = boardKey(keyState(), e.key, { fen, orientation, locked })
+    const out = boardKey(keyState(), e.key, { fen, orientation, movingSide: turnColor, locked })
     if (!out.handled) return
     e.preventDefault()
     e.stopPropagation()

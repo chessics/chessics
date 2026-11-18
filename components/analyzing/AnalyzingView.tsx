@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import RecurrenceStrip, { type StripBarState } from '@/components/workbench/RecurrenceStrip'
 import PanelBoundary from './PanelBoundary'
-import { countNoun } from '@/lib/count-noun'
+import { INITIAL_ESTIMATE, type AnalysisWait } from '@/lib/sync/progress'
 
 const PuzzlePanel = dynamic(() => import('./PuzzlePanel'), {
   ssr: false,
@@ -18,7 +18,7 @@ export interface AnalyzingViewProps {
   batchSize: number
   gamesDone: number
   stages: StageStatus[]
-  stageDetail: string | null
+  wait: AnalysisWait | null
   readyHref: string | null
   puzzles: boolean
   onTouched?: () => void
@@ -41,7 +41,7 @@ export default function AnalyzingView({
   batchSize,
   gamesDone,
   stages,
-  stageDetail,
+  wait,
   readyHref,
   puzzles,
   onTouched,
@@ -61,11 +61,16 @@ export default function AnalyzingView({
   const bars: StripBarState[] = Array.from({ length: batchSize }, (_, i) => (i < gamesDone ? 'quiet' : 'pending'))
 
   const stageItems = [
-    `Syncing games from ${platformLabel(platform)}`,
-    'Engine analysis',
-    'Clustering root causes',
-    'Writing your report',
+    `Get games from ${platformLabel(platform)}`,
+    'Check the moves',
+    'Look for patterns',
+    'Write your report',
   ]
+
+  const finished = stages[3] === 'complete'
+  const { message, estimate } = finished
+    ? { message: 'Your report is ready.', estimate: null }
+    : wait ?? { message: `Getting your games from ${platformLabel(platform)}.`, estimate: INITIAL_ESTIMATE }
 
   const showPuzzle = puzzles && (wide || opened)
 
@@ -83,12 +88,13 @@ export default function AnalyzingView({
           </div>
 
           <div className="flex flex-col gap-3">
-            <RecurrenceStrip bars={bars} height={40} />
-            <p className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
-              {stages[1] === 'active' || stages[0] === 'active'
-                ? `${gamesDone} of ${countNoun(batchSize, 'game')} analyzed`
-                : stageDetail ?? `${countNoun(batchSize, 'game')} analyzed`}
-            </p>
+            <div aria-hidden="true"><RecurrenceStrip bars={bars} height={40} /></div>
+            <div role="status" aria-atomic="true" className={readyHref ? 'sr-only' : 'flex flex-col gap-1'}>
+              <p className="text-sm" style={{ color: 'var(--text)' }}>
+                {message}
+              </p>
+              {estimate && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{estimate}</p>}
+            </div>
           </div>
 
           <div className="flex flex-col">
@@ -135,14 +141,11 @@ export default function AnalyzingView({
             >
               Your report is ready
             </a>
-          ) : (
+          ) : !finished && (
             <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-              please keep this tab open while we read your games
+              Keep this tab open until your report is ready.
             </p>
           )}
-          <p className="sr-only" aria-live="polite">
-            {readyHref ? 'Your report is ready.' : ''}
-          </p>
         </div>
 
         {puzzles && (

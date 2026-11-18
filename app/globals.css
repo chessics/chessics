@@ -240,10 +240,66 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   flex-direction: column;
   gap: 12px;
 }
+.review-moment-link { display: none; }
 .review-moment {
   border-block: 1px solid var(--border);
   padding: 14px 0 16px;
 }
+.review-eval-graph {
+  margin-left: 22px;
+  max-width: calc(100% - 22px);
+}
+.review-eval-graph figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.review-graph-key::before {
+  content: '';
+  display: inline-block;
+  height: 0.9em;
+  margin-right: 5px;
+  border-left: 1px dashed var(--text);
+  vertical-align: middle;
+}
+.review-graph-track { position: relative; height: 44px; }
+.review-graph-track svg {
+  position: absolute;
+  inset: 3px 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 6px);
+  fill: none;
+  overflow: visible;
+}
+.review-graph-track path { vector-effect: non-scaling-stroke; }
+.review-graph-track input {
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.review-graph-track input::-webkit-slider-thumb {
+  appearance: none;
+  width: 2px;
+  height: 44px;
+  background: var(--text);
+}
+.review-graph-track input::-moz-range-thumb {
+  border: 0;
+  border-radius: 0;
+  width: 2px;
+  height: 44px;
+  background: var(--text);
+}
+.review-graph-track input::-moz-range-track { background: transparent; }
+.review-clock-bars button { min-width: 1px; }
 .review-position {
   margin: 0 0 -5px 22px;
   color: var(--brass);
@@ -277,7 +333,21 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   text-decoration: none;
 }
 .editorial-action:hover { background: var(--gold); }
-.review-moment .editorial-action { margin-top: 9px; }
+.review-moment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 9px;
+}
+.review-moment-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--brass);
+  font-size: 13px;
+  text-decoration: underline;
+}
 .collection-page { max-width: 1040px; margin-inline: auto; }
 .collection-heading {
   display: flex;
@@ -309,6 +379,14 @@ coords.squares:nth-of-type(even) :nth-child(even) {
     max-width: 620px;
     gap: 14px;
   }
+  .review-moment-link {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    color: var(--brass);
+    text-decoration: underline;
+  }
+  .review-moment h2 { scroll-margin-top: var(--review-scroll-inset, 0px); }
   .review-moves {
     max-height: 176px !important;
   }
@@ -319,6 +397,14 @@ coords.squares:nth-of-type(even) :nth-child(even) {
     width: 44px !important;
     height: 44px !important;
   }
+  .review-moves button, .review-moment-link, .review-take-over a {
+    min-height: 44px;
+  }
+  .review-take-over a { display: inline-flex; align-items: center; }
+  .review-eval summary { min-height: 24px; }
+  .review-clock-scroll { overflow-x: auto; }
+  .review-clock-bars { width: max-content; min-width: 100%; }
+  .review-clock-bars button { min-width: 24px; }
 }
 
 @media (hover: hover) {
@@ -329,7 +415,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 
 .games-grid {
   display: grid;
-  grid-template-columns: 90px 28px 36px 140px minmax(0, 1fr) 80px 72px 100px;
+  grid-template-columns: 90px 28px 88px minmax(70px, 140px) minmax(0, 1fr) 80px 72px 100px;
   align-items: center;
 }
 .games-label-short {

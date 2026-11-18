@@ -40,6 +40,7 @@ export interface Grading {
   method: GradingMethod
   chosen_eval_cp: number | null
   best_eval_cp: number | null
+  chosen_line?: string[]
   engine: string | null
   depth: number | null
 }
@@ -80,7 +81,7 @@ export function legalUci(fen: string, uci: string): string | null {
   return null
 }
 
-function decidedByRules(chess: Chess): number | null {
+export function decidedByRules(chess: Chess): number | null {
   if (chess.isCheckmate()) return MATE_CP
   if (chess.isStalemate() || chess.isInsufficientMaterial()) return 0
   return null
@@ -93,7 +94,21 @@ export interface CommitToGrade {
   gameMoveUci: string | null
 }
 
-export async function gradeCommit(c: CommitToGrade, engine: GradingEngine): Promise<Grading> {
+function replayableReplies(after: Chess, pv: string[]): string[] {
+  const replies: string[] = []
+  for (const uci of pv.slice(0, 4)) {
+    try {
+      const move = after.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+      if (`${move.from}${move.to}${move.promotion ?? ''}` !== uci) break
+      replies.push(uci)
+    } catch {
+      break
+    }
+  }
+  return replies
+}
+
+export async function gradeCommit(c: CommitToGrade, engine: GradingEngine, includeChosenLine = false): Promise<Grading> {
   if (c.chosenMove === null) return { correct: null, method: 'none', ...NOT_GRADED }
   if (!c.bestMove) return { correct: null, method: 'no_best_move', ...NOT_GRADED }
 
@@ -110,26 +125,30 @@ export async function gradeCommit(c: CommitToGrade, engine: GradingEngine): Prom
   const userSign = c.fen.split(' ')[1] === 'b' ? -1 : 1
   const depths: number[] = []
 
-  const score = async (after: Chess): Promise<number | null> => {
+  const score = async (after: Chess): Promise<EngineEval | null> => {
     const ruled = decidedByRules(after)
-    if (ruled !== null) return ruled
+    if (ruled !== null) return { cp: ruled, depth: 0 }
     const e = await engine.evaluate(after.fen())
     if (!e) return null
     depths.push(e.depth)
-    return e.cp * userSign
+    return { ...e, cp: e.cp * userSign }
   }
 
-  const bestCp = await score(afterBest)
-  if (bestCp === null) return { correct: null, method: 'unavailable', ...NOT_GRADED }
-  const chosenCp = await score(afterChosen)
-  if (chosenCp === null) return { correct: null, method: 'unavailable', ...NOT_GRADED }
+  const bestEval = await score(afterBest)
+  if (!bestEval) return { correct: null, method: 'unavailable', ...NOT_GRADED }
+  const chosenEval = await score(afterChosen)
+  if (!chosenEval) return { correct: null, method: 'unavailable', ...NOT_GRADED }
+  const bestCp = bestEval.cp
+  const chosenCp = chosenEval.cp
 
   const depth = depths.length > 0 ? Math.min(...depths) : null
   const correct = depth === null ? holdsAgainstBest(bestCp, chosenCp) : verdictAtDepth(bestCp, chosenCp, depth)
   if (correct === null) return { correct: null, method: 'unavailable', ...NOT_GRADED }
 
+  const replies = includeChosenLine && !correct && chosenEval.pv ? replayableReplies(afterChosen, chosenEval.pv) : []
   return {
     correct,
+    ...(replies.length ? { chosen_line: replies } : {}),
     method: 'engine',
     chosen_eval_cp: Math.round(chosenCp),
     best_eval_cp: Math.round(bestCp),

@@ -125,15 +125,7 @@ export function entersPool(row: NextStepRow, options: NextStepOptions = {}): boo
   return !isStaleRoot(row)
 }
 
-export function nextStepBody(
-  rows: NextStepRow[],
-  interactions: NextStepInteraction[],
-  sessionId: string,
-  startedAt: number,
-  options: NextStepOptions = {}
-): NextResponse {
-  const byId = new Map(rows.map(r => [r.id, r]))
-
+export function trainingCandidates(rows: NextStepRow[], options: NextStepOptions): QueueCandidate[] {
   const candidates: QueueCandidate[] = sortNewestGameFirst(rows.filter(r => entersPool(r, options))).map(r => ({
     id: r.id,
     game_id: r.game_id,
@@ -146,6 +138,17 @@ export function nextStepBody(
     clear_answer: r.time_floor_ms === WIDE_GAP_CAPTURE_FLOOR_MS,
     pre_terminal_eval_cp: r.pre_terminal_eval_cp ?? null,
   }))
+  return qualityFilter(candidates).accepted
+}
+
+export function nextStepBody(
+  rows: NextStepRow[],
+  interactions: NextStepInteraction[],
+  sessionId: string,
+  startedAt: number,
+  options: NextStepOptions = {}
+): NextResponse {
+  const byId = new Map(rows.map(r => [r.id, r]))
 
   const history: HistoryRow[] = interactions
     .filter(i => i.session_id !== sessionId)
@@ -162,7 +165,7 @@ export function nextStepBody(
     correct: i.correct,
   }))
 
-  const pool = orderPoolForSession(qualityFilter(candidates).accepted, history, startedAt)
+  const pool = orderPoolForSession(trainingCandidates(rows, options), history, startedAt)
   const step = nextSessionStep(pool, sessionServed)
 
   if (step.kind === 'serve') {

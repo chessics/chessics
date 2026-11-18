@@ -1,13 +1,18 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { livePlayEnabled } from '@/lib/play/engine'
-import GameReviewClient, {
-  type ChainWithNodes,
-} from '@/components/workbench/GameReviewClient'
-import type { Game, Move, GameAnalysis, CausalChain, CausalChainNode } from '@/lib/supabase/types'
+import { reviewTheirReplyEnabled, reviewTryFirstEnabled } from '@/lib/flags'
+import { loadGameReview } from '@/lib/review/load-game-review'
+import { reviewExerciseMove } from '@/lib/review/try-first'
+import { POSITION_PUBLIC_SELECT, toPublicPosition, type PublicPositionRow } from '@/lib/training/position-payload'
+import GameReviewClient from '@/components/workbench/GameReviewClient'
+import ReviewExercise from '@/components/workbench/ReviewExercise'
+import ReplyExercise from '@/components/workbench/ReplyExercise'
+import { theirReply } from '@/lib/review/their-reply'
+import { commitReviewMove, commitReviewReply } from './actions'
 
 export const metadata: Metadata = { title: 'Game review' }
+export const maxDuration = 15
 
 interface Props {
   params: { id: string }
@@ -16,76 +21,37 @@ interface Props {
 
 export default async function GameReviewPage({ params, searchParams }: Props) {
   const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) redirect('/login')
-
-  const gameId = String(params.id)
-  const userId = session.user.id
-
-  const { data: game, error: gameError } = await supabase
-    .from('games')
-    .select('*')
-    .eq('id', gameId)
-    .eq('user_id', userId)
-    .single()
-
-  if (gameError || !game) notFound()
-
-  const [movesResult, analysisResult] = await Promise.all([
-    supabase
-      .from('moves')
-      .select('*')
-      .eq('game_id', gameId)
-      .order('ply_number', { ascending: true }),
-
-    supabase
-      .from('game_analyses')
-      .select('*')
-      .eq('game_id', gameId)
-      .maybeSingle(),
-  ])
-
-  const moves = (movesResult.data ?? []) as Move[]
-  const analysis = (analysisResult.data ?? null) as GameAnalysis | null
-
-  let causalChains: ChainWithNodes[] = []
-
-  if (analysis) {
-    const { data: chains } = await supabase
-      .from('causal_chains')
-      .select('*')
-      .eq('game_analysis_id', analysis.id)
-      .order('root_move_ply', { ascending: true })
-
-    if (chains && chains.length > 0) {
-      const chainIds = chains.map((c: CausalChain) => c.id)
-      const { data: nodes } = await supabase
-        .from('causal_chain_nodes')
-        .select('*')
-        .in('causal_chain_id', chainIds)
-        .order('order_index', { ascending: true })
-
-      const nodeList = (nodes ?? []) as CausalChainNode[]
-      causalChains = (chains as CausalChain[]).map((chain) => ({
-        ...chain,
-        nodes: nodeList.filter((n) => n.causal_chain_id === chain.id),
-      }))
-    }
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    const chain = new URLSearchParams()
+    if (typeof searchParams.chain === 'string' && /^\d+$/.test(searchParams.chain)) chain.set('chain', searchParams.chain)
+    const review = `/games/${encodeURIComponent(params.id)}/review${chain.size ? `?${chain}` : ''}`
+    redirect(`/login?${new URLSearchParams({ next: review })}`)
   }
 
-  const chainRootPly = searchParams.chain ? parseInt(searchParams.chain, 10) : null
+  const review = await loadGameReview(supabase, params.id, session.user.id)
+  if (!review) notFound()
+  const chain = searchParams.chain ? parseInt(searchParams.chain, 10) : null
+  const initialChainRootPly = Number.isFinite(chain) ? chain : null
 
-  return (
-    <GameReviewClient
-      game={game as Game}
-      moves={moves}
-      analysis={analysis}
-      causalChains={causalChains}
-      initialChainRootPly={Number.isFinite(chainRootPly) ? chainRootPly : null}
-      takeOver={(game as Game).user_id === userId && livePlayEnabled() ? 'live' : null}
-    />
-  )
+  if (reviewTryFirstEnabled()) {
+    const move = reviewExerciseMove(review)
+    if (move) {
+      const { data, error } = await supabase.from('training_positions')
+        .select(POSITION_PUBLIC_SELECT)
+        .eq('game_id', params.id).eq('root_ply', move.ply_number)
+        .eq('fen', move.fen_before).eq('side_to_move', review.game.user_color)
+        .eq('root_move_san', move.san).not('best_move', 'is', null).not('eval_cp', 'is', null)
+        .returns<PublicPositionRow[]>().maybeSingle()
+      if (error) throw new Error('Could not load the review position')
+      if (data) {
+        return <ReviewExercise key={data.id + data.fen} position={toPublicPosition(data)}
+          commitAction={commitReviewMove.bind(null, params.id, data.id, data.fen, initialChainRootPly)} />
+      }
+    }
+  }
+  const reply = reviewTheirReplyEnabled() && theirReply(review)
+  if (reply) return <ReplyExercise key={params.id + reply.prompt.fen} prompt={reply.prompt}
+    commitAction={commitReviewReply.bind(null, params.id, reply.prompt.fen, initialChainRootPly, null)} />
+  return <GameReviewClient {...review} initialChainRootPly={initialChainRootPly} />
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useFocusWhenLost } from './focus'
 import { Chess } from 'chess.js'
 import ChessBoard, { type BoardShape } from '@/components/workbench/ChessBoard'
@@ -15,6 +15,7 @@ import {
   type RevealKind,
 } from '@/lib/training/reveal'
 import { withLitSquares } from '@/lib/board/squares'
+import { returnLabel } from '@/lib/training/summary'
 import { tagLabel } from '@/lib/training/session'
 import { GOAL_LABEL, reasonWords, type CheckStatus, type GoalCheck } from '@/lib/training/reason'
 import { keyBelongsToControl } from '@/lib/training/shortcut'
@@ -22,10 +23,13 @@ import ShareButton from './ShareButton'
 import type { ShareMode } from '@/lib/share/api-types'
 
 interface RevealProps {
+  children?: ReactNode
   fen: string
   orientation: 'white' | 'black'
   kind: RevealKind
-  commit: CommitResponse
+  commit: Omit<CommitResponse, 'under_floor'>
+  showGameMove?: boolean
+  awaitingReply?: boolean
   chosenMove: string | null
   size: number
   watched: boolean
@@ -33,6 +37,7 @@ interface RevealProps {
   onNext: () => void
   onWatch: () => void
   onThreat?: () => void
+  onWatchAlternative?: () => void
   playHref?: string | null
   share?: { mode: ShareMode; positionId: string } | null
 }
@@ -80,10 +85,10 @@ function checkWords(c: GoalCheck): string {
   return `${words[c.status]}${numbers}`
 }
 
-export default function Reveal({ fen, orientation, kind, commit, chosenMove, size, watched, nextLabel, onNext, onWatch, onThreat, playHref = null, share = null }: RevealProps) {
+export default function Reveal({ fen, orientation, kind, commit, showGameMove = false, awaitingReply = false, chosenMove, size, watched, nextLabel, onNext, onWatch, onThreat, onWatchAlternative, playHref = null, share = null, children }: RevealProps) {
   const chosenSan = sanOf(fen, chosenMove)
   const consequence = immediateGameConsequence(fen, commit.root_move_uci, commit.refutation_line)
-  const moveLines = revealLines(kind, commit, chosenSan, consequence)
+  const moveLines = revealLines(kind, commit, chosenSan, awaitingReply ? `In your game you played ${commit.root_move_san}.` : consequence)
   const reason = commit.reason ?? null
   const sameMove = chosenMove !== null && commit.best_move !== null && chosenMove.slice(0, 4) === commit.best_move.slice(0, 4)
   const reasonText = reason ? reasonWords(reason, chosenSan, commit.best_move_san, sameMove) : null
@@ -92,7 +97,7 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
   const lines = [...(reasonText?.lines ?? []), ...moveLines]
 
   const verdictRef = useFocusWhenLost<HTMLParagraphElement>(commit.position_id)
-  const arrows = revealArrows(kind, commit, chosenMove)
+  const arrows = revealArrows(kind, commit, chosenMove, showGameMove)
   const arrowShapes: BoardShape[] = arrows.map(a => ({ orig: a.from, dest: a.to, brush: BRUSH[a.role], hilite: true }))
 
   const shapes = withLitSquares(arrowShapes, squaresNamed(lines.join(' ')))
@@ -125,10 +130,12 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
     <div className="training-grid">
       <ChessBoard fen={fen} orientation={orientation} shapes={shapes} size={size} />
 
-      <div className="training-panel">
+      <div className="training-panel training-reveal-panel">
         <p ref={verdictRef} tabIndex={-1} className={`training-verdict training-verdict-${kind} focus-landing`}>
           {revealVerdict(kind)}
         </p>
+
+        {commit.next_return && <p className="training-hint">{returnLabel(commit.next_return)}</p>}
 
         {reasonText?.declared && (
           <div className="training-reason">
@@ -168,13 +175,13 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
               <button className="training-btn training-btn-primary" onClick={onWatch}>
                 See what happened in your game
               </button>
-              <button className="training-btn training-btn-quiet" onClick={onNext}>
+              <button className="training-btn training-btn-quiet" data-training-next onClick={onNext}>
                 {nextLabel}
               </button>
             </>
           ) : (
             <>
-              <button className="training-btn training-btn-primary" onClick={onNext}>
+              <button className="training-btn training-btn-primary" data-training-next onClick={onNext}>
                 {nextLabel}
               </button>
               {hasLine && (
@@ -183,6 +190,11 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
                 </button>
               )}
             </>
+          )}
+          {onWatchAlternative && chosenSan && (
+            <button className="training-btn training-btn-quiet" onClick={onWatchAlternative}>
+              See the reply to {chosenSan}
+            </button>
           )}
           {threat && onThreat && (
             <button className="training-btn training-btn-quiet" onClick={onThreat}>
@@ -206,12 +218,14 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
             <dd>{commit.receipt.depth ?? 'unknown'}</dd>
             <dt>Eval here, your side</dt>
             <dd>{commit.receipt.eval_cp === null ? 'unknown' : `${commit.receipt.eval_cp > 0 ? '+' : ''}${commit.receipt.eval_cp} cp`}</dd>
-            <dt>Eval at the end of the line</dt>
-            <dd>
-              {commit.refutation_evals.length > 0
-                ? `${commit.refutation_evals[commit.refutation_evals.length - 1] > 0 ? '+' : ''}${commit.refutation_evals[commit.refutation_evals.length - 1]} cp`
-                : 'no line stored'}
-            </dd>
+            {!awaitingReply && <>
+              <dt>Eval at the end of the line</dt>
+              <dd>
+                {commit.refutation_evals.length > 0
+                  ? `${commit.refutation_evals[commit.refutation_evals.length - 1] > 0 ? '+' : ''}${commit.refutation_evals[commit.refutation_evals.length - 1]} cp`
+                  : 'no line stored'}
+              </dd>
+            </>}
             <dt>Best move</dt>
             <dd>{commit.best_move_san ?? 'none'}</dd>
             {g?.method === 'engine' && g.chosen_eval_cp !== null && g.best_eval_cp !== null && (
@@ -268,10 +282,12 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
             )}
             <dt>Your game</dt>
             <dd>{commit.root_move_san}</dd>
-            <dt>Pattern</dt>
-            <dd>{commit.receipt.tag ? tagLabel(commit.receipt.tag) : 'untagged'}</dd>
-            <dt>Chain span</dt>
-            <dd>{commit.receipt.span_plies} plies</dd>
+            {!awaitingReply && <>
+              <dt>Pattern</dt>
+              <dd>{commit.receipt.tag ? tagLabel(commit.receipt.tag) : 'untagged'}</dd>
+              <dt>Chain span</dt>
+              <dd>{commit.receipt.span_plies} plies</dd>
+            </>}
             {r && (
               <>
                 <dt>Recurrence</dt>
@@ -283,6 +299,7 @@ export default function Reveal({ fen, orientation, kind, commit, chosenMove, siz
             )}
           </dl>
         </details>
+        {children}
       </div>
     </div>
   )

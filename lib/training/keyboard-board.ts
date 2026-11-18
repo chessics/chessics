@@ -66,6 +66,7 @@ export interface KeyboardState {
 export interface KeyContext {
   fen: string
   orientation: BoardSide
+  movingSide?: BoardSide
   locked: boolean
 }
 
@@ -119,7 +120,8 @@ export function describeSquare(ctx: KeyContext, state: KeyboardState): string {
   if (state.picked === state.cursor) return `${base}, picked up.`
   const reaches = (legalDests(ctx.fen).get(state.picked) ?? []).includes(state.cursor)
   const held = pieceAt(ctx.fen, state.picked)
-  return reaches && held ? `${base}. Your ${PIECE_NAME[held.type]} can move here.` : `${base}.`
+  const owner = held?.color === ownColour(ctx.orientation) ? 'Your' : "Your opponent's"
+  return reaches && held ? `${base}. ${owner} ${PIECE_NAME[held.type]} can move here.` : `${base}.`
 }
 
 export const LOCKED_MESSAGE = 'Pick a reason first.'
@@ -146,7 +148,9 @@ function pickUp(ctx: KeyContext, state: KeyboardState, square: string): KeyOutco
 function activate(ctx: KeyContext, state: KeyboardState): KeyOutcome {
   const sq = state.cursor
   const piece = pieceAt(ctx.fen, sq)
-  const mine = piece !== null && piece.color === ownColour(ctx.orientation)
+  const side = ctx.movingSide ?? ctx.orientation
+  const movable = piece !== null && piece.color === ownColour(side)
+  const owner = side === ctx.orientation ? 'Your' : "Your opponent's"
   const dests = legalDests(ctx.fen)
   const stay = (say: string): KeyOutcome => ({ handled: true, state, say })
 
@@ -161,15 +165,15 @@ function activate(ctx: KeyContext, state: KeyboardState): KeyOutcome {
         draw: { from: state.picked, to: sq },
       }
     }
-    if (mine && (dests.get(sq) ?? []).length > 0) return pickUp(ctx, state, sq)
-    if (mine) return stay(`Your ${PIECE_NAME[piece.type]} on ${sq} has no legal move.`)
+    if (movable && (dests.get(sq) ?? []).length > 0) return pickUp(ctx, state, sq)
+    if (movable) return stay(`${owner} ${PIECE_NAME[piece.type]} on ${sq} has no legal move.`)
     const held = PIECE_NAME[pieceAt(ctx.fen, state.picked)?.type ?? 'p']
-    return stay(`Your ${held} on ${state.picked} can't move to ${sq}.`)
+    return stay(`${owner} ${held} on ${state.picked} can't move to ${sq}.`)
   }
 
-  if (!piece) return stay(`No piece of yours on ${sq}.`)
-  if (!mine) return stay(`The ${PIECE_NAME[piece.type]} on ${sq} is your opponent's.`)
-  if ((dests.get(sq) ?? []).length === 0) return stay(`Your ${PIECE_NAME[piece.type]} on ${sq} has no legal move.`)
+  if (!piece) return stay(side === ctx.orientation ? `No piece of yours on ${sq}.` : `No opponent’s piece on ${sq}.`)
+  if (!movable) return stay(`The ${PIECE_NAME[piece.type]} on ${sq} is ${side === ctx.orientation ? "your opponent's" : 'yours'}.`)
+  if ((dests.get(sq) ?? []).length === 0) return stay(`${owner} ${PIECE_NAME[piece.type]} on ${sq} has no legal move.`)
   return pickUp(ctx, state, sq)
 }
 

@@ -1,5 +1,5 @@
 import type { PublicPosition } from './position-payload'
-import type { SessionSummary } from './summary'
+import type { PositionReturn, SessionSummary } from './summary'
 import type { Grading } from './grading'
 import type { ReasonResult } from './reason'
 
@@ -28,6 +28,7 @@ export interface CommitResponse {
   root_move_san: string
   root_move_uci: string | null
   grading: Omit<Grading, 'correct'>
+  next_return?: PositionReturn | null
   recurrence: Recurrence | null
   play_from: { game_id: string; ply: number } | null
   shareable?: boolean

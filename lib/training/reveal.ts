@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js'
+import { favorableCaptureSentence } from '@/lib/board/played-capture'
 import { MATE_SCORE_CP, type Grading } from './grading'
 import type { NextResponse } from './api-types'
 
@@ -19,11 +20,15 @@ export interface CommitResult {
   grading?: Pick<Grading, 'method' | 'chosen_eval_cp' | 'best_eval_cp'>
 }
 
+export function atLeastAboutEqual(cp: number): boolean {
+  return cp > -50
+}
+
 export function standing(cp: number): string {
   if (cp >= 300) return 'winning'
   if (cp >= 150) return 'clearly better'
   if (cp >= 50) return 'a bit better'
-  if (cp > -50) return 'about equal'
+  if (atLeastAboutEqual(cp)) return 'about equal'
   if (cp > -150) return 'a bit worse'
   if (cp > -300) return 'clearly worse'
   return 'losing'
@@ -74,10 +79,6 @@ export function revealLines(kind: RevealKind, r: CommitResult, chosenSan: string
   return lines
 }
 
-const CAPTURE_PIECES = {
-  p: ['pawn', 1], n: ['knight', 3], b: ['bishop', 3], r: ['rook', 5], q: ['queen', 9], k: ['king', 0],
-} as const
-
 export function immediateGameConsequence(fen: string, rootUci: string | null, line: readonly string[]): string | null {
   const replyUci = line[0]
   if (!rootUci || !replyUci) return null
@@ -86,13 +87,7 @@ export function immediateGameConsequence(fen: string, rootUci: string | null, li
     const play = (uci: string) => board.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
     const root = play(rootUci)
     const reply = play(replyUci)
-    if (!root || !reply?.captured) return null
-    const [captured, value] = CAPTURE_PIECES[reply.captured]
-    const [attacker, cost] = CAPTURE_PIECES[reply.piece]
-    if (value < 3 || (reply.piece !== 'k' && value <= cost)) return null
-    if (root.captured && CAPTURE_PIECES[root.captured][1] >= value - cost) return null
-    const side = reply.color === 'w' ? 'White' : 'Black'
-    return `After ${root.san}, ${side}’s ${attacker} took your ${captured} on ${reply.to}.`
+    return favorableCaptureSentence(root, reply)
   } catch {
     return null
   }
@@ -154,13 +149,13 @@ export interface RevealArrow {
   role: 'held' | 'also_held' | 'mistake' | 'yours' | 'unchecked'
 }
 
-export function revealArrows(kind: RevealKind, r: CommitResult, chosenMove: string | null): RevealArrow[] {
+export function revealArrows(kind: RevealKind, r: CommitResult, chosenMove: string | null, showGameMove = false): RevealArrow[] {
   const arrows: RevealArrow[] = []
   const split = (uci: string) => ({ from: uci.slice(0, 2), to: uci.slice(2, 4) })
   const checked = r.grading?.method === 'engine'
   const isBest = chosenMove !== null && r.best_move !== null && chosenMove.slice(0, 4) === r.best_move.slice(0, 4)
 
-  if (kind !== 'correct' && r.root_move_uci) arrows.push({ ...split(r.root_move_uci), role: 'mistake' })
+  if ((showGameMove || kind !== 'correct') && r.root_move_uci) arrows.push({ ...split(r.root_move_uci), role: 'mistake' })
   if (kind === 'reveal_only' && chosenMove) arrows.push({ ...split(chosenMove), role: checked ? 'yours' : 'unchecked' })
   if (kind === 'correct' && chosenMove && !isBest) arrows.push({ ...split(chosenMove), role: 'also_held' })
   if (r.best_move) arrows.push({ ...split(r.best_move), role: 'held' })

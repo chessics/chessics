@@ -35,8 +35,17 @@ export default function TimeStrip({ bars, currentPly, width, onSelect }: Props) 
 
   useEffect(() => {
     const g = groupRef.current
-    if (!g || !g.contains(document.activeElement)) return
-    g.querySelector<HTMLButtonElement>(`button[data-bar-ply="${plies[stop]}"]`)?.focus({ preventScroll: true })
+    if (!g) return
+    const bar = g.querySelector<HTMLButtonElement>(`button[data-bar-ply="${plies[stop]}"]`)
+    if (!bar) return
+    if (g.contains(document.activeElement)) bar.focus({ preventScroll: true })
+    const viewport = g.parentElement
+    if (viewport && viewport.scrollWidth > viewport.clientWidth) {
+      const left = bar.offsetLeft
+      const right = left + bar.offsetWidth
+      if (left < viewport.scrollLeft) viewport.scrollLeft = left
+      else if (right > viewport.scrollLeft + viewport.clientWidth) viewport.scrollLeft = right - viewport.clientWidth
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stop])
 
@@ -56,61 +65,63 @@ export default function TimeStrip({ bars, currentPly, width, onSelect }: Props) 
 
   return (
     <div data-testid="time-strip" style={{ width, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div
-        ref={groupRef}
-        role="group"
-        aria-label="Time spent on each of your moves. Use the arrow keys to move along it, Home and End for the first and the last."
-        onKeyDown={onKey}
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'flex-end',
-          gap: bars.length > 120 ? 0 : 1,
-          height: FILL_H + GAP + MARK_H + GAP + TICK_H,
-        }}
-      >
-        <span aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: FILL_H, height: 1, background: 'var(--border)' }} />
-        {bars.map((b, i) => {
-          const active = b.ply === currentPly
-          const mark = b.mark ?? 'none'
-          return (
-            <button
-              key={b.ply}
-              type="button"
-              title={barLabel(b)}
-              aria-label={barLabel(b)}
-              aria-current={active ? 'step' : undefined}
-              tabIndex={i === stop ? 0 : -1}
-              onClick={() => onSelect(b.ply)}
-              data-bar-ply={b.ply}
-              data-mark={mark}
-              style={{
-                flex: '1 1 0',
-                minWidth: 1,
-                height: '100%',
-                padding: 0,
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-end',
-                position: 'relative',
-              }}
-            >
-              <span
-                aria-hidden
+      <div className="review-clock-scroll">
+        <div
+          className="review-clock-bars"
+          ref={groupRef}
+          role="group"
+          aria-label="Time spent on each of your moves. Use the arrow keys to move along it, Home and End for the first and the last."
+          onKeyDown={onKey}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: bars.length > 120 ? 0 : 1,
+            height: FILL_H + GAP + MARK_H + GAP + TICK_H,
+          }}
+        >
+          <span aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: FILL_H, height: 1, background: 'var(--border)' }} />
+          {bars.map((b, i) => {
+            const active = b.ply === currentPly
+            const mark = b.mark ?? 'none'
+            return (
+              <button
+                key={b.ply}
+                type="button"
+                title={barLabel(b)}
+                aria-label={barLabel(b)}
+                aria-current={active ? 'step' : undefined}
+                tabIndex={i === stop ? 0 : -1}
+                onClick={() => onSelect(b.ply)}
+                data-bar-ply={b.ply}
+                data-mark={mark}
                 style={{
-                  display: 'block',
-                  height: b.spentMs === null ? 0 : Math.max(1, Math.round(b.ratio * FILL_H)),
-                  background: MARK_COLOR[mark],
+                  flex: '1 1 0',
+                  height: '100%',
+                  padding: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-end',
+                  position: 'relative',
                 }}
-              />
-              <span aria-hidden style={{ display: 'block', height: MARK_H, marginTop: GAP, background: b.mark ? MARK_COLOR[mark] : 'transparent' }} />
-              <span aria-hidden style={{ display: 'block', height: TICK_H, marginTop: GAP, background: active ? 'var(--text)' : 'transparent' }} />
-            </button>
-          )
-        })}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    display: 'block',
+                    height: b.spentMs === null ? 0 : Math.max(1, Math.round(b.ratio * FILL_H)),
+                    background: MARK_COLOR[mark],
+                  }}
+                />
+                <span aria-hidden style={{ display: 'block', height: MARK_H, marginTop: GAP, background: b.mark ? MARK_COLOR[mark] : 'transparent' }} />
+                <span aria-hidden style={{ display: 'block', height: TICK_H, marginTop: GAP, background: active ? 'var(--text)' : 'transparent' }} />
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 4, fontSize: 11, color: 'var(--text-muted)' }}>

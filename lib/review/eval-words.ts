@@ -18,3 +18,9 @@ export function evalReceipt(cpWhite: number | null): string | null {
   const n = p > 0 ? `+${p.toFixed(1)}` : p < 0 ? `−${Math.abs(p).toFixed(1)}` : '0.0'
   return `Engine: ${n} from White's side`
 }
+
+export function evalToWhitePercent(cp: number | null): number {
+  if (cp === null) return 50
+  const clamped = Math.max(-1500, Math.min(1500, cp))
+  return ((Math.tanh(clamped / 500) + 1) / 2) * 100
+}

@@ -1,5 +1,5 @@
 import { nextReturn, type HistoryRow } from './session'
-import type { NextStepInteraction, NextStepRow } from './next-step'
+import { trainingCandidates, type NextStepInteraction, type NextStepOptions, type NextStepRow } from './next-step'
 
 export interface SummaryGame {
   id: string
@@ -17,6 +17,24 @@ export interface LockedIn {
   retired: boolean
 }
 
+export type PositionReturn = Pick<LockedIn, 'retired' | 'returns_at'>
+
+export function positionReturn(history: HistoryRow[], now: number): PositionReturn | null {
+  const next = nextReturn(history, now)
+  if (!next) return null
+  return { retired: next.retired, returns_at: next.retired ? null : new Date(next.at).toISOString() }
+}
+
+export function returnLabel(schedule: PositionReturn): string {
+  if (schedule.retired) return "Learned. It won't come back."
+  if (!schedule.returns_at) return ''
+  return `Back ${returnDayLabel(new Date(schedule.returns_at))}`
+}
+
+export function returnDayLabel(date: Date): string {
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export interface StakesBar {
   result: 'win' | 'loss' | 'draw' | null
   trained: boolean
@@ -32,6 +50,7 @@ export interface Stakes {
 }
 
 export interface SessionSummary {
+  earliest_return_at: string | null
   locked_in: LockedIn[]
   stakes: Stakes | null
 }
@@ -43,7 +62,8 @@ export function sessionSummary(
   interactions: NextStepInteraction[],
   sessionId: string,
   games: SummaryGame[],
-  now: number
+  now: number,
+  options: NextStepOptions = {}
 ): SessionSummary {
   const byId = new Map(rows.map(r => [r.id, r]))
   const sessionRows = interactions
@@ -56,19 +76,27 @@ export function sessionSummary(
       .map(i => ({ position_id: i.position_id, session_id: i.session_id, correct: i.correct, at: i.at }))
 
   const locked_in: LockedIn[] = []
+  let earliestReturn: string | null = null
   for (const i of sessionRows) {
-    if (i.correct !== true) continue
     const row = byId.get(i.position_id)
     if (!row || !row.best_move) continue
-    const next = nextReturn(historyFor(i.position_id), now)
+    const next = positionReturn(historyFor(i.position_id), now)
+    if (!next) continue
+    if (
+      next.returns_at &&
+      (!earliestReturn || next.returns_at < earliestReturn) &&
+      trainingCandidates([row], options).length > 0
+    ) {
+      earliestReturn = next.returns_at
+    }
+    if (i.correct !== true) continue
     locked_in.push({
       position_id: row.id,
       fen: row.fen,
       side_to_move: row.side_to_move === 'black' ? 'black' : 'white',
       best_move: row.best_move,
       move: i.chosen_move ?? row.best_move,
-      returns_at: next && !next.retired ? new Date(next.at).toISOString() : null,
-      retired: next?.retired === true,
+      ...next,
     })
   }
 
@@ -95,7 +123,7 @@ export function sessionSummary(
     }
   }
 
-  return { locked_in, stakes }
+  return { earliest_return_at: earliestReturn, locked_in, stakes }
 }
 
 export function stakesSentences(s: Stakes): [string, string] {

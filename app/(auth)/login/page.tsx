@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { googleSignInEnabled } from '@/lib/auth/google'
+import { loginReviewPath } from '@/lib/auth/next-path'
 import { transferGuestSession } from '@/lib/auth/transfer'
 
 export default function LoginPage() {
@@ -36,7 +37,8 @@ export default function LoginPage() {
 
     await transferGuestSession()
 
-    router.push('/workbench')
+    const next = new URLSearchParams(window.location.search).get('next')
+    router.push(loginReviewPath(next))
     router.refresh()
   }
 
@@ -47,7 +49,7 @@ export default function LoginPage() {
           <Link href="/" className="font-logo" style={{ fontSize: 28, color: 'var(--text)' }}>
             chess<span style={{ color: 'var(--gold)' }}>ics</span>
           </Link>
-          <h1 className="mt-4 text-xl font-semibold" style={{ color: 'var(--text)' }}>Welcome back</h1>
+          <h1 className="mt-4 font-headline text-2xl font-medium" style={{ color: 'var(--text)' }}>Welcome back</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -75,6 +77,9 @@ export default function LoginPage() {
             className="w-full px-4 py-3 text-sm outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
           />
+          <Link href="/forgot-password" className="self-start text-sm text-gold underline">
+            Forgot password?
+          </Link>
 
           {error && (
             <p role="alert" className="text-xs px-1" style={{ color: 'var(--text)', borderLeft: '1px solid var(--oxblood)', paddingLeft: 8 }}>
@@ -109,9 +114,12 @@ export default function LoginPage() {
               type="button"
               onClick={async () => {
                 const supabase = createClient()
+                const callback = new URL('/api/auth/callback', window.location.origin)
+                const next = new URLSearchParams(window.location.search).get('next')
+                if (next) callback.searchParams.set('next', loginReviewPath(next))
                 await supabase.auth.signInWithOAuth({
                   provider: 'google',
-                  options: { redirectTo: window.location.origin + '/api/auth/callback' },
+                  options: { redirectTo: callback.toString() },
                 })
               }}
               className="w-full py-3 text-sm font-medium flex items-center justify-center gap-3 transition-opacity hover:opacity-80"

@@ -1,5 +1,20 @@
 import { Chess } from 'chess.js'
 import { standing } from './reveal'
+import type { CommitResponse } from './api-types'
+
+export function alternativeReplay(commit: CommitResponse, chosenMove: string | null) {
+  const grade = commit.grading
+  if (
+    commit.correct !== false || grade?.method !== 'engine' || !grade.chosen_line?.length ||
+    !chosenMove || grade.chosen_eval_cp == null || commit.eval_cp == null
+  ) return null
+  return {
+    rootMoveUci: chosenMove,
+    line: grade.chosen_line,
+    startEvalCp: commit.eval_cp,
+    rootEvalCp: grade.chosen_eval_cp,
+  }
+}
 
 export interface ReplayPly {
   san: string
@@ -34,7 +49,8 @@ export function buildReplay(
   rootUci: string,
   line: string[],
   evals: number[],
-  startEvalCp: number
+  startEvalCp: number,
+  rootEvalCp?: number
 ): ReplayFrame[] {
   const frames: ReplayFrame[] = [{ fen, lastMove: null, cp: startEvalCp, ply: null }]
   let chess: Chess
@@ -59,7 +75,8 @@ export function buildReplay(
     if (!m) break
 
     const mover = turn === me ? 'you' : 'opponent'
-    const cp = i === 0 ? startEvalCp : evals[i - 1] ?? frames[frames.length - 1].cp
+    const measured = i === 0 ? rootEvalCp : evals[i - 1]
+    const cp = measured ?? frames[frames.length - 1].cp
     frames.push({
       fen: chess.fen(),
       lastMove: [m.from, m.to],
@@ -68,7 +85,7 @@ export function buildReplay(
         san: m.san,
         label: turn === 'w' ? `${number}.` : `${number}...`,
         mover,
-        standing: i === 0 || evals[i - 1] === undefined ? null : standing(evals[i - 1]),
+        standing: measured === undefined ? null : standing(measured),
         event: eventFor(mover, m.captured, m.promotion),
       },
     })
@@ -77,14 +94,14 @@ export function buildReplay(
 }
 
 export interface ReplayStatus {
-  label: 'Before your move' | 'Position now'
+  label: 'Before your move' | 'After your move' | 'Position now'
   standing: string
 }
 
 export function replayStatus(frames: ReplayFrame[], index: number, startEvalCp: number): ReplayStatus {
   for (let i = Math.min(index, frames.length - 1); i >= 1; i--) {
     const known = frames[i].ply?.standing
-    if (known) return { label: 'Position now', standing: known }
+    if (known) return { label: i === 1 ? 'After your move' : 'Position now', standing: known }
   }
   return { label: 'Before your move', standing: standing(startEvalCp) }
 }

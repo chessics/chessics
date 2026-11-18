@@ -1,7 +1,7 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { NextResponse } from 'next/server'
-import { TOO_MANY_REQUESTS_CODE, TOO_MANY_REQUESTS_MESSAGE } from '@/lib/ratelimit-message'
+import { DAILY_CAP_CODE, dailyCapMessage, TOO_MANY_REQUESTS_CODE, TOO_MANY_REQUESTS_MESSAGE } from '@/lib/ratelimit-message'
 
 export type Window = `${number} ${'s' | 'm' | 'h' | 'd'}`
 
@@ -32,7 +32,7 @@ export interface LimitCheck {
   key: string
 }
 
-export type LimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number }
+export type LimitResult = { allowed: true } | { allowed: false; ruleName: string; retryAfterSeconds: number }
 
 interface Limiter {
   limit(key: string): Promise<{ success: boolean; reset: number; reason?: string }>
@@ -83,7 +83,7 @@ export async function checkLimits(
       continue
     }
     if (!result.success) {
-      return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((result.reset - now()) / 1000)) }
+      return { allowed: false, ruleName: rule.name, retryAfterSeconds: Math.max(1, Math.ceil((result.reset - now()) / 1000)) }
     }
   }
   return { allowed: true }
@@ -106,11 +106,13 @@ export function ipKey(headers: Headers): string {
 export const SITE_KEY = 'all'
 
 export function tooManyRequests(
-  result: { retryAfterSeconds: number },
+  result: Extract<LimitResult, { allowed: false }>,
   headers: Record<string, string> = {}
 ): NextResponse {
   return NextResponse.json(
-    { error: TOO_MANY_REQUESTS_CODE, message: TOO_MANY_REQUESTS_MESSAGE },
+    result.ruleName === RATE_LIMITS.allAnalyses.name
+      ? { error: DAILY_CAP_CODE, message: dailyCapMessage(result.retryAfterSeconds) }
+      : { error: TOO_MANY_REQUESTS_CODE, message: TOO_MANY_REQUESTS_MESSAGE },
     { status: 429, headers: { ...headers, 'Retry-After': String(result.retryAfterSeconds) } }
   )
 }

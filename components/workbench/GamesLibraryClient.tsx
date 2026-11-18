@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Game } from '@/lib/supabase/types'
-import { failureMessage } from '@/lib/ratelimit-message'
+import { DAILY_CAP_CODE, dailyCapMessage, failureMessage } from '@/lib/ratelimit-message'
 import { formatTimeControl } from '@/lib/review/time-control'
 import { countNoun } from '@/lib/count-noun'
 import { createStatusPoller, POLL_INTERVAL_MS } from '@/lib/sync/poll'
@@ -53,7 +53,7 @@ function ResultBadge({ result }: { result: Game['result'] }) {
   )
 }
 
-function PlatformDot({ platform }: { platform: Game['platform'] }) {
+function PlatformLabel({ platform }: { platform: Game['platform'] }) {
   const label = platform === 'chess_com' ? 'CC' : platform === 'lichess' ? 'Li' : 'U'
   const name = platform === 'chess_com' ? 'Chess.com' : platform === 'lichess' ? 'Lichess' : 'Uploaded'
   return (
@@ -70,8 +70,8 @@ function PlatformDot({ platform }: { platform: Game['platform'] }) {
         flexShrink: 0,
       }}
     >
-      <span aria-hidden="true">{label}</span>
-      <span className="sr-only">{name}</span>
+      <span className="games-label-full">{name}</span>
+      <span className="games-label-short"><span aria-hidden="true">{label}</span><span className="sr-only">{name}</span></span>
     </span>
   )
 }
@@ -216,9 +216,16 @@ export default function GamesLibraryClient({ games }: Props) {
         body: JSON.stringify({ gameId }),
       })
       const ok = res.ok
-      const jobId = ok ? ((await res.json().catch(() => ({}))) as { jobId?: unknown }).jobId : undefined
+      const data = await res.json().catch(() => null)
+      const jobId = ok ? data?.jobId : undefined
       if (typeof jobId === 'string') watchJob(gameId, jobId)
-      const refused = ok ? null : res.status === 422 ? NOT_STANDARD_LABEL : failureMessage(res.status, RETRY_LABEL)
+      let refused: string | null = null
+      if (!ok) {
+        refused = res.status === 422 ? NOT_STANDARD_LABEL : failureMessage(res.status, RETRY_LABEL)
+        if (res.status === 429 && data?.error === DAILY_CAP_CODE) {
+          refused = dailyCapMessage(Number(res.headers.get('Retry-After')))
+        }
+      }
       setFailedIds((prev) => {
         const next = new Map(prev)
         if (refused === null) next.delete(gameId)
@@ -368,7 +375,7 @@ export default function GamesLibraryClient({ games }: Props) {
                 </div>
 
                 <div className="games-cell-platform" style={{ padding: '0 2px' }}>
-                  <PlatformDot platform={game.platform} />
+                  <PlatformLabel platform={game.platform} />
                 </div>
 
                 <span

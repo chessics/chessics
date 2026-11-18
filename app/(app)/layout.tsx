@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
       <Topbar signedIn={!!session} />
-      <div className="flex flex-1">
+      <div className="flex flex-1 flex-col sm:flex-row">
         <Sidebar />
         <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-auto [--review-scroll-inset:3.5rem]">
           {children}

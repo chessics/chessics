@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chess } from 'chess.js'
+import { useBoardSize } from './useBoardSize'
+import { showTrainingAnswer } from './showTrainingAnswer'
 import { X } from 'lucide-react'
 import TrainingBoard, { type DrawnArrow } from './TrainingBoard'
 import LosingBranch from './LosingBranch'
@@ -19,6 +21,7 @@ import {
   type TrainingMode,
 } from '@/lib/training/api-types'
 import { nextButtonLabel, planReveal, type RevealKind } from '@/lib/training/reveal'
+import { alternativeReplay } from '@/lib/training/replay'
 import { playHref } from '@/lib/play/links'
 import type { Goal } from '@/lib/training/reason'
 import { announcement } from '@/lib/training/announce'
@@ -44,7 +47,7 @@ type Phase =
   | { name: 'intro' }
   | { name: 'punish'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
   | { name: 'reveal'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
-  | { name: 'threat'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
+  | { name: 'threat' | 'alternative'; position: PublicPosition; commit: CommitResponse; chosen: string | null; kind: RevealKind; watched: boolean }
   | { name: 'done'; openLoop: string; summary?: SessionSummary }
   | { name: 'signin' }
   | { name: 'error'; message: string }
@@ -105,24 +108,6 @@ export function revealPlayHref(mode: TrainingMode, commit: CommitResponse): stri
   return playHref(mode === 'live' ? 'live' : 'fixture', from.game_id, from.ply, 'train')
 }
 
-function useBoardSize(ref: React.RefObject<HTMLDivElement>): number {
-  const [size, setSize] = useState(480)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const measure = () => {
-      const w = el.clientWidth
-      const side = w >= 700
-      setSize(Math.min(w, Math.max(260, Math.min(560, Math.floor(side ? w - 300 : w - 24)))))
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [ref])
-  return size
-}
-
 export default function TrainingSession({ mode, signedIn = true }: { mode: TrainingMode; signedIn?: boolean }) {
   const [session, setSession] = useState<StoredSession | null>(null)
   const [phase, setPhase] = useState<Phase>(signedIn ? { name: 'loading' } : { name: 'signin' })
@@ -136,7 +121,11 @@ export default function TrainingSession({ mode, signedIn = true }: { mode: Train
   const [showHelp, setShowHelp] = useState(false)
   const startedAt = useRef(0)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const size = useBoardSize(wrapRef)
+  const size = useBoardSize(wrapRef, 'above-bar')
+
+  useEffect(() => {
+    if (phase.name === 'reveal') showTrainingAnswer(wrapRef.current)
+  }, [phase.name])
 
   const begin = (s: StoredSession) => {
     answered.current = s.answered
@@ -262,11 +251,14 @@ export default function TrainingSession({ mode, signedIn = true }: { mode: Train
 
   const orientation = (p: PublicPosition) => p.side_to_move
   const answering = phase.name === 'board' || phase.name === 'committing'
-  const onPosition = answering || phase.name === 'punish' || phase.name === 'reveal' || phase.name === 'threat'
+  const alternative = phase.name === 'reveal' || phase.name === 'alternative'
+    ? alternativeReplay(phase.commit, phase.chosen)
+    : null
+  const onPosition = answering || phase.name === 'punish' || phase.name === 'reveal' || phase.name === 'threat' || phase.name === 'alternative'
   const titleRef = useFocusWhenLost<HTMLHeadingElement>(phase.name === 'board' ? phase.position.position_id : null)
 
   return (
-    <div ref={wrapRef} className="training-root">
+    <div ref={wrapRef} className="training-root training-session">
       <p className="sr-only" aria-live="polite" data-testid="training-announcement">
         {phase.name === 'board' && boardMessage ? boardMessage : announcement(phase)}
       </p>
@@ -393,10 +385,25 @@ export default function TrainingSession({ mode, signedIn = true }: { mode: Train
           watched={phase.watched}
           nextLabel={nextButtonLabel(upcoming)}
           onWatch={() => setPhase({ ...phase, name: 'punish' })}
+          onWatchAlternative={alternative ? () => setPhase({ ...phase, name: 'alternative' }) : undefined}
           onThreat={() => setPhase({ ...phase, name: 'threat' })}
           playHref={revealPlayHref(mode, phase.commit)}
           share={phase.commit.shareable ? { mode, positionId: phase.position.position_id } : null}
         />
+      )}
+
+      {phase.name === 'alternative' && alternative && (
+        <div className="training-grid">
+          <LosingBranch
+            fen={phase.position.fen}
+            orientation={orientation(phase.position)}
+            {...alternative}
+            evals={[]}
+            size={size}
+            context="alternative"
+            onDone={() => setPhase({ ...phase, name: 'reveal' })}
+          />
+        </div>
       )}
 
       {phase.name === 'threat' && phase.chosen && phase.commit.reason?.checks?.threat && (

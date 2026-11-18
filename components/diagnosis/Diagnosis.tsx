@@ -235,25 +235,11 @@ function Sources({
   )
 }
 
-const MAX_BOARD_PX = 240
-const MAX_FEW_BOARD_PX = 400
-const GAP_PX = 10
-const MIN_ROW_BOARD_PX = 150
-
-export function boardLayout(width: number, boards: number): { cols: number; size: number } {
-  const fit = (cols: number) => Math.floor((width - GAP_PX * (cols - 1)) / cols)
-  const cols = boards <= 3 ? Math.max(boards, 1) : fit(boards) >= MIN_ROW_BOARD_PX ? boards : 3
-  const size = Math.min(boards <= 3 ? MAX_FEW_BOARD_PX : MAX_BOARD_PX, fit(cols))
-  return { cols, size: Math.max(size, 0) }
-}
-
 export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[]; reducedMotion?: boolean }) {
   const [phase, setPhase] = useState<EvidencePhase>(initialPhase(reducedMotion))
   const [reduced, setReduced] = useState<boolean | undefined>(reducedMotion)
-  const [width, setWidth] = useState<number | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const readyCount = useRef(0)
-  const sized = width !== null
   const [inView, setInView] = useState(false)
 
   const start = useCallback(() => {
@@ -274,7 +260,7 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
 
   useEffect(() => {
     const el = gridRef.current
-    if (!el || !sized || reduced !== false) return
+    if (!el || reduced !== false) return
     if (typeof IntersectionObserver === 'undefined') {
       setInView(true)
       return
@@ -290,7 +276,7 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [reduced, sized])
+  }, [reduced])
 
   useEffect(() => {
     if (reduced !== false || !inView) return
@@ -298,18 +284,9 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
     return () => window.clearTimeout(t)
   }, [reduced, inView])
 
-  useEffect(() => {
-    const el = gridRef.current
-    if (!el) return
-    setWidth(el.clientWidth)
-    const ro = new ResizeObserver((entries) => setWidth(entries[0]!.contentRect.width))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
   const timing = evidenceTiming(boards.length, reduced === true)
-  const layout = width === null ? null : boardLayout(width, boards.length)
   const style = {
+    '--board-count': Math.max(1, boards.length),
     '--faded': FADED_OPACITY,
     '--arrow-in': `${timing.arrowInMs}ms`,
     '--fade-delay': `${timing.fadeDelayMs}ms`,
@@ -318,19 +295,13 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
 
   return (
     <div ref={gridRef} className="diagnosis-evidence" data-phase={phase} data-boards={boards.length} style={style}>
-      {layout &&
-        boards.map((b, i) => (
-          <div
-            key={b.key}
-            className="evidence-board"
-            role="img"
-            aria-label={b.label}
-            style={{ '--arrow-delay': `${timing.arrowDelaysMs[i]}ms` } as CSSProperties}
-          >
+      {boards.map((b, i) => (
+        <figure key={b.key} style={{ '--arrow-delay': `${timing.arrowDelaysMs[i]}ms` } as CSSProperties}>
+          <div className="evidence-board" role="img" aria-label={b.label}>
             <ChessBoard
               fen={b.fen}
               orientation={b.orientation}
-              size={layout.size}
+              size="100%"
               coordinates={false}
               viewOnly
               shapes={[{ orig: b.from, dest: b.to, brush: 'mistake' }]}
@@ -340,7 +311,9 @@ export function EvidenceGrid({ boards, reducedMotion }: { boards: EvidenceBoard[
               }}
             />
           </div>
-        ))}
+          {b.caption && <figcaption className="pt-1 text-xs text-text-muted">{b.caption}</figcaption>}
+        </figure>
+      ))}
     </div>
   )
 }

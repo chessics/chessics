@@ -4,11 +4,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import AnalyzingView, { type StageStatus } from '@/components/analyzing/AnalyzingView'
 import { useProgressFavicon } from '@/components/layout/progress-favicon'
-import { POLL_INTERVAL_MS, createStatusPoller } from '@/lib/sync/poll'
+import { POLL_INTERVAL_MS, createStatusPoller, syncErrorHref } from '@/lib/sync/poll'
 import { planOnLoad } from '@/lib/sync/resume'
 import { FLAGS } from '@/lib/flags'
 import { finishPlan } from '@/lib/sync/finish'
-import { nextGamesProgress, type GamesProgress } from '@/lib/sync/progress'
+import { createAnalysisWait, INITIAL_ESTIMATE, nextGamesProgress, type AnalysisWait, type GamesProgress } from '@/lib/sync/progress'
 
 interface ChessicsSession {
   username: string
@@ -30,7 +30,7 @@ export default function AnalyzingPage() {
   const [session, setSession] = useState<ChessicsSession | null>(null)
   const [stages, setStages] = useState<StageStatus[]>(['active', 'pending', 'pending', 'pending'])
   const [progress, setProgress] = useState<GamesProgress>({ done: 0, total: null })
-  const [stageDetail, setStageDetail] = useState<string | null>(null)
+  const [wait, setWait] = useState<AnalysisWait | null>(null)
   const [readyHref, setReadyHref] = useState<string | null>(null)
   const touchedRef = useRef(false)
   useProgressFavicon(stages)
@@ -60,12 +60,14 @@ export default function AnalyzingPage() {
 
   const startPolling = useCallback(
     (jobId: string, authed: boolean) => {
+      const readWait = createAnalysisWait()
       const tick = createStatusPoller<{
         status: 'queued' | 'processing' | 'complete' | 'failed'
         progress: number
         gameCount: number
         stage: 1 | 2 | 3 | 4
         stageDetail: string | null
+        updatedAt?: string | null
       }>({
         fetchStatus: () => fetch(`/api/sync/status?jobId=${jobId}`),
         onGiveUp: (reason) => {
@@ -76,9 +78,10 @@ export default function AnalyzingPage() {
           const stageIndex = (data.stage ?? 1) - 1
           const newStages: StageStatus[] = ['pending', 'pending', 'pending', 'pending']
           for (let i = 0; i < stageIndex; i++) newStages[i] = 'complete'
-          newStages[stageIndex] = 'active'
+          if (data.status === 'queued') newStages[0] = 'complete'
+          else newStages[stageIndex] = 'active'
           setStages(newStages)
-          setStageDetail(data.stageDetail ?? null)
+          setWait(readWait(data))
 
           setProgress((prev) => nextGamesProgress(prev, data, batchSizeRef.current))
 
@@ -137,7 +140,7 @@ export default function AnalyzingPage() {
         if (cancelled) return
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-          if (!cancelled) router.push(`/?error=${encodeURIComponent(errData.error ?? 'sync_failed')}`)
+          if (!cancelled) router.push(syncErrorHref(errData.error ?? 'sync_failed', res.headers.get('Retry-After')))
           return
         }
 
@@ -153,7 +156,8 @@ export default function AnalyzingPage() {
           } catch {  }
         }
 
-        setStages(['complete', 'active', 'pending', 'pending'])
+        setStages(['complete', 'pending', 'pending', 'pending'])
+        setWait({ message: 'Waiting for analysis to start.', estimate: INITIAL_ESTIMATE })
         startPolling(data.jobId, authed)
       } catch {
         if (!cancelled) router.push('/?error=network_error')
@@ -167,7 +171,8 @@ export default function AnalyzingPage() {
       if (cancelled) return
       const authed = session!.authed ?? !session!.sessionToken
       if (plan.kind === 'resume') {
-        setStages(['complete', 'active', 'pending', 'pending'])
+        setStages(['complete', 'pending', 'pending', 'pending'])
+        setWait({ message: 'Checking the progress of your analysis.', estimate: INITIAL_ESTIMATE })
         startPolling(plan.jobId, authed)
       } else if (plan.kind === 'finished') {
         finish(authed)
@@ -191,7 +196,7 @@ export default function AnalyzingPage() {
       batchSize={progress.total ?? session.batchSize ?? 10}
       gamesDone={progress.done}
       stages={stages}
-      stageDetail={stageDetail}
+      wait={wait}
       readyHref={readyHref}
       puzzles={FLAGS.waitingPuzzles}
       onTouched={() => {

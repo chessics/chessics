@@ -76,6 +76,8 @@
 
 .alert { padding-top: 8px; border-top: 1px solid #c0455a; font-size: 14px; line-height: 1.45; color: var(--ivory); }
 
+.alert a { display: block; width: fit-content; padding-block: 4px; color: inherit; text-decoration: underline; text-underline-offset: 4px; }
+
 .resume { display: flex; flex-direction: column; gap: 14px; }
 .resumeTitle { font: 500 16px var(--sans); color: var(--ivory); }
 .resumeMeta { margin-top: 2px; font-size: 14px; color: var(--ivory-dim); }
@@ -129,6 +131,11 @@
   .note { flex-direction: column; align-items: flex-start; row-gap: 0; }
   .note a { margin-block: 0; }
   .pauseButton { left: 8px; }
+}
+
+@media (max-width: 760px) and (max-height: 660px) {
+  .hero { min-height: 100svh; }
+  .frame { min-height: clamp(100px, 30svh, 180px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

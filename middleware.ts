@@ -1,3 +1,5 @@
+import { isUuid } from '@/lib/uuid'
+import { loginReviewPath } from '@/lib/auth/next-path'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -27,17 +29,17 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  const isPublic =
-    pathname === '/' ||
-    pathname === '/login' ||
-    pathname === '/signup' ||
-    pathname === '/analyzing' ||
-    pathname.startsWith('/api/auth')
+  const batch = /^\/workbench\/batch\/([^/]+)\/?$/.exec(pathname)
+  if (batch && (!session || !isUuid(batch[1]))) {
+    const response = NextResponse.rewrite(new URL('/404', request.url), { status: 404 })
+    response.headers.set('Cache-Control', 'private, no-store')
+    for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie)
+    return response
+  }
 
   if (session && (pathname === '/login' || pathname === '/signup')) {
-    const workbenchUrl = request.nextUrl.clone()
-    workbenchUrl.pathname = '/workbench'
-    return NextResponse.redirect(workbenchUrl)
+    const next = pathname === '/login' ? request.nextUrl.searchParams.get('next') : null
+    return NextResponse.redirect(new URL(loginReviewPath(next), request.url))
   }
 
   return supabaseResponse

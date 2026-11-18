@@ -28,7 +28,7 @@ interface ChessBoardProps {
   orientation?: 'white' | 'black'
   lastMove?: [string, string] | null
   shapes?: BoardShape[]
-  size: number
+  size: number | '100%'
   coordinates?: boolean
   onReady?: () => void
   viewOnly?: boolean

@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import RecurrenceStrip from '@/components/workbench/RecurrenceStrip'
 import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
+import TurningMoveTimes from '@/components/report/TurningMoveTimes'
+import { guestGameRows, turningMoveTimes } from '@/lib/report/game-moments'
+import GuestGameMoment from '@/components/report/GuestGameMoment'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { guestFatigue, guestInstances } from '@/lib/diagnosis/guest'
@@ -16,23 +20,26 @@ import type { StandAloneByTag } from '@/lib/diagnosis/instance'
 import type { GuestSessionResult } from '@/types/guest'
 import { reportLoadState, type ReportLoadState } from '@/lib/report/load-state'
 import { countNoun } from '@/lib/count-noun'
+import { GUEST_SESSION_KEY, transferableGuestToken, type GuestTransferSession } from '@/lib/auth/transfer'
 
 export default function GuestReportPage() {
   const router = useRouter()
   const [result, setResult] = useState<GuestSessionResult | null>(null)
   const [sessionMeta, setSessionMeta] = useState<{ username: string; platform: 'chess.com' | 'lichess' } | null>(null)
   const [state, setState] = useState<'loading' | ReportLoadState>('loading')
+  const [canSaveReport, setCanSaveReport] = useState(false)
 
   useEffect(() => {
-    const raw = localStorage.getItem('chessics_session')
+    const raw = localStorage.getItem(GUEST_SESSION_KEY)
     if (!raw) {
       router.replace('/')
       return
     }
     let token: string | undefined
     try {
-      const session = JSON.parse(raw) as { sessionToken?: string; username?: string; platform?: 'chess.com' | 'lichess' }
+      const session = JSON.parse(raw) as GuestTransferSession & { username?: string; platform?: 'chess.com' | 'lichess' }
       token = session.sessionToken
+      setCanSaveReport(Boolean(transferableGuestToken(session)))
       if (session.username && session.platform) {
         setSessionMeta({ username: session.username, platform: session.platform })
       }
@@ -62,6 +69,8 @@ export default function GuestReportPage() {
     return { groups: recounted, findings: buildFindings(recounted, instances, result.batch_report.game_count) }
   }, [result])
   const fatigue = useMemo(() => (result ? guestFatigue(result) : null), [result])
+  const rows = useMemo(() => result ? guestGameRows(result.games, result.batch_report.game_ids ?? []) : [], [result])
+  const times = useMemo(() => turningMoveTimes(rows), [rows])
   const stripGroup = useMemo(() => selectFindings(groups).ordered[0] ?? null, [groups])
 
   if (state === 'loading') return null
@@ -101,7 +110,6 @@ export default function GuestReportPage() {
     results: new Map(result.games.map((g) => [g.analysis_data.gameId, g.result])),
   })
   const verdict = prose.verdict
-  const gamesById = new Map(result.games.map((g) => [g.analysis_data.gameId, g]))
 
   return (
     <main className="min-h-screen px-4 sm:px-8 lg:px-12 py-12" style={{ background: 'var(--bg)' }}>
@@ -116,6 +124,17 @@ export default function GuestReportPage() {
         </div>
 
         <div className="flex flex-col gap-6">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Guest reports are kept for 7 days.
+            {canSaveReport && (
+              <>
+                {' '}
+                <Link href="/signup" style={{ color: 'var(--brass)', textDecoration: 'underline' }}>
+                  Sign up to keep this report
+                </Link>.
+              </>
+            )}
+          </p>
           {verdict && (
             <h1 className="font-headline" style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
               {verdict.text}
@@ -161,28 +180,33 @@ export default function GuestReportPage() {
         <div className="flex flex-col gap-1">
           <hr className="hairline" />
           <h2 className="text-base font-medium py-3" style={{ color: 'var(--text)' }}>Games in this batch</h2>
-          {gameIds.map((id) => {
-            const game = gamesById.get(id)
-            if (!game) return null
+          <TurningMoveTimes times={times} />
+          {rows.map(({ game, preview }) => {
+            const id = game.analysis_data.gameId
             const isAffected = affected.has(id)
             return (
-              <div key={id} className="flex items-center gap-4 py-2.5" style={{ borderTop: '1px solid var(--border)' }}>
+              <div key={id} className="flex gap-4 py-2.5" style={{ borderTop: '1px solid var(--border)' }}>
                 <span style={{ width: 3, alignSelf: 'stretch', background: isAffected ? 'var(--brass)' : 'transparent' }} />
-                <span className="text-sm flex-1 truncate" style={{ color: 'var(--text)' }}>
-                  {game.opponent_username || 'Unknown opponent'}
-                </span>
-                <span
-                  className="text-sm capitalize"
-                  style={{
-                    width: 44,
-                    color: game.result === 'win' ? 'var(--good)' : game.result === 'loss' ? 'var(--oxblood)' : 'var(--text-muted)',
-                  }}
-                >
-                  {game.result}
-                </span>
-                <span className="text-xs font-mono text-right" style={{ width: 44, color: 'var(--text-muted)' }}>
-                  {game.analysis_data.analysis.overall_accuracy}%
-                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm flex-1 truncate" style={{ color: 'var(--text)' }}>
+                      {game.opponent_username || 'Unknown opponent'}
+                    </span>
+                    <span
+                      className="text-sm capitalize"
+                      style={{
+                        width: 44,
+                        color: game.result === 'win' ? 'var(--good)' : game.result === 'loss' ? 'var(--oxblood)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {game.result}
+                    </span>
+                    <span className="text-xs font-mono text-right" style={{ width: 44, color: 'var(--text-muted)' }}>
+                      {game.analysis_data.analysis.overall_accuracy}%
+                    </span>
+                  </div>
+                  <GuestGameMoment game={game} preview={preview} />
+                </div>
               </div>
             )
           })}

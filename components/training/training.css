@@ -552,6 +552,35 @@
   flex-shrink: 0;
 }
 
+.training-eval-bar {
+  position: relative;
+  block-size: var(--bar-length);
+  inline-size: 12px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-inline: 1px solid var(--border);
+}
+
+.training-eval-fill {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: var(--player-share);
+  opacity: 0.85;
+  transition: block-size 700ms cubic-bezier(0.22, 0.8, 0.24, 1), background-color 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.training-eval-bar::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  block-size: 1px;
+  background: var(--brass);
+  opacity: 0.6;
+}
+
 .replay-panel {
   gap: 20px;
 }
@@ -798,4 +827,52 @@
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
+}
+
+.training-session {
+  container: training / inline-size;
+}
+
+@container training (width < 700px) {
+  .training-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    scroll-margin-top: var(--review-scroll-inset, 0px);
+  }
+
+  .training-panel {
+    min-width: 0;
+  }
+
+  .replay-board {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .training-eval-bar {
+    writing-mode: vertical-rl;
+  }
+
+  .training-reveal-panel {
+    gap: 8px;
+  }
+
+  .training-reveal-panel > .training-verdict,
+  .training-reveal-panel > .training-hint,
+  .training-reveal-panel > .training-key,
+  .training-reveal-panel > .training-actions {
+    order: -1;
+  }
+
+  .training-reveal-panel .training-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .training-reveal-panel .training-key {
+    gap: 2px;
+  }
 }

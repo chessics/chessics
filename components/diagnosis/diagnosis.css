@@ -32,16 +32,31 @@
   }
 }
 
+.diagnosis-proof { container: proof / inline-size; }
 .diagnosis-evidence {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
-  min-height: 1px;
+  --columns: 3;
+  --board-max: 240px;
+  grid-template-columns: repeat(var(--columns), minmax(0, var(--board-max)));
 }
-
+.diagnosis-evidence:is([data-boards='1'], [data-boards='2'], [data-boards='3']) {
+  --columns: var(--board-count);
+  --board-max: 400px;
+}
+@container proof (min-width: 630px) {
+  .diagnosis-evidence[data-boards='4'] { --columns: 4; }
+}
+@container proof (min-width: 790px) {
+  .diagnosis-evidence[data-boards='5'] { --columns: 5; }
+}
+@container proof (min-width: 950px) {
+  .diagnosis-evidence[data-boards='6'] { --columns: 6; }
+}
 .evidence-board {
   position: relative;
-  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 1;
 }
 
 .evidence-board svg.cg-shapes {

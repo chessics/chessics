@@ -104,10 +104,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     at: Date.parse(i.created_at),
   }))
 
-  const body = nextStepBody(rows, interactions, sessionId, startedAt, {
+  const options = {
     reasonGate: reasonGateEnabled('live'),
     standaloneBlunders: standaloneBlunderPositionsEnabled(),
-  })
+  }
+  const body = nextStepBody(rows, interactions, sessionId, startedAt, options)
   if ('position' in body) {
     const row = rows.find(candidate => candidate.id === body.position.position_id)
     if (!row || row.root_ply <= 1) return json(body)
@@ -133,5 +134,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   )
   if (gamesError) return json(body)
 
-  return json({ ...body, summary: sessionSummary(rows, interactions, sessionId, games ?? [], Date.now()) })
+  return json({ ...body, summary: sessionSummary(rows, interactions, sessionId, games ?? [], Date.now(), options) })
 }

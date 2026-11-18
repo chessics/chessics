@@ -1,5 +1,11 @@
 export const FLAGS = {
   progressPage: false,
+  reviewMoveWhy: false,
+  reviewTryFirst: false,
+  reviewTheirReply: false,
+  reviewSlideBoards: false,
+  reviewEvalGraph: false,
+  trainingMoveReplay: false,
   reasonGate: false,
   standaloneBlunderPositions: false,
   waitingPuzzles: true,
@@ -33,4 +39,28 @@ export function sharePositionsEnabled(
   if (where === 'fixture') return env.NODE_ENV === 'development'
   if (env.SHARE_POSITIONS === 'on') return true
   return FLAGS.sharePositions
+}
+
+export function trainingMoveReplayEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.TRAINING_MOVE_REPLAY === 'on' || FLAGS.trainingMoveReplay
+}
+
+export function reviewMoveWhyEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.REVIEW_MOVE_WHY === 'on' || FLAGS.reviewMoveWhy
+}
+
+export function reviewTryFirstEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.REVIEW_TRY_FIRST === 'on' || FLAGS.reviewTryFirst
+}
+
+export function reviewTheirReplyEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.REVIEW_THEIR_REPLY === 'on' || FLAGS.reviewTheirReply
+}
+
+export function reviewSlideBoardsEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.REVIEW_SLIDE_BOARDS === 'on' || FLAGS.reviewSlideBoards
+}
+
+export function reviewEvalGraphEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.REVIEW_EVAL_GRAPH === 'on' || FLAGS.reviewEvalGraph
 }

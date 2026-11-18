@@ -33,6 +33,7 @@ export interface InstanceFacts {
 }
 
 export interface EvidenceBoard {
+  caption?: string
   key: string
   label: string
   fen: string

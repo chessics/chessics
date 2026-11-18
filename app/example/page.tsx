@@ -1,16 +1,17 @@
-import type { Metadata } from 'next'
+import { publicPageMetadata } from '@/lib/public-page-metadata'
 import Link from 'next/link'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import { REPORT_COLUMN, VERDICT_FONT_SIZE, PROSE_MEASURE } from '@/components/report/column'
 import { EXAMPLE_INTRO, EXAMPLE_SOURCES_NOTE, type ExampleReport } from '@/lib/diagnosis/example'
 import data from './example-report.json'
 
-export const metadata: Metadata = {
-  title: 'Example report',
-  description: "An example Chessics report: one player's 10 rapid and blitz games, with every name removed.",
-}
-
 const report = data as unknown as ExampleReport
+export const metadata = publicPageMetadata(
+  '/example',
+  'Example chess game review',
+  "See where one player's rapid and blitz chess games went wrong. This example report shows the recurring mistake and the positions where it appeared.",
+  { url: '/example/opengraph-image', alt: `${report.findings[0].boards[0].label}. ${report.verdict}` },
+)
 
 export default function ExamplePage() {
   return (

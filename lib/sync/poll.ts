@@ -1,4 +1,4 @@
-import { TOO_MANY_REQUESTS_CODE, TOO_MANY_REQUESTS_MESSAGE } from '@/lib/ratelimit-message'
+import { DAILY_CAP_CODE, dailyCapMessage, TOO_MANY_REQUESTS_CODE, TOO_MANY_REQUESTS_MESSAGE } from '@/lib/ratelimit-message'
 
 export const POLL_INTERVAL_MS = 2000
 
@@ -88,7 +88,22 @@ const MESSAGES: Record<string, string> = {
   'Failed to store guest games': "Your games were fetched but couldn't be stored. Try again.",
 }
 
-export function landingErrorMessage(code: string | null): string | null {
+export function syncErrorHref(code: string, retryAfter: string | null): string {
+  const params = new URLSearchParams({ error: code })
+  const seconds = Number(retryAfter)
+  if (code === DAILY_CAP_CODE && Number.isInteger(seconds) && seconds > 0 && seconds <= 86400) {
+    params.set('retryAt', String(Date.now() + seconds * 1000))
+  }
+  return `/?${params}`
+}
+
+export function landingErrorMessage(code: string | null, retryAt: string | null = null): string | null {
+  if (code === DAILY_CAP_CODE) {
+    const reset = Number(retryAt)
+    const remaining = (reset - Date.now()) / 1000
+    if (reset > 0 && remaining <= 0) return null
+    return dailyCapMessage(remaining)
+  }
   if (!code) return null
   return MESSAGES[code] ?? 'Something went wrong. Try again.'
 }

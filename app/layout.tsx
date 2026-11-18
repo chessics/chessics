@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import { SITE_DESCRIPTION, SITE_NAME, jsonLdScript, siteJsonLd, siteUrl } from '@/lib/site'
+import { HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, jsonLdScript, siteJsonLd, siteUrl } from '@/lib/site'
 import PageAnalytics from '@/components/layout/PageAnalytics'
 import './globals.css'
 
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
   title: {
-    default: 'Chessics — Find out why you\'re losing',
+    default: HOME_TITLE,
     template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,

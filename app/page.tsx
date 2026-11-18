@@ -1,9 +1,11 @@
-'use client'
-
+import { publicPageMetadata } from '@/lib/public-page-metadata'
+import { HOME_TITLE, SITE_DESCRIPTION } from '@/lib/site'
 import Link from 'next/link'
 import Gallery from '@/components/landing/Gallery'
 import GuestAnalysis from '@/components/landing/GuestAnalysis'
 import styles from '@/components/landing/landing.module.css'
+
+export const metadata = publicPageMetadata('/', HOME_TITLE, SITE_DESCRIPTION)
 
 export default function LandingPage() {
   return (

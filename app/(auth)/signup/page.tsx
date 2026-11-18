@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { googleSignInEnabled } from '@/lib/auth/google'
 import { EMAIL_CONFIRM_REDIRECT_PATH, signUpOutcome } from '@/lib/auth/signup'
-import { GUEST_SESSION_KEY, transferGuestSession } from '@/lib/auth/transfer'
+import { GUEST_SESSION_KEY, transferableGuestToken, transferGuestSession } from '@/lib/auth/transfer'
 import SignInFooter from '@/components/auth/SignInFooter'
 
 export default function SignupPage() {
@@ -20,7 +20,7 @@ export default function SignupPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(GUEST_SESSION_KEY)
-      setGuestInBrowser(Boolean(raw && (JSON.parse(raw) as { sessionToken?: string }).sessionToken))
+      setGuestInBrowser(Boolean(raw && transferableGuestToken(JSON.parse(raw))))
     } catch {
       setGuestInBrowser(false)
     }
@@ -74,18 +74,24 @@ export default function SignupPage() {
           <Link href="/" className="font-logo" style={{ fontSize: 28, color: 'var(--text)' }}>
             chess<span style={{ color: 'var(--gold)' }}>ics</span>
           </Link>
-          <h1 className="mt-4 text-xl font-semibold" style={{ color: 'var(--text)' }}>Create your account</h1>
+          <h1 className="mt-4 font-headline text-2xl font-medium" style={{ color: 'var(--text)' }}>Create your account</h1>
+          {!confirmFor && (
+            <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Keep your reports and practise positions from your own games.
+            </p>
+          )}
         </div>
 
         {confirmFor ? (
           <div role="status" className="flex flex-col gap-3" style={{ borderTop: '1px solid var(--brass)', paddingTop: 16 }}>
             <p className="text-sm" style={{ color: 'var(--text)' }}>
-              Check your email. We sent a confirmation link to {confirmFor}.
+              Check your email at {confirmFor} for a link to finish signing up.
             </p>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Click it to finish signing up, then come back here. You are not signed in until you do, and games you
-              analyse before that are not saved to your account.
-            </p>
+            {guestInBrowser && (
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                If you open the link elsewhere, sign in on this browser afterwards to keep your guest report.
+              </p>
+            )}
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Already confirmed?{' '}
               <Link href="/login" style={{ color: 'var(--brass)', textDecoration: 'underline' }}>

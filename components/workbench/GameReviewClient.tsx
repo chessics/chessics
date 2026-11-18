@@ -11,20 +11,25 @@ import {
 import dynamic from 'next/dynamic'
 import { Chess } from 'chess.js'
 import type { BoardShape } from './ChessBoard'
-import { keyMoment, keyMomentSentences, keyMomentTitle } from '@/lib/review/key-moment'
+import { costlyMoment, keyMoment, keyMomentSentences, keyMomentTitle, type KeyMoment } from '@/lib/review/key-moment'
+import { missedChances } from '@/lib/review/missed-chances'
+import { turningMoveWhy } from '@/lib/review/turning-move-why'
 import { bringBoardIntoView } from '@/lib/review/board-into-view'
 import { groupChains, groupSentence, middleLabel } from '@/lib/review/chain-groups'
 import { withJudgement } from '@/lib/review/judgement'
 import { chainAtRoot, chainStandsAlone } from '@/lib/review/chain-roots'
-import { evalWords, evalReceipt } from '@/lib/review/eval-words'
-import { useLitSquares, LitProse } from '@/components/board/lit-squares'
+import { evalWords, evalReceipt, evalToWhitePercent } from '@/lib/review/eval-words'
+import { useLitSquares, LitProse, type LitSquares } from '@/components/board/lit-squares'
 import { formatTimeControl } from '@/lib/review/time-control'
 import { reviewBoardSize } from '@/lib/review/board-size'
+import type { TrainingReturn } from '@/lib/review/training-return'
 import { moveListKey, tabStopPly } from '@/lib/review/move-list-keys'
 import { scrollListToMove } from '@/lib/review/move-list-scroll'
 import { reviewClock, stripMarks, timeStripBars } from '@/lib/review/clock-view'
 import { formatClock } from '@/lib/clock/format'
+import EvalGraph from './EvalGraph'
 import TimeStrip from './TimeStrip'
+import SlideBoards from './SlideBoards'
 import { takeOverHref, takeOverPlies } from '@/lib/review/take-over'
 import type { PlayMode } from '@/lib/play/setup'
 import type {
@@ -72,12 +77,6 @@ function getMoveSquares(
   }
 }
 
-function evalToWhitePercent(cp: number | null): number {
-  if (cp === null) return 50
-  const clamped = Math.max(-1500, Math.min(1500, cp))
-  return ((Math.tanh(clamped / 500) + 1) / 2) * 100
-}
-
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', {
@@ -88,6 +87,61 @@ function formatDate(iso: string | null): string {
 }
 
 export type ChainWithNodes = CausalChain & { nodes: CausalChainNode[] }
+
+function MomentCard({ moment, why, children, replayHref, id, lit, showPositionBefore }: {
+  moment: KeyMoment
+  why?: string | null
+  children?: React.ReactNode
+  replayHref?: string | null
+  id: string
+  lit: LitSquares
+  showPositionBefore: (ply: number, brush: string) => void
+}) {
+  const sentences = keyMomentSentences(moment)
+  if (why) sentences.push(why)
+  const brush = moment.kind === 'won' ? 'brass' : moment.kind === 'decided' ? 'chain_root' : 'chain_blunder'
+  return (
+    <section
+      className="review-moment"
+      data-testid={id}
+      aria-labelledby={`${id}-title`}
+    >
+      <h2
+        id={`${id}-title`}
+        style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--brass)', letterSpacing: '0.04em' }}
+      >
+        {keyMomentTitle(moment)}
+      </h2>
+      <p
+        style={{
+          margin: '8px 0 6px',
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 'clamp(1.6rem, 3vw, 2.3rem)',
+          color: 'var(--text)',
+          fontWeight: 600,
+        }}
+      >
+        {moment.san}
+      </p>
+      {sentences.map((sentence) => (
+        <p key={sentence} style={{ margin: '0 0 4px', fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>
+          <LitProse text={sentence} lit={lit} />
+        </p>
+      ))}
+      {children}
+      <div className="review-moment-actions">
+        <button
+          className="editorial-action"
+          type="button"
+          onClick={() => showPositionBefore(moment.ply, brush)}
+        >
+          Show the position
+        </button>
+        {replayHref && <a href={replayHref}>Play it again from move {moment.moveNumber}</a>}
+      </div>
+    </section>
+  )
+}
 
 interface EvalBarProps {
   cp: number | null
@@ -221,11 +275,32 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
 )
 MoveCell.displayName = 'MoveCell'
 
-interface Props {
+export function TrainingReturnLine({ when }: { when?: TrainingReturn }) {
+  if (when == null) return null
+  const training = <a className="text-gold underline" href="/train">training</a>
+  if (when === 'new') return <p className="text-sm text-text-muted">This position is ready to practise in {training}.</p>
+
+  const date = new Date(when)
+  const due = when <= Date.now()
+  return (
+    <p className="text-sm text-text-muted">
+      {due ? 'This position has been due in ' : 'This position is due in '}{training}{due ? ' since ' : ' on '}
+      <time dateTime={date.toISOString()}>
+        {date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+      </time>.
+    </p>
+  )
+}
+
+export interface GameReviewProps {
   game: Game
   moves: Move[]
   analysis: GameAnalysis | null
   causalChains: ChainWithNodes[]
+  showMoveWhy?: boolean
+  showSlideBoards?: boolean
+  showEvalGraph?: boolean
+  trainingReturn?: TrainingReturn
   initialChainRootPly?: number | null
   takeOver?: PlayMode | null
 }
@@ -235,9 +310,13 @@ export default function GameReviewClient({
   moves,
   analysis,
   causalChains,
+  showMoveWhy = false,
+  showSlideBoards = false,
+  showEvalGraph = false,
+  trainingReturn = null,
   initialChainRootPly = null,
   takeOver = null,
-}: Props) {
+}: GameReviewProps) {
   const [currentPly, setCurrentPly] = useState(0)
   const [previewPly, setPreviewPly] = useState<number | null>(null)
   const [activeChainId, setActiveChainId] = useState<string | null>(null)
@@ -350,6 +429,7 @@ export default function GameReviewClient({
   )
   const takeOverLink = takeOverHref(takeOver, game.id, currentPly, playable)
   const judgedMoves = useMemo(() => withJudgement(moves), [moves])
+  const chances = useMemo(() => missedChances(moves, game.user_color), [moves, game.user_color])
   const timeBars = useMemo(
     () =>
       clock
@@ -392,17 +472,23 @@ export default function GameReviewClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialChainRootPly])
 
-  const moment = useMemo(
-    () =>
-      keyMoment({
-        result: game.result,
-        userColor: game.user_color,
-        chains: causalChains,
-        moves,
-        spent: clock?.spent ?? null,
-      }),
-    [game.result, game.user_color, causalChains, moves, clock]
-  )
+  const { moment, slip, why } = useMemo(() => {
+    const input = {
+      result: game.result,
+      userColor: game.user_color,
+      chains: causalChains,
+      moves,
+      spent: clock?.spent,
+      pgn: game.pgn,
+    }
+    const moment = keyMoment(input)
+    return {
+      moment,
+      why: showMoveWhy && moment && moment.kind !== 'won' && game.user_color
+        ? turningMoveWhy(moves, moment.ply, game.user_color) : null,
+      slip: game.result === 'win' ? costlyMoment(input) : null,
+    }
+  }, [game.result, game.user_color, game.pgn, causalChains, moves, clock, showMoveWhy])
 
   const handleChainNodeClick = useCallback(
     (ply: number, chainId: string, brush: string) => {
@@ -601,6 +687,11 @@ export default function GameReviewClient({
       <div
         className="review-left"
       >
+        {moment && (
+          <a className="review-moment-link" href="#key-moment-title">
+            {keyMomentTitle(moment)} · {moment.san}
+          </a>
+        )}
         <div ref={boardRowRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', overflow: 'hidden', scrollMarginTop: 'var(--review-scroll-inset, 0px)' }}>
           <EvalBar cp={currentEval} height={boardSize} flipped={isFlipped} words={currentWords} />
           <div className="board-placeholder" style={{ width: boardSize, height: boardSize, flexShrink: 0 }}>
@@ -701,6 +792,11 @@ export default function GameReviewClient({
           </span>
         </div>
 
+        {showEvalGraph && (
+          <EvalGraph moves={moves} userColor={game.user_color} momentPly={moment?.ply ?? null}
+            currentPly={currentPly} width={boardSize} onSelect={goTo} />
+        )}
+
         {timeBars && (
           <div style={{ paddingLeft: 22 }}>
             <TimeStrip bars={timeBars} currentPly={currentPly} width={boardSize} onSelect={goTo} />
@@ -731,41 +827,18 @@ export default function GameReviewClient({
         className="review-right"
       >
         {moment && (
-          <section
-            className="review-moment"
-            data-testid="key-moment"
-            aria-labelledby="key-moment-title"
+          <MomentCard
+            moment={moment}
+            why={why}
+            replayHref={takeOverHref(takeOver, game.id, moment.ply - 1, playable)}
+            id="key-moment"
+            lit={lit}
+            showPositionBefore={showPositionBefore}
           >
-            <h2
-              id="key-moment-title"
-              style={{ margin: 0, fontSize: 12, fontWeight: 600, color: 'var(--brass)', letterSpacing: '0.04em' }}
-            >
-              {keyMomentTitle(moment)}
-            </h2>
-            <p
-              style={{
-                margin: '8px 0 6px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 'clamp(1.6rem, 3vw, 2.3rem)',
-                color: 'var(--text)',
-                fontWeight: 600,
-              }}
-            >
-              {moment.san}
-            </p>
-            {keyMomentSentences(moment).map((sentence) => (
-              <p key={sentence} style={{ margin: '0 0 4px', fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>
-                {sentence}
-              </p>
-            ))}
-            <button
-              className="editorial-action"
-              type="button"
-              onClick={() => showPositionBefore(moment.ply, moment.kind === 'decided' ? 'chain_root' : 'chain_blunder')}
-            >
-              Show the position
-            </button>
-          </section>
+            {showSlideBoards && moment.kind === 'decided' && moment.terminal && game.user_color && (
+              <SlideBoards moves={moves} orientation={game.user_color} rootPly={moment.ply} terminalPly={moment.terminal.ply} />
+            )}
+          </MomentCard>
         )}
 
         <section className="review-scoresheet" aria-labelledby="review-moves-title">
@@ -844,6 +917,29 @@ export default function GameReviewClient({
           ))}
         </div>
         </section>
+
+        {slip && (
+          <MomentCard moment={slip} id="costly-move" lit={lit} showPositionBefore={showPositionBefore} />
+        )}
+
+        {chances.length > 0 && (
+          <details className="border-t border-[var(--border)]">
+            <summary className="cursor-pointer py-3 text-sm text-text-muted">Chances you missed</summary>
+            <ul className="space-y-2">
+              {chances.map(chance => (
+                <li key={chance.replyPly} className="text-sm text-text">
+                  <p><LitProse text={chance.sentence} lit={lit} /></p>
+                  {moves[chance.replyPly - 1]?.ply_number === chance.replyPly && (
+                    <button type="button" className="min-h-11 text-gold underline"
+                      onClick={() => showPositionBefore(chance.replyPly, 'chain_blunder')}>
+                      Show move {chance.moveNumber}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         {causalChains.length > 0 && (
           <div
@@ -1113,6 +1209,7 @@ export default function GameReviewClient({
             </a>
           </div>
         )}
+        <TrainingReturnLine when={trainingReturn} />
       </div>
     </div>
   )

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { landingErrorMessage } from '@/lib/sync/poll'
+import { DAILY_CAP_CODE } from '@/lib/ratelimit-message'
 import { landingPlan } from '@/lib/sync/resume'
 import { uuid } from '@/lib/uuid'
 import styles from './landing.module.css'
@@ -22,20 +23,22 @@ interface ChessicsSession {
 
 type ResumeState = 'idle' | 'checking' | 'ready' | 'processing'
 
+const exampleLink = <a href="/example">See an example report</a>
+
 export default function GuestAnalysis() {
   const [username, setUsername] = useState('')
   const [platform, setPlatform] = useState<Platform>('chess.com')
   const [resumeState, setResumeState] = useState<ResumeState>('checking')
   const [resumeSession, setResumeSession] = useState<ChessicsSession | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; showExample?: boolean } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    const message = landingErrorMessage(new URLSearchParams(window.location.search).get('error'))
-    setErrorMessage(message)
-  }, [])
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('error')
+    const message = landingErrorMessage(code, params.get('retryAt'))
+    setError(message ? { message, showExample: code === DAILY_CAP_CODE } : null)
 
-  useEffect(() => {
     async function checkResume() {
       let raw: string | null
       try { raw = localStorage.getItem('chessics_session') } catch { setResumeState('idle'); return }
@@ -51,6 +54,11 @@ export default function GuestAnalysis() {
         try { localStorage.removeItem('chessics_session') } catch {  }
         setResumeState('idle')
         return
+      }
+
+      if (code && typeof session?.username === 'string') {
+        setUsername(session.username)
+        if (session.platform === 'lichess' || session.platform === 'chess.com') setPlatform(session.platform)
       }
 
       const plan = await landingPlan(session, (url) => fetch(url))
@@ -92,7 +100,7 @@ export default function GuestAnalysis() {
     try {
       localStorage.setItem('chessics_session', JSON.stringify(session))
     } catch {
-      setErrorMessage('Allow browser storage to start your analysis.')
+      setError({ message: 'Allow browser storage to start your analysis.' })
       return
     }
     router.push('/analyzing')
@@ -109,9 +117,10 @@ export default function GuestAnalysis() {
 
   return (
     <div className={styles.access}>
-        {errorMessage && (
+        {error && (
           <p role="alert" className={styles.alert}>
-            {errorMessage}
+            {error.message}
+            {error.showExample && exampleLink}
           </p>
         )}
 
@@ -169,7 +178,8 @@ export default function GuestAnalysis() {
               </button>
             </div>
             <p className={styles.note}>
-              <span>Your last 10 games, analyzed together. No signup needed.</span>
+              <span>Your last 10 games, analyzed for free. No signup needed.</span>
+              {!error?.showExample && exampleLink}
               <a href="/signup">Create an account</a>
             </p>
           </form>

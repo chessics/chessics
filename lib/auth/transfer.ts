@@ -11,6 +11,17 @@ export const GONE_CHECK_STATUSES: readonly string[] = ['failed', 'lost', 'not_fo
 
 type SessionStorage = Pick<Storage, 'getItem' | 'removeItem'>
 
+export interface GuestTransferSession {
+  sessionToken?: string
+  authed?: boolean
+  foreign?: boolean
+}
+
+export function transferableGuestToken(session: GuestTransferSession | null): string | null {
+  if (session?.authed === true || session?.foreign === true) return null
+  return session?.sessionToken || null
+}
+
 let inFlight: Promise<TransferOutcome> | null = null
 
 export function transferGuestSession(
@@ -23,7 +34,7 @@ export function transferGuestSession(
 
 async function run(storage: SessionStorage | undefined, doFetch: typeof fetch): Promise<TransferOutcome> {
   let store: SessionStorage
-  let saved: { sessionToken?: string; jobId?: string; authed?: boolean; foreign?: boolean } | null
+  let saved: (GuestTransferSession & { jobId?: string }) | null
   try {
     store = storage ?? window.localStorage
     const raw = store.getItem(GUEST_SESSION_KEY)
@@ -31,10 +42,8 @@ async function run(storage: SessionStorage | undefined, doFetch: typeof fetch): 
   } catch {
     return 'none'
   }
-  const sessionToken = saved?.sessionToken
+  const sessionToken = transferableGuestToken(saved)
   if (!sessionToken) return 'none'
-  if (saved?.authed === true) return 'none'
-  if (saved?.foreign === true) return 'none'
 
   let res: Response
   try {

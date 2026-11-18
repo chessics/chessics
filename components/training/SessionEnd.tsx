@@ -4,7 +4,8 @@ import { Chess } from 'chess.js'
 import { useFocusWhenLost } from './focus'
 import ChessBoard from '@/components/workbench/ChessBoard'
 import type { SessionSummary, StakesBar } from '@/lib/training/summary'
-import { stakesSentences } from '@/lib/training/summary'
+import { returnDayLabel, returnLabel, stakesSentences } from '@/lib/training/summary'
+import { trainingCalendar } from '@/lib/training/calendar'
 import { NOTHING_TO_TRAIN, NOTHING_TO_TRAIN_HINT, NOTHING_TO_TRAIN_TITLE } from '@/lib/training/empty'
 
 function sanOf(fen: string, uci: string): string {
@@ -13,10 +14,6 @@ function sanOf(fen: string, uci: string): string {
   } catch {
     return uci
   }
-}
-
-function day(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 const RESULT_WORD = { loss: 'lost', draw: 'drew', win: 'won' } as const
@@ -48,12 +45,28 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
   const stakes = summary?.stakes ?? null
   const titleRef = useFocusWhenLost<HTMLHeadingElement>(openLoop)
   const empty = openLoop === NOTHING_TO_TRAIN
+  const nextReturn = !empty && summary?.earliest_return_at ? new Date(summary.earliest_return_at) : null
 
   return (
     <div className="session-end">
       <h1 ref={titleRef} tabIndex={-1} className="training-title focus-landing">
         {empty ? NOTHING_TO_TRAIN_TITLE : 'Session done.'}
       </h1>
+
+      {nextReturn && (
+        <div className="training-actions">
+          <p className="training-hint">
+            The next position from this session is back on <time dateTime={nextReturn.toISOString()}>{returnDayLabel(nextReturn)}</time>.
+          </p>
+          <a
+            className="training-btn training-btn-quiet"
+            href={`data:text/calendar;charset=utf-8,${encodeURIComponent(trainingCalendar(nextReturn, new Date()))}`}
+            download="chessics-training.ics"
+          >
+            Add to calendar
+          </a>
+        </div>
+      )}
 
       {locked.length > 0 && (
         <section className="session-section">
@@ -72,7 +85,7 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
                 <figcaption>
                   <span className="locked-move">{sanOf(l.fen, l.move)}</span>
                   <span className="locked-when">
-                    {l.retired ? "Learned. It won't come back." : l.returns_at ? `Back ${day(l.returns_at)}` : ''}
+                    {returnLabel(l)}
                   </span>
                 </figcaption>
               </figure>

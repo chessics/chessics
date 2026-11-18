@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { loadPositionHistory } from '@/lib/training/position-history'
+import { positionReturn } from '@/lib/training/summary'
 import { gamesWithTag, type RecurrenceRow } from '@/lib/training/recurrence'
 import { allRows } from '@/lib/supabase/row-cap'
-import { Chess } from 'chess.js'
+import { positionAnswer, sanToUci, type AnswerRow } from '@/lib/training/position-answer'
 import { createClient } from '@/lib/supabase/server'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
 import { isUnderFloor } from '@/lib/training/timing'
 import { gradeCommit, gradingColumns, gradingFromRow, legalUci, type Grading, type StoredGrading } from '@/lib/training/grading'
 import { createGradingEngine, gradingEngineUrl } from '@/lib/training/grading-engine'
-import { reasonGateEnabled, sharePositionsEnabled } from '@/lib/flags'
+import { reasonGateEnabled, sharePositionsEnabled, trainingMoveReplayEnabled } from '@/lib/flags'
 import { isShareable } from '@/lib/share/payload'
 import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
 import { track } from '@/lib/analytics/track'
@@ -101,16 +103,6 @@ function parseBody(raw: unknown, reasonGate: boolean): CommitBody | string {
     drawn_moves: b.drawn_moves as DrawnMove[],
     time_to_commit_ms: b.time_to_commit_ms,
     declared_goal: reasonGate && isGoal(b.declared_goal) ? b.declared_goal : null,
-  }
-}
-
-function sanToUci(fen: string, san: string): string | null {
-  try {
-    const chess = new Chess(fen)
-    const move = chess.move(san)
-    return move ? `${move.from}${move.to}${move.promotion ?? ''}` : null
-  } catch {
-    return null
   }
 }
 
@@ -242,7 +234,8 @@ export async function POST(
     ? gradingFromRow(existing, position, gameMoveUci)
     : await gradeCommit(
         { fen: position.fen, chosenMove, bestMove: position.best_move, gameMoveUci },
-        createGradingEngine()
+        createGradingEngine(),
+        trainingMoveReplayEnabled()
       )
   const correct = grading.correct
 
@@ -283,8 +276,10 @@ export async function POST(
     track('training_commit', { userId: user.id })
   }
 
-  const recurrence =
-    position.tag && position.span_plies !== 0 ? await buildRecurrence(supabase, user.id, position.tag, priorExposures) : null
+  const [history, recurrence] = await Promise.all([
+    loadPositionHistory(supabase, user.id, params.id),
+    position.tag && position.span_plies !== 0 ? buildRecurrence(supabase, user.id, position.tag, priorExposures) : null,
+  ])
 
   return NextResponse.json(
     {
@@ -292,20 +287,11 @@ export async function POST(
       correct,
       under_floor: underFloor,
 
-      best_move: position.best_move,
-      best_move_san: position.best_move_san,
-      pv: position.pv,
-      eval_cp: position.eval_cp,
-      tag: position.tag,
-
-      refutation_line: position.refutation_line,
-      refutation_evals: position.refutation_evals,
-
-      root_move_san: position.root_move_san,
-      root_move_uci: gameMoveUci,
+      ...positionAnswer(position as AnswerRow, gameMoveUci),
 
       grading: {
         method: grading.method,
+        ...(grading.chosen_line ? { chosen_line: grading.chosen_line } : {}),
         chosen_eval_cp: grading.chosen_eval_cp,
         best_eval_cp: grading.best_eval_cp,
         engine: grading.engine,
@@ -313,6 +299,7 @@ export async function POST(
       },
 
       recurrence,
+      next_return: history && positionReturn(history, Date.now()),
 
       play_from: playFromPosition(position.game_id, position.root_ply),
 
@@ -320,13 +307,6 @@ export async function POST(
 
       ...(reasonGate ? { reason } : {}),
 
-      receipt: {
-        engine: position.engine,
-        depth: position.depth,
-        eval_cp: position.eval_cp,
-        tag: position.tag,
-        span_plies: position.span_plies,
-      },
     },
     { headers: NO_STORE_HEADERS }
   )

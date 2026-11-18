@@ -4,7 +4,7 @@ import { NOTHING_TO_TRAIN, NOTHING_TO_TRAIN_TITLE } from './empty'
 export type AnnouncePhase =
   | { name: 'loading' | 'intro' | 'signin' | 'committing' }
   | { name: 'board' }
-  | { name: 'punish' | 'reveal' | 'threat'; kind: RevealKind; watched: boolean }
+  | { name: 'punish' | 'reveal' | 'threat' | 'alternative'; kind: RevealKind; watched: boolean }
   | { name: 'done'; openLoop?: string }
   | { name: 'error'; message: string }
 
@@ -22,6 +22,8 @@ export function announcement(p: AnnouncePhase): string {
         : 'Your game line is playing.'
     case 'reveal':
       return p.watched || p.kind === 'punish' ? revealVerdict(p.kind) : `Commit recorded: ${lowerFirst(revealVerdict(p.kind))}`
+    case 'alternative':
+      return 'The engine’s reply to your move is playing.'
     case 'threat':
       return 'The threat is playing.'
     case 'done':

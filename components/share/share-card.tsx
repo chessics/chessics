@@ -75,10 +75,18 @@ export function arrowPolygon(from: string, to: string, orientation: 'white' | 'b
   return pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
 }
 
-export function shareCardElement(share: PublicShare) {
-  const squares = boardSquares(share.fen, share.side_to_move)
-  const from = share.game_move_uci.slice(0, 2)
-  const to = share.game_move_uci.slice(2, 4)
+interface BoardCard {
+  fen: string
+  orientation: 'white' | 'black'
+  from: string
+  to: string
+  label: string
+  headline: string
+  headlineSize: number
+}
+
+export function boardCardElement({ fen, orientation, from, to, label, headline, headlineSize }: BoardCard) {
+  const squares = boardSquares(fen, orientation)
   return (
     <div
       style={{
@@ -112,7 +120,7 @@ export function shareCardElement(share: PublicShare) {
           viewBox={`0 0 ${SHARE_CARD_BOARD} ${SHARE_CARD_BOARD}`}
           style={{ position: 'absolute', left: 0, top: 0 }}
         >
-          <polygon points={arrowPolygon(from, to, share.side_to_move)} fill={MISTAKE} fillOpacity={0.9} />
+          <polygon points={arrowPolygon(from, to, orientation)} fill={MISTAKE} fillOpacity={0.9} />
         </svg>
       </div>
 
@@ -128,9 +136,9 @@ export function shareCardElement(share: PublicShare) {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', fontSize: 30, color: MUTED, marginBottom: 20 }}>{sideToMoveText(share.side_to_move)}</div>
-          <div style={{ display: 'flex', width: SHARE_CARD_TEXT_WIDTH, fontSize: 64, lineHeight: 1.12, letterSpacing: -1, color: CREAM }}>
-            {SHARE_HEADLINE}
+          <div style={{ display: 'flex', fontSize: 30, color: MUTED, marginBottom: 20 }}>{label}</div>
+          <div style={{ display: 'flex', width: SHARE_CARD_TEXT_WIDTH, fontSize: headlineSize, lineHeight: 1.12, letterSpacing: -1, color: CREAM }}>
+            {headline}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -149,7 +157,16 @@ export function shareCardElement(share: PublicShare) {
 export const SHARE_CARD_ALT = SHARE_HEADLINE
 
 export function shareCard(share: PublicShare) {
-  return new ImageResponse(shareCardElement(share), {
+  const element = boardCardElement({
+    fen: share.fen,
+    orientation: share.side_to_move,
+    from: share.game_move_uci.slice(0, 2),
+    to: share.game_move_uci.slice(2, 4),
+    label: sideToMoveText(share.side_to_move),
+    headline: SHARE_HEADLINE,
+    headlineSize: 64,
+  })
+  return new ImageResponse(element, {
     ...SOCIAL_CARD_SIZE,
     headers: { 'cache-control': 'public, max-age=3600, s-maxage=3600' },
   })

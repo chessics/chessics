@@ -1,19 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { clsx } from 'clsx'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { FLAGS } from '@/lib/flags'
-
-const navLinks = [
-  { href: '/workbench', label: 'Workbench' },
-  { href: '/games', label: 'Games' },
-  ...(FLAGS.progressPage ? [{ href: '/progress', label: 'Progress' }] : []),
-]
+import SectionLinks from './SectionLinks'
 
 export default function Topbar({ signedIn }: { signedIn: boolean }) {
-  const pathname = usePathname()
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
 
@@ -35,30 +27,13 @@ export default function Topbar({ signedIn }: { signedIn: boolean }) {
         zIndex: 50,
       }}
     >
-      <Link href="/workbench" className="font-logo select-none" style={{ fontSize: 20, lineHeight: 1 }}>
+      <Link href={signedIn ? '/workbench' : '/'} className="font-logo select-none" style={{ fontSize: 20, lineHeight: 1 }}>
         <span style={{ color: 'var(--text)' }}>chess</span>
         <span style={{ color: 'var(--gold)' }}>ics</span>
       </Link>
 
-      <nav className="hidden sm:flex items-center gap-1">
-        {navLinks.map(({ href, label }) => {
-          const isActive = pathname.startsWith(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={isActive ? 'page' : undefined}
-              className={clsx('px-4 py-1.5 text-sm transition-colors')}
-              style={{
-                color: isActive ? 'var(--gold)' : 'var(--text-muted)',
-                background: isActive ? 'rgba(201,165,92,0.1)' : 'transparent',
-                fontWeight: isActive ? 500 : 400,
-              }}
-            >
-              {label}
-            </Link>
-          )
-        })}
+      <nav aria-label="Sections" className="hidden sm:flex items-center gap-1">
+        <SectionLinks />
       </nav>
 
       <div className="flex items-center gap-3">

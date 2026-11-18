@@ -25,8 +25,8 @@ export function exampleReport(rows: AccountRows, gameCount: number): ExampleRepo
   const order = [...rows.games].sort((a, b) =>
     (a.played_at ?? '') === (b.played_at ?? '') ? (a.id < b.id ? -1 : 1) : (a.played_at ?? '') < (b.played_at ?? '') ? -1 : 1
   )
-  const alias = new Map(order.map((g, i) => [g.id, `example-${i + 1}`]))
-  const anon = (id: string) => alias.get(id) ?? 'example-unknown'
+  const gameNumbers = new Map(order.map((g, i) => [g.id, i + 1]))
+  const anon = (id: string) => `example-${gameNumbers.get(id) ?? 'unknown'}`
   const anonKey = (key: string) => {
     const [game, ply] = key.split(':')
     return `${anon(game!)}:${ply}`
@@ -37,7 +37,12 @@ export function exampleReport(rows: AccountRows, gameCount: number): ExampleRepo
     verdict,
     findings: findings.map((f) => ({
       ...f,
-      boards: f.boards.map((b) => ({ ...b, key: anonKey(b.key) })),
+      label: f.tag === 'king_safety' ? 'Moves 15 to 35' : f.label,
+      boards: f.boards.map((b) => {
+        const game = gameNumbers.get(b.key.split(':')[0])
+        const side = b.orientation === 'white' ? 'White' : 'Black'
+        return { ...b, key: anonKey(b.key), caption: `${game ? `Game ${game} · ` : ''}${side} · ${b.label}` }
+      }),
       sources: f.sources.map((s) => ({
         ...s,
         key: anonKey(s.key),

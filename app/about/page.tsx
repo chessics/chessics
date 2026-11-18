@@ -1,8 +1,15 @@
-import type { Metadata } from 'next'
+import { publicPageMetadata } from '@/lib/public-page-metadata'
 import { SITE_DESCRIPTION } from '@/lib/site'
+import ChessBoard from '@/components/workbench/ChessBoard'
+import example from '@/app/example/example-report.json'
+import type { EvidenceBoard } from '@/lib/diagnosis/finding'
 import SourceLink from '@/components/layout/SourceLink'
 
-export const metadata: Metadata = { title: 'How it works', description: SITE_DESCRIPTION }
+export const metadata = publicPageMetadata(
+  '/about',
+  'How chess game review and training work',
+  'Learn how Chessics reviews your chess games with Stockfish, groups recurring mistakes, and gives you positions from your own games to practice.',
+)
 
 const SECTIONS: ReadonlyArray<{ heading: string; paragraphs: readonly string[] }> = [
   {
@@ -43,6 +50,7 @@ const SECTIONS: ReadonlyArray<{ heading: string; paragraphs: readonly string[] }
 ]
 
 export default function AboutPage() {
+  const board = example.findings[0].boards[0] as EvidenceBoard
   return (
     <main className="min-h-screen px-6 pt-20 pb-16 sm:px-16 sm:pt-28" style={{ background: 'var(--bg)' }}>
       <div className="w-full max-w-xl flex flex-col gap-8">
@@ -50,9 +58,9 @@ export default function AboutPage() {
           chess<span style={{ color: 'var(--gold)' }}>ics</span>
         </a>
         <h1 className="font-headline" style={{ fontSize: 34, lineHeight: 1.2, fontWeight: 500, color: 'var(--text)' }}>
-          How chessics works
+          How Chessics works
         </h1>
-        <p className="text-sm" style={{ color: 'var(--text)', lineHeight: 1.6 }}>
+        <p className="text-base" style={{ color: 'var(--text)', lineHeight: 1.6 }}>
           {SITE_DESCRIPTION}
         </p>
         {SECTIONS.map((section) => (
@@ -62,16 +70,30 @@ export default function AboutPage() {
               {section.heading}
             </h2>
             {section.paragraphs.map((p) => (
-              <p key={p} className="text-sm" style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              <p key={p} className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>
                 {p}
               </p>
             ))}
+            {section.heading === 'How a review works' && (
+              <figure>
+                <div className="aspect-square w-full max-w-64" role="img" aria-label={board.label}>
+                  <ChessBoard fen={board.fen} orientation={board.orientation} size="100%" coordinates={false}
+                    viewOnly shapes={[{ orig: board.from, dest: board.to, brush: 'mistake' }]} />
+                </div>
+                <figcaption className="mt-2 text-sm text-text-muted">
+                  {board.caption}. The arrow shows the move played in the example report.
+                </figcaption>
+              </figure>
+            )}
           </section>
         ))}
         <hr className="hairline w-full" />
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <a href="/" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>
             Analyze my games
+          </a>
+          <a href="/example" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
+            See an example report
           </a>
           <SourceLink />
         </div>

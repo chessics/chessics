@@ -15,9 +15,17 @@ interface LosingBranchProps {
   line: string[]
   evals: number[]
   startEvalCp: number
+  rootEvalCp?: number
   size: number
-  context: 'same-move' | 'watch' | 'threat'
+  context: 'same-move' | 'watch' | 'threat' | 'alternative'
   onDone: () => void
+}
+
+const REPLAY_COPY = {
+  'same-move': { title: 'Same move as your game.', hint: 'Here is what happened next, move by move.' },
+  watch: { title: 'What happened in your game', hint: 'Your game move, then how the game went from there.' },
+  threat: { title: 'The threat', hint: "Your move, then your opponent's reply as the engine plays it." },
+  alternative: { title: 'The engine’s reply', hint: 'Your move, then the line the engine found.' },
 }
 
 const HOLD_START_MS = 1400
@@ -37,13 +45,14 @@ export default function LosingBranch({
   line,
   evals,
   startEvalCp,
+  rootEvalCp,
   size,
   context,
   onDone,
 }: LosingBranchProps) {
   const frames = useMemo(
-    () => buildReplay(fen, rootMoveUci, line, evals, startEvalCp),
-    [fen, rootMoveUci, line, evals, startEvalCp]
+    () => buildReplay(fen, rootMoveUci, line, evals, startEvalCp, rootEvalCp),
+    [fen, rootMoveUci, line, evals, startEvalCp, rootEvalCp]
   )
   const last = frames.length - 1
   const [index, setIndex] = useState(0)
@@ -98,9 +107,10 @@ export default function LosingBranch({
   const status = replayStatus(frames, index, startEvalCp)
   const now = status.standing
 
+  const ownMove = context === 'threat' || context === 'alternative'
   const shapes =
     index === 1 && frame.lastMove
-      ? [{ orig: frame.lastMove[0], dest: frame.lastMove[1], brush: context === 'threat' ? 'unchecked' : 'mistake', hilite: true }]
+      ? [{ orig: frame.lastMove[0], dest: frame.lastMove[1], brush: ownMove ? 'unchecked' : 'mistake', hilite: true }]
       : []
 
   return (
@@ -113,14 +123,10 @@ export default function LosingBranch({
       <div className="training-panel replay-panel">
         <div>
           <p ref={titleRef} tabIndex={-1} className="training-verdict focus-landing">
-            {context === 'same-move' ? 'Same move as your game.' : context === 'threat' ? 'The threat' : 'What happened in your game'}
+            {REPLAY_COPY[context].title}
           </p>
           <p className="training-hint">
-            {context === 'same-move'
-              ? 'Here is what happened next, move by move.'
-              : context === 'threat'
-                ? "Your move, then your opponent's reply as the engine plays it."
-                : 'Your game move, then how the game went from there.'}
+            {REPLAY_COPY[context].hint}
           </p>
         </div>
 
@@ -142,7 +148,7 @@ export default function LosingBranch({
               </span>
             </li>
           ))}
-          {index === 0 && <li className="replay-waiting">{context === 'threat' ? 'Your move is next.' : 'Your game move is next.'}</li>}
+          {index === 0 && <li className="replay-waiting">{ownMove ? 'Your move is next.' : 'Your game move is next.'}</li>}
         </ol>
 
         <div className="replay-controls">

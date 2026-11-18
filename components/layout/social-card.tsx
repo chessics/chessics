@@ -1,8 +1,7 @@
 import { ImageResponse } from 'next/og'
-import { SITE_NAME, SITE_TAGLINE } from '@/lib/site'
-
-export const SOCIAL_CARD_SIZE = { width: 1200, height: 630 } as const
-export const SOCIAL_CARD_ALT = `${SITE_NAME}: ${SITE_TAGLINE}`
+import { SITE_TAGLINE } from '@/lib/site'
+import { SOCIAL_CARD_SIZE } from '@/lib/public-page-metadata'
+export { SOCIAL_CARD_ALT, SOCIAL_CARD_SIZE } from '@/lib/public-page-metadata'
 
 const ESPRESSO = '#1a1512'
 const CREAM = '#e8e0d0'

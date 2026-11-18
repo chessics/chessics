@@ -1,11 +1,12 @@
 export const SITE_NAME = 'Chessics'
+export const HOME_TITLE = 'Free chess game review to find recurring mistakes · Chessics'
 
 export const SITE_TAGLINE = 'Find the move behind the blunder.'
 
 export const SITE_DESCRIPTION =
-  'Chessics reviews 10 to 100 of your Chess.com or Lichess games at once, finds the mistake you keep repeating, and trains you on those positions. No signup for your first analysis.'
+  'Review 10 to 100 chess games at once from Chess.com or Lichess. Find repeated mistakes and practice those positions. Try your first review without an account.'
 
-export const PUBLIC_PATHS = ['/', '/about', '/example', '/login', '/signup'] as const
+export const PUBLIC_PATHS = ['/', '/about', '/example'] as const
 
 export function siteJsonLd(base: URL = siteUrl()): Record<string, unknown> {
   return {

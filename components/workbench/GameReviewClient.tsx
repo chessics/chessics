@@ -29,6 +29,8 @@ import { reviewClock, stripMarks, timeStripBars } from '@/lib/review/clock-view'
 import { formatClock } from '@/lib/clock/format'
 import EvalGraph from './EvalGraph'
 import TimeStrip from './TimeStrip'
+import RelatedGameBoards from './RelatedGameBoards'
+import type { RelatedBoard } from '@/lib/review/related-games'
 import SlideBoards from './SlideBoards'
 import { takeOverHref, takeOverPlies } from '@/lib/review/take-over'
 import type { PlayMode } from '@/lib/play/setup'
@@ -298,6 +300,7 @@ export interface GameReviewProps {
   analysis: GameAnalysis | null
   causalChains: ChainWithNodes[]
   showMoveWhy?: boolean
+  relatedBoards?: RelatedBoard[]
   showSlideBoards?: boolean
   showEvalGraph?: boolean
   trainingReturn?: TrainingReturn
@@ -311,6 +314,7 @@ export default function GameReviewClient({
   analysis,
   causalChains,
   showMoveWhy = false,
+  relatedBoards = [],
   showSlideBoards = false,
   showEvalGraph = false,
   trainingReturn = null,
@@ -838,6 +842,7 @@ export default function GameReviewClient({
             {showSlideBoards && moment.kind === 'decided' && moment.terminal && game.user_color && (
               <SlideBoards moves={moves} orientation={game.user_color} rootPly={moment.ply} terminalPly={moment.terminal.ply} />
             )}
+            {relatedBoards.length > 0 && <RelatedGameBoards boards={relatedBoards} />}
           </MomentCard>
         )}
 

@@ -12,7 +12,7 @@ export default function ResetPasswordPage({ searchParams }: { searchParams: { up
     return (
       <>
         <h1 className="text-xl font-semibold">Password updated</h1>
-        <Link href="/workbench" className="self-start text-sm text-gold underline">Go to the workbench</Link>
+        <Link href="/workbench" className="self-start text-sm text-gold underline">Go to your report</Link>
       </>
     )
   }

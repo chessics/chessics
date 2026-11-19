@@ -6,7 +6,7 @@ import { BookOpen, Crosshair, Swords, TrendingUp } from 'lucide-react'
 import { FLAGS } from '@/lib/flags'
 
 const sections = [
-  { href: '/workbench', label: 'Workbench', icon: Swords },
+  { href: '/workbench', label: 'Report', icon: Swords },
   { href: '/train', label: 'Train', icon: Crosshair },
   { href: '/games', label: 'Games', icon: BookOpen },
   { href: '/progress', label: 'Progress', icon: TrendingUp },

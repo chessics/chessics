@@ -25,7 +25,14 @@ function forkSentence(move: Move, after: Chess, lead: string): string | null {
   return `${lead}, ${side}’s ${CAPTURE_PIECES[move.piece][0]} on ${move.to} attacked ${pieces}.`
 }
 
-export function turningMoveWhy(rows: readonly PlayedRow[], ply: number, userColor: Color): string | null {
+export type CapturePattern = 'moved-piece-taken' | 'other-piece-taken'
+
+interface TurningMoveEvidence {
+  sentence: string
+  capturePattern: CapturePattern | null
+}
+
+export function turningMoveEvidence(rows: readonly PlayedRow[], ply: number, userColor: Color): TurningMoveEvidence | null {
   const start = rows.findIndex(row => row.ply_number === ply)
   if (start < 0) return null
   try {
@@ -44,21 +51,28 @@ export function turningMoveWhy(rows: readonly PlayedRow[], ply: number, userColo
 
     if (reply.captured && reply.captured !== 'p' &&
         (!root.captured || CAPTURE_PIECES[root.captured][1] < CAPTURE_PIECES[reply.captured][1])) {
+      const capturePattern = reply.to === root.to ? 'moved-piece-taken' : 'other-piece-taken'
       if (!new Chess(reply.before).isAttacked(reply.to, root.color) && !board.isAttacked(reply.to, root.color)) {
         const side = reply.color === 'w' ? 'White' : 'Black'
-        return `After ${root.san}, ${side}’s ${CAPTURE_PIECES[reply.piece][0]} took your undefended ${CAPTURE_PIECES[reply.captured][0]} on ${reply.to}.`
+        return { capturePattern, sentence: `After ${root.san}, ${side}’s ${CAPTURE_PIECES[reply.piece][0]} took your undefended ${CAPTURE_PIECES[reply.captured][0]} on ${reply.to}.` }
       }
       const capture = favorableCaptureSentence(root, reply)
-      if (capture) return capture
+      if (capture) return { capturePattern, sentence: capture }
     }
 
     const fork = forkSentence(reply, board, `After ${root.san}`)
-    if (fork || !reply.captured) return fork
+    if (fork) return { capturePattern: null, sentence: fork }
+    if (!reply.captured) return null
     const recapture = play(2)
     if (!recapture?.captured || recapture.to !== reply.to) return null
     const next = play(3)
-    return next ? forkSentence(next, board, `After the exchange on ${reply.to}`) : null
+    const sentence = next && forkSentence(next, board, `After the exchange on ${reply.to}`)
+    return sentence ? { capturePattern: null, sentence } : null
   } catch {
     return null
   }
+}
+
+export function turningMoveWhy(rows: readonly PlayedRow[], ply: number, userColor: Color): string | null {
+  return turningMoveEvidence(rows, ply, userColor)?.sentence ?? null
 }

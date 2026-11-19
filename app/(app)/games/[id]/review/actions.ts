@@ -4,6 +4,7 @@ import type { GameReviewProps } from '@/components/workbench/GameReviewClient'
 import { reviewTheirReplyEnabled, reviewTryFirstEnabled } from '@/lib/flags'
 import { checkLimits, RATE_LIMITS, userKey } from '@/lib/ratelimit'
 import { TOO_MANY_REQUESTS_MESSAGE } from '@/lib/ratelimit-message'
+import { loadRelatedBoards } from '@/lib/review/load-related-games'
 import { loadGameReview } from '@/lib/review/load-game-review'
 import { loadTrainingReturn } from '@/lib/review/training-return'
 import { answerTheirReply, theirReply, type ReplyCommit } from '@/lib/review/their-reply'
@@ -52,8 +53,10 @@ export async function commitReviewMove(
   if (reply) return beforeReply(answer, {
     prompt: reply.prompt, commitAction: commitReviewReply.bind(null, gameId, reply.prompt.fen, initialChainRootPly, positionId),
   })
-  const trainingReturn = await loadTrainingReturn(supabase, review, data)
-  return { answer, review: { ...review, initialChainRootPly, trainingReturn } }
+  const [trainingReturn, relatedBoards] = await Promise.all([
+    loadTrainingReturn(supabase, review, data), loadRelatedBoards(supabase, review),
+  ])
+  return { answer, review: { ...review, initialChainRootPly, trainingReturn, relatedBoards } }
 }
 
 export async function commitReviewReply(
@@ -67,7 +70,8 @@ export async function commitReviewReply(
   if (!reply || reply.prompt.fen !== presentedFen) return unavailable
   const answer = await answerTheirReply(reply, chosen, createGradingEngine())
   if ('error' in answer) return answer
-  const result = { ...answer, played: reply.played, review: { ...loaded.review, initialChainRootPly } }
+  const relatedBoards = await loadRelatedBoards(loaded.supabase, loaded.review)
+  const result = { ...answer, played: reply.played, review: { ...loaded.review, initialChainRootPly, relatedBoards } }
   if (!replayPositionId || !reviewTryFirstEnabled()) return result
 
   const root = reply.turn

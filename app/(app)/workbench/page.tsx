@@ -10,7 +10,7 @@ import SignedOut from '@/components/layout/SignedOut'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { trajectoriesWithHistory } from '@/lib/workbench/trajectory'
 
-export const metadata: Metadata = { title: 'Workbench' }
+export const metadata: Metadata = { title: 'Report' }
 
 export default async function WorkbenchPage() {
   const supabase = await createClient()
@@ -80,13 +80,13 @@ export default async function WorkbenchPage() {
       <AutoImport signedIn={!!session} enabled={autoImportEnabled()} />
       <div>
         <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
-          Workbench
+          Report
         </h1>
       </div>
       {!session ? (
-        <SignedOut line="Sign in to see your workbench." />
+        <SignedOut line="Sign in to see your report." />
       ) : loadFailed ? (
-        <LoadFailed what="Your workbench" href="/workbench" />
+        <LoadFailed what="Your report" href="/workbench" />
       ) : (
         <BatchReportSummary
           latestBatch={latestBatch}

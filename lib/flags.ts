@@ -4,6 +4,7 @@ export const FLAGS = {
   reviewTryFirst: false,
   reviewTheirReply: false,
   reviewSlideBoards: false,
+  reviewRelatedGames: false,
   reviewEvalGraph: false,
   trainingMoveReplay: false,
   reasonGate: false,
@@ -63,4 +64,8 @@ export function reviewSlideBoardsEnabled(env: Record<string, string | undefined>
 
 export function reviewEvalGraphEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.REVIEW_EVAL_GRAPH === 'on' || FLAGS.reviewEvalGraph
+}
+
+export function reviewRelatedGamesEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.REVIEW_RELATED_GAMES === 'on' || FLAGS.reviewRelatedGames
 }

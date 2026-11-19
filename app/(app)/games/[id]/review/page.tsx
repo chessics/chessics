@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { reviewTheirReplyEnabled, reviewTryFirstEnabled } from '@/lib/flags'
+import { loadRelatedBoards } from '@/lib/review/load-related-games'
 import { loadGameReview } from '@/lib/review/load-game-review'
 import { reviewExerciseMove } from '@/lib/review/try-first'
 import { POSITION_PUBLIC_SELECT, toPublicPosition, type PublicPositionRow } from '@/lib/training/position-payload'
@@ -53,5 +54,6 @@ export default async function GameReviewPage({ params, searchParams }: Props) {
   const reply = reviewTheirReplyEnabled() && theirReply(review)
   if (reply) return <ReplyExercise key={params.id + reply.prompt.fen} prompt={reply.prompt}
     commitAction={commitReviewReply.bind(null, params.id, reply.prompt.fen, initialChainRootPly, null)} />
-  return <GameReviewClient {...review} initialChainRootPly={initialChainRootPly} />
+  const relatedBoards = await loadRelatedBoards(supabase, review)
+  return <GameReviewClient {...review} relatedBoards={relatedBoards} initialChainRootPly={initialChainRootPly} />
 }

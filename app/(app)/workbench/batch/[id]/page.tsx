@@ -129,7 +129,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
           className="text-sm transition-opacity hover:opacity-70 w-fit"
           style={{ color: 'var(--text-dim)' }}
         >
-          ← Workbench
+          ← Back to your report
         </Link>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {countNoun(batch.game_count, 'game')} · {formatDate(batch.generated_at)}

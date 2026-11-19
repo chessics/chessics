@@ -124,7 +124,7 @@ export default function SessionEnd({ openLoop, summary, onAgain }: SessionEndPro
 
       <div className="training-actions">
         <a className="training-btn training-btn-primary" href="/workbench">
-          Back to the workbench
+          Back to your report
         </a>
         {!empty && (
           <button className="training-btn training-btn-quiet" onClick={onAgain}>

@@ -45,7 +45,7 @@ export default function RecoveryForm({ account, invalidLink }: { account?: strin
         </form>
       )}
       <Link href={saving ? '/workbench' : '/login'} className="self-start text-sm text-gold underline">
-        {saving ? 'Go to the workbench' : 'Back to sign in'}
+        {saving ? 'Go to your report' : 'Back to sign in'}
       </Link>
     </>
   )

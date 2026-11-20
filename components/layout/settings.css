@@ -179,8 +179,16 @@
   cursor: not-allowed;
 }
 
+.settings-dialog.lookup-dialog {
+  width: min(880px, calc(100vw - 32px));
+  height: fit-content;
+  max-height: calc(100dvh - 32px);
+}
+.lookup-dialog .settings-frame { max-height: calc(100dvh - 34px); }
+.lookup-dialog-body { padding: 20px; overflow-y: auto; }
+
 @media (max-width: 639px) {
-  .settings-dialog {
+  .settings-dialog, .lookup-dialog {
     width: 100vw;
     height: 100dvh;
     border: none;
@@ -195,7 +203,9 @@
   .settings-search { display: none; }
   .settings-nav ul { flex-direction: row; }
   .settings-nav button { white-space: nowrap; padding: 8px 10px; }
-  .settings-content { padding: 16px; }
+  .settings-content, .lookup-dialog-body { padding: 16px; }
+  .settings-dialog.lookup-dialog { height: 100dvh; max-height: none; }
+  .lookup-dialog .settings-frame { max-height: none; }
   .settings-row { flex-wrap: wrap; gap: 10px; }
   .settings-field { width: 100%; }
   .settings-field[data-kind='select'] { width: auto; }

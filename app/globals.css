@@ -420,6 +420,20 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   padding-bottom: 15px;
   border-bottom: 1px solid var(--border);
 }
+.collection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.editorial-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 14px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+.editorial-secondary:hover { background: rgb(var(--accent-rgb) / 0.07); }
 .games-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px; }
 .games-filter {
   padding: 8px 9px;
@@ -515,6 +529,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
 }
+.lookup-bare { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
 .lookup-heading { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
 .lookup-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .lookup-platforms { display: flex; gap: 3px; }

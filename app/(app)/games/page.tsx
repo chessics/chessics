@@ -5,7 +5,7 @@ import { allRows } from '@/lib/supabase/row-cap'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
 import AutoImport from '@/components/workbench/AutoImport'
 import { autoImportEnabled, playerLookupEnabled } from '@/lib/flags'
-import PlayerLookup from '@/components/games/PlayerLookup'
+import PlayerLookupButton from '@/components/games/PlayerLookupButton'
 import SignedOut from '@/components/layout/SignedOut'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { countNoun } from '@/lib/count-noun'
@@ -64,14 +64,15 @@ export default async function GamesPage() {
           )}
         </div>
 
-        {!error && flatGames.length > 0 && (
-          <Link href="/" className="editorial-action">
-            Analyze games
-          </Link>
-        )}
+        <div className="collection-actions">
+          {playerLookupEnabled() && <PlayerLookupButton />}
+          {!error && flatGames.length > 0 && (
+            <Link href="/" className="editorial-action">
+              Analyze games
+            </Link>
+          )}
+        </div>
       </div>
-
-      {playerLookupEnabled() && <PlayerLookup />}
 
       {error ? (
         <LoadFailed what="Your games" href="/games" />

@@ -108,7 +108,7 @@ export function PlayerGamesList({ result, shown }: { result: LookupResult; shown
   )
 }
 
-export default function PlayerLookup() {
+export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
   const [platform, setPlatform] = useState<LookupPlatform>('chess_com')
   const [username, setUsername] = useState('')
   const [state, setState] = useState<State>({ phase: 'idle' })
@@ -157,10 +157,12 @@ export default function PlayerLookup() {
   const result = state.phase === 'done' ? state.result : null
 
   return (
-    <section className="lookup" aria-labelledby="lookup-heading">
-      <h2 id="lookup-heading" className="lookup-heading">
-        Look up a player
-      </h2>
+    <section className={bare ? 'lookup lookup-bare' : 'lookup'} aria-labelledby="lookup-heading">
+      {!bare && (
+        <h2 id="lookup-heading" className="lookup-heading">
+          Look up a player
+        </h2>
+      )}
       <form className="lookup-form" onSubmit={submit}>
         <div role="group" aria-label="Site" className="lookup-platforms">
           {(['chess_com', 'lichess'] as const).map((p) => (

@@ -139,6 +139,24 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
     if (!open && dialog.open) dialog.close()
   }, [open])
 
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const closed = () => onCloseRef.current()
+    const cancelled = (e: Event) => {
+      e.preventDefault()
+      onCloseRef.current()
+    }
+    dialog.addEventListener('close', closed)
+    dialog.addEventListener('cancel', cancelled)
+    return () => {
+      dialog.removeEventListener('close', closed)
+      dialog.removeEventListener('cancel', cancelled)
+    }
+  }, [])
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return SECTIONS
@@ -154,7 +172,6 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
       ref={dialogRef}
       className="settings-dialog"
       aria-labelledby={headingId}
-      onClose={onClose}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

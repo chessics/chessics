@@ -3,9 +3,9 @@ import { SITE_TAGLINE } from '@/lib/site'
 import { SOCIAL_CARD_SIZE } from '@/lib/public-page-metadata'
 export { SOCIAL_CARD_ALT, SOCIAL_CARD_SIZE } from '@/lib/public-page-metadata'
 
-const ESPRESSO = '#1a1512'
-const CREAM = '#e8e0d0'
-const MUTED = '#a2977f'
+const ESPRESSO = '#1b1a17'
+const CREAM = '#ead9a8'
+const MUTED = '#ad9f7b'
 const BRASS = '#c9a55c'
 const OXBLOOD = '#c0455a'
 const UMBER = '#3a3125'
@@ -24,7 +24,7 @@ export function socialCardElement() {
         justifyContent: 'space-between',
         padding: '80px 96px',
         background: ESPRESSO,
-        backgroundImage: 'radial-gradient(ellipse 120% 90% at 50% 20%, rgba(26,21,18,0) 55%, rgba(10,7,5,0.5) 100%)',
+        backgroundImage: 'radial-gradient(ellipse 120% 90% at 50% 20%, rgba(27,26,23,0) 55%, rgba(0,0,0,0.45) 100%)',
         color: CREAM,
       }}
     >
@@ -39,7 +39,7 @@ export function socialCardElement() {
           <span style={{ color: CREAM }}>chess</span>
           <span style={{ color: BRASS }}>ics</span>
         </div>
-        <div style={{ width: 640, height: 2, marginTop: 40, marginBottom: 36, background: 'rgba(201,165,92,0.45)' }} />
+        <div style={{ width: 640, height: 2, marginTop: 40, marginBottom: 36, background: 'rgba(234,217,168,0.4)' }} />
         <div style={{ display: 'flex', fontSize: 44, lineHeight: 1.2, color: MUTED }}>{SITE_TAGLINE}</div>
       </div>
     </div>

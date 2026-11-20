@@ -52,7 +52,7 @@ export default function StatusPage({ headline, sentence, reference = null, frame
 export const PRIMARY_CLASS = 'px-5 py-2.5 text-sm font-medium'
 export const primaryStyle = {
   background: 'var(--gold)',
-  color: '#1a1512',
+  color: 'var(--on-accent)',
   border: 'none',
   cursor: 'pointer',
 } as const

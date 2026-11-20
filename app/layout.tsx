@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, jsonLdScript, siteJsonLd, siteUrl } from '@/lib/site'
 import PageAnalytics from '@/components/layout/PageAnalytics'
 import './globals.css'
+import { THEME_BOOT_SCRIPT } from '@/lib/theme'
 
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
@@ -26,8 +27,9 @@ const FONTS_URL =
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}

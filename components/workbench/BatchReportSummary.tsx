@@ -112,7 +112,7 @@ export default function BatchReportSummary({
         <Link
           href="/"
           className="inline-flex items-center px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
-          style={{ background: 'var(--brass)', color: '#1a1512' }}
+          style={{ background: 'var(--brass)', color: 'var(--on-accent)' }}
         >
           Analyze my games →
         </Link>

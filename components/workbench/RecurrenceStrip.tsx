@@ -9,8 +9,8 @@ interface RecurrenceStripProps {
 
 const BAR_COLORS: Record<StripBarState, string> = {
   affected: 'var(--brass)',
-  quiet: 'rgba(232, 224, 208, 0.22)',
-  pending: 'rgba(232, 224, 208, 0.07)',
+  quiet: 'rgb(var(--text-rgb) / 0.22)',
+  pending: 'rgb(var(--text-rgb) / 0.07)',
 }
 
 export default function RecurrenceStrip({ bars, height = 34 }: RecurrenceStripProps) {

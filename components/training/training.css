@@ -126,7 +126,7 @@
 }
 
 .training-verdict-punish {
-  color: #e5677c;
+  color: var(--blunder);
 }
 
 .training-key {
@@ -153,20 +153,21 @@
 }
 
 .training-swatch-held {
-  background: #e8a10c;
+  background: var(--arrow-held);
 }
 
 .training-swatch-mistake {
-  background: #d6344f;
+  background: var(--arrow-mistake);
 }
 
 .training-swatch-unchecked,
 .training-swatch-yours {
   background: #f3ede2;
+  outline: 1px solid var(--border-strong);
 }
 
 .training-swatch-also_held {
-  background: #e8a10c;
+  background: var(--arrow-held);
   opacity: 0.7;
   height: 4px;
 }
@@ -224,7 +225,7 @@
 
 .training-candidate:hover {
   color: var(--text);
-  background: rgba(201, 165, 92, 0.06);
+  background: rgb(var(--accent-rgb) / 0.06);
 }
 
 .training-candidates li.is-chosen .training-candidate {
@@ -268,7 +269,7 @@
 }
 
 .training-btn:hover:not(:disabled) {
-  background: rgba(201, 165, 92, 0.1);
+  background: rgb(var(--accent-rgb) / 0.1);
   border-color: var(--brass);
 }
 
@@ -468,7 +469,7 @@
 }
 
 .stakes-headline strong {
-  color: #e5677c;
+  color: var(--blunder);
   font-weight: 600;
 }
 
@@ -483,7 +484,7 @@
 .stakes-bar {
   flex: 1;
   position: relative;
-  background: rgba(232, 224, 208, 0.12);
+  background: rgb(var(--text-rgb) / 0.12);
 }
 
 .stakes-bar.is-trained.is-loss {
@@ -614,7 +615,7 @@
 }
 
 .replay-status-word.is-down {
-  color: #e5677c;
+  color: var(--blunder);
 }
 
 .replay-moves {
@@ -687,7 +688,7 @@
 }
 
 .replay-standing.is-down {
-  color: #e5677c;
+  color: var(--blunder);
 }
 
 .replay-controls {
@@ -711,7 +712,7 @@
 }
 
 .replay-icon:hover:not(:disabled) {
-  background: rgba(201, 165, 92, 0.1);
+  background: rgb(var(--accent-rgb) / 0.1);
   border-color: var(--brass);
 }
 
@@ -771,7 +772,7 @@
 .training-chip[aria-pressed='true'] {
   color: var(--text);
   border-color: var(--brass);
-  background: rgba(201, 165, 92, 0.12);
+  background: rgb(var(--accent-rgb) / 0.12);
 }
 
 .training-chip:disabled {

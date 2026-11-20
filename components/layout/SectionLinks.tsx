@@ -26,7 +26,7 @@ export default function SectionLinks() {
         className="inline-flex items-center gap-1.5 px-2 py-2 text-sm transition-colors"
         style={{
           color: current ? 'var(--gold)' : 'var(--text-muted)',
-          background: current ? 'rgba(201,165,92,0.1)' : 'transparent',
+          background: current ? 'rgb(var(--accent-rgb) / 0.1)' : 'transparent',
           fontWeight: current ? 500 : 400,
         }}
       >

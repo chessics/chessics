@@ -93,7 +93,7 @@ export default function LoginPage() {
             className="w-full py-3 text-sm font-medium transition-opacity"
             style={{
               background: 'var(--gold)',
-              color: '#1a1512',
+              color: 'var(--on-accent)',
               opacity: loading ? 0.6 : 1,
               cursor: loading ? 'not-allowed' : 'pointer',
             }}

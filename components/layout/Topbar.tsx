@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import SectionLinks from './SectionLinks'
+import ThemeToggle from './ThemeToggle'
 
 export default function Topbar({ signedIn }: { signedIn: boolean }) {
   const router = useRouter()
@@ -29,7 +30,7 @@ export default function Topbar({ signedIn }: { signedIn: boolean }) {
     >
       <Link href={signedIn ? '/workbench' : '/'} className="font-logo select-none" style={{ fontSize: 20, lineHeight: 1 }}>
         <span style={{ color: 'var(--text)' }}>chess</span>
-        <span style={{ color: 'var(--gold)' }}>ics</span>
+        <span style={{ color: 'var(--text-muted)' }}>ics</span>
       </Link>
 
       <nav aria-label="Sections" className="hidden sm:flex items-center gap-1">
@@ -37,6 +38,7 @@ export default function Topbar({ signedIn }: { signedIn: boolean }) {
       </nav>
 
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         {signedIn ? (
           <button
             onClick={handleSignOut}

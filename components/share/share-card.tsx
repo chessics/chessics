@@ -4,9 +4,9 @@ import { PIECE_IMAGES, type PieceCode } from '@/lib/share/pieces'
 import { SHARE_HEADLINE, sideToMoveText } from '@/lib/share/words'
 import type { PublicShare } from '@/lib/share/payload'
 
-const ESPRESSO = '#1a1512'
-const CREAM = '#e8e0d0'
-const MUTED = '#a2977f'
+const ESPRESSO = '#1b1a17'
+const CREAM = '#ead9a8'
+const MUTED = '#ad9f7b'
 const BRASS = '#c9a55c'
 const DARK = '#7a4f28'
 const LIGHT = '#dfba85'
@@ -96,7 +96,7 @@ export function boardCardElement({ fen, orientation, from, to, label, headline, 
         alignItems: 'center',
         padding: `55px ${PAD_RIGHT}px 55px ${PAD_LEFT}px`,
         background: ESPRESSO,
-        backgroundImage: 'radial-gradient(ellipse 120% 90% at 50% 20%, rgba(26,21,18,0) 55%, rgba(10,7,5,0.5) 100%)',
+        backgroundImage: 'radial-gradient(ellipse 120% 90% at 50% 20%, rgba(27,26,23,0) 55%, rgba(0,0,0,0.45) 100%)',
         color: CREAM,
       }}
     >
@@ -142,7 +142,7 @@ export function boardCardElement({ fen, orientation, from, to, label, headline, 
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ width: SHARE_CARD_TEXT_WIDTH, height: 2, marginBottom: 24, background: 'rgba(201,165,92,0.45)' }} />
+          <div style={{ width: SHARE_CARD_TEXT_WIDTH, height: 2, marginBottom: 24, background: 'rgba(234,217,168,0.4)' }} />
           <div style={{ display: 'flex', fontSize: 36, lineHeight: 1 }}>
             <span style={{ color: CREAM }}>chess</span>
             <span style={{ color: BRASS }}>ics</span>

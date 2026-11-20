@@ -121,9 +121,9 @@ export default function BatchControls({
               type="button"
               onClick={() => (isGuest ? router.push('/signup') : startBatch(n))}
               disabled={starting !== null || (!isGuest && !who)}
-              className="px-4 py-2 text-sm transition-colors hover:bg-[rgba(201,165,92,0.22)] active:bg-[rgba(201,165,92,0.34)] disabled:opacity-40"
+              className="px-4 py-2 text-sm transition-colors hover:bg-[rgb(var(--accent-rgb)/0.22)] active:bg-[rgb(var(--accent-rgb)/0.34)] disabled:opacity-40"
               style={{
-                background: starting === n ? 'rgba(201,165,92,0.34)' : 'rgba(201,165,92,0.08)',
+                background: starting === n ? 'rgb(var(--accent-rgb) / 0.34)' : 'rgb(var(--accent-rgb) / 0.08)',
                 border: '1px solid var(--brass)',
                 color: 'var(--brass)',
                 cursor: isGuest || who ? 'pointer' : 'not-allowed',
@@ -148,9 +148,9 @@ export default function BatchControls({
               type="button"
               onClick={() => changeLevel(i)}
               title={`Write for ${label}`}
-              className="px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgba(201,165,92,0.18)]"
+              className="px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgb(var(--accent-rgb)/0.18)]"
               style={{
-                background: level === i ? 'rgba(201,165,92,0.28)' : 'rgba(232,224,208,0.06)',
+                background: level === i ? 'rgb(var(--accent-rgb) / 0.28)' : 'rgb(var(--text-rgb) / 0.06)',
                 border: level === i ? '1px solid var(--brass)' : '1px solid var(--border-strong)',
                 color: level === i ? 'var(--brass)' : 'var(--text)',
                 cursor: 'pointer',
@@ -177,9 +177,9 @@ export default function BatchControls({
               key={opt.value}
               type="button"
               onClick={() => changeFilter(opt.value)}
-              className="px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgba(201,165,92,0.18)]"
+              className="px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgb(var(--accent-rgb)/0.18)]"
               style={{
-                background: filter === opt.value ? 'rgba(201,165,92,0.28)' : 'rgba(232,224,208,0.06)',
+                background: filter === opt.value ? 'rgb(var(--accent-rgb) / 0.28)' : 'rgb(var(--text-rgb) / 0.06)',
                 border: filter === opt.value ? '1px solid var(--brass)' : '1px solid var(--border-strong)',
                 color: filter === opt.value ? 'var(--brass)' : 'var(--text)',
                 cursor: 'pointer',
@@ -205,7 +205,7 @@ export default function BatchControls({
           <a
             href="/signup"
             className="px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-            style={{ background: 'var(--brass)', color: '#1a1512', textDecoration: 'none' }}
+            style={{ background: 'var(--brass)', color: 'var(--on-accent)', textDecoration: 'none' }}
           >
             Sign up and keep your report →
           </a>

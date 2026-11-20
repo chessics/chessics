@@ -461,7 +461,7 @@ export default function GamesLibraryClient({ games }: Props) {
                         fontSize: 11,
                         fontWeight: 500,
                         color: 'var(--gold)',
-                        border: '1px solid rgba(201,165,92,0.25)',
+                        border: '1px solid rgb(var(--accent-rgb) / 0.25)',
                         textDecoration: 'none',
                         whiteSpace: 'nowrap',
                       }}

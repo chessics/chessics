@@ -163,7 +163,7 @@ function EvalBar({ cp, height, flipped, words }: EvalBarProps) {
         height,
         flexShrink: 0,
         position: 'relative',
-        background: '#1a1512',
+        background: 'var(--eval-black)',
         overflow: 'hidden',
         border: '1px solid var(--border)',
       }}
@@ -175,7 +175,7 @@ function EvalBar({ cp, height, flipped, words }: EvalBarProps) {
           left: 0,
           right: 0,
           height: `${whitePercent}%`,
-          background: 'var(--text)',
+          background: 'var(--eval-white)',
           transition: 'height 0.3s cubic-bezier(0.4,0,0.2,1)',
         }}
       />
@@ -211,7 +211,7 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
           gap: 3,
           padding: '4px 8px',
           background: isActive
-            ? 'rgba(201,165,92,0.18)'
+            ? 'rgb(var(--accent-rgb) / 0.18)'
             : 'transparent',
           border: 'none',
           cursor: 'pointer',
@@ -221,7 +221,7 @@ const MoveCell = forwardRef<HTMLButtonElement, MoveCellProps>(
         }}
         onMouseEnter={(e) => {
           if (!isActive)
-            e.currentTarget.style.background = 'rgba(201,165,92,0.08)'
+            e.currentTarget.style.background = 'rgb(var(--accent-rgb) / 0.08)'
         }}
         onMouseLeave={(e) => {
           if (!isActive) e.currentTarget.style.background = 'transparent'
@@ -527,10 +527,10 @@ export default function GameReviewClient({
     game.result === 'win' ? 'Win' : game.result === 'loss' ? 'Loss' : 'Draw'
   const resultBg =
     game.result === 'win'
-      ? 'rgba(39,174,96,0.12)'
+      ? 'rgb(var(--good-rgb) / 0.14)'
       : game.result === 'loss'
-        ? 'rgba(192,57,43,0.12)'
-        : 'rgba(154,136,120,0.08)'
+        ? 'rgb(var(--blunder-rgb) / 0.12)'
+        : 'rgb(var(--text-rgb) / 0.06)'
   const resultColor =
     game.result === 'win'
       ? 'var(--good)'
@@ -1016,9 +1016,9 @@ export default function GameReviewClient({
                         background: pressed ? 'var(--surface-2)' : 'var(--surface-3)',
                         border: `1px solid ${
                           kind === 'root'
-                            ? 'rgba(201,165,92,0.45)'
+                            ? 'rgb(var(--accent-rgb) / 0.45)'
                             : kind === 'terminal'
-                              ? 'rgba(192,57,43,0.45)'
+                              ? 'rgb(var(--blunder-rgb) / 0.45)'
                               : 'var(--border)'
                         }`,
                         cursor: 'pointer',
@@ -1204,7 +1204,7 @@ export default function GameReviewClient({
                 display: 'inline-block',
                 padding: '8px 20px',
                 background: 'var(--gold)',
-                color: '#1a1512',
+                color: 'var(--on-accent)',
                 textDecoration: 'none',
                 fontSize: 13,
                 fontWeight: 600,

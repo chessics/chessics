@@ -10,7 +10,7 @@ export default function Button({ variant = 'gold', size = 'md', className, child
   const base = 'font-medium transition-opacity disabled:opacity-40 cursor-pointer'
 
   const variants = {
-    gold: 'text-[#1a1512]',
+    gold: 'text-[var(--on-accent)]',
     ghost: 'border',
     danger: '',
   }
@@ -22,9 +22,9 @@ export default function Button({ variant = 'gold', size = 'md', className, child
   }
 
   const styles: Record<string, React.CSSProperties> = {
-    gold: { background: 'var(--gold)', color: '#1a1512' },
+    gold: { background: 'var(--gold)', color: 'var(--on-accent)' },
     ghost: { background: 'transparent', color: 'var(--text)', borderColor: 'var(--border-strong)' },
-    danger: { background: 'var(--blunder)', color: '#fff' },
+    danger: { background: 'var(--blunder)', color: 'var(--on-accent)' },
   }
 
   return (

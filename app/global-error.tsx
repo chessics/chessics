@@ -2,11 +2,11 @@
 
 import { errorReference } from '@/components/layout/StatusPage'
 
-const ESPRESSO = '#1a1512'
-const CREAM = '#e8e0d0'
-const MUTED = '#a2977f'
-const BRASS = '#c9a55c'
-const HAIRLINE = 'rgba(201, 165, 92, 0.18)'
+const ESPRESSO = '#1b1a17'
+const CREAM = '#ead9a8'
+const MUTED = '#ad9f7b'
+const BRASS = '#ead9a8'
+const HAIRLINE = 'rgba(234, 217, 168, 0.16)'
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const reference = errorReference(error.digest)

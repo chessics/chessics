@@ -4,6 +4,7 @@ export const IDLE_POLL_MS = 20_000
 
 export interface JobGameSelection {
   gameId?: string | null
+  accountId?: string | null
   batchSize: number
 }
 
@@ -28,9 +29,11 @@ export async function selectGamesForJob(
     .eq('user_id', userId)
     .eq('is_analyzed', false)
 
-  query = job.gameId
-    ? query.eq('id', job.gameId)
-    : query.order('played_at', { ascending: false }).limit(job.batchSize)
+  if (job.gameId) query = query.eq('id', job.gameId)
+  else {
+    if (job.accountId) query = query.eq('account_id', job.accountId)
+    query = query.order('played_at', { ascending: false }).limit(job.batchSize)
+  }
 
   const { data, error } = await query
   if (error) throw new Error(`Could not read games to analyse: ${error.message}`)

@@ -1,4 +1,4 @@
-import type { FetchWindow, SyncedGame, TimeControlFilter, WindowResult } from './chess-com'
+import type { FetchWindow, SyncedGame, TimeControlFilter, WindowFilter, WindowResult } from './chess-com'
 export type { SyncedGame }
 
 interface LichessPlayer {
@@ -110,6 +110,7 @@ export interface LichessSyncedGame extends Omit<SyncedGame, 'platform'> {
 }
 
 const KEPT_SPEEDS = new Set(['rapid', 'blitz'])
+const LIVE_SPEEDS = new Set(['bullet', 'blitz', 'rapid'])
 
 export async function fetchLichessGames(
   username: string,
@@ -150,10 +151,11 @@ export async function fetchLichessGames(
   return games.slice(0, batchSize)
 }
 
-function keptGame(line: string, username: string, timeControlFilter: TimeControlFilter): LichessSyncedGame | null {
+function keptGame(line: string, username: string, timeControlFilter: WindowFilter): LichessSyncedGame | null {
   try {
     const raw = JSON.parse(line) as LichessGame
     if (timeControlFilter === 'rapid_blitz' && raw.speed !== undefined && !KEPT_SPEEDS.has(raw.speed)) return null
+    if (timeControlFilter === 'live' && raw.speed !== undefined && !LIVE_SPEEDS.has(raw.speed)) return null
     if (raw.variant !== undefined && raw.variant !== 'standard') return null
     if (raw.status === 'aborted' || raw.status === 'noStart') return null
     return { ...mapLichessGame(raw, username), platform: 'lichess' }
@@ -167,11 +169,12 @@ export async function fetchLichessWindow(
   w: FetchWindow,
   { now = Date.now }: { now?: () => number } = {}
 ): Promise<WindowResult<LichessSyncedGame>> {
-  const params = new URLSearchParams({ max: String(w.max), pgnInJson: 'true', clocks: 'true' })
+  const params = new URLSearchParams({ max: String(w.max), pgnInJson: 'true', clocks: 'true', opening: 'true' })
   if (w.after !== null) params.set('since', String(w.after + 1))
   if (w.before !== null) params.set('until', String(w.before - 1))
   if (w.order === 'asc') params.set('sort', 'dateAsc')
   if (w.filter === 'rapid_blitz') params.set('perfType', 'blitz,rapid')
+  if (w.filter === 'live') params.set('perfType', 'bullet,blitz,rapid')
   const url = `${LICHESS_BASE}/games/user/${encodeURIComponent(username)}?${params}`
 
   const controller = new AbortController()

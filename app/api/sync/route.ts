@@ -12,6 +12,10 @@ import { batchFromLibrary, type LibraryBatch } from '@/lib/import/analyse'
 import { IMPORT_BUDGET_MS } from '@/lib/import/run'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { track, trackSignup } from '@/lib/analytics/track'
+import { linkedAccountsEnabled } from '@/lib/flags'
+import { linkAccount, listAccounts } from '@/lib/accounts/store'
+import { onAccount, syncTarget } from '@/lib/accounts/rules'
+import { activeCookie } from '@/lib/accounts/cookie'
 
 export const maxDuration = 30
 
@@ -43,8 +47,8 @@ function fetchErrorResponse(apiErr: Error & { status?: number; code?: string }):
   return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 })
 }
 
-async function libraryHasGames(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const { data } = await supabase.from('games').select('id').eq('user_id', userId).limit(1)
+async function libraryHasGames(supabase: SupabaseClient, userId: string, accountId?: string): Promise<boolean> {
+  const { data } = await onAccount(supabase.from('games').select('id').eq('user_id', userId), accountId).limit(1)
   return Array.isArray(data) && data.length > 0
 }
 
@@ -87,7 +91,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!perCaller.allowed) return tooManyRequests(perCaller)
 
   let accountUserId = userId
-  if (userId) {
+  let accountId: string | undefined
+  if (userId && linkedAccountsEnabled()) {
+    try {
+      const accounts = await listAccounts(supabase, userId)
+      const target = syncTarget(accounts, platform, username)
+      if (target.kind === 'linked') accountId = target.account.id
+      else if (target.kind === 'link_first') accountId = (await linkAccount(supabase, userId, platform, username)).account.id
+      else {
+        if (!sessionToken) return NextResponse.json({ error: NOT_YOUR_USERNAME }, { status: 403 })
+        accountUserId = null
+      }
+    } catch (err) {
+      console.error('[sync] linked accounts error:', err)
+      return NextResponse.json({ error: 'Failed to read account' }, { status: 500 })
+    }
+  } else if (userId) {
     const { data: earliest, error: ownerError } = await supabase
       .from('games')
       .select('pgn, platform, user_color')
@@ -119,6 +138,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         userId: accountUserId,
         platform,
         username,
+        accountId,
         batchSize,
         filter: timeControlFilter,
         deadline: startedAt + IMPORT_BUDGET_MS,
@@ -130,7 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (batch.games.length === 0) {
       if (batch.fetchError) return fetchErrorResponse(batch.fetchError)
       if (batch.cut) return NextResponse.json({ error: 'no_recent_rapid_blitz_games' }, { status: 422 })
-      if (await libraryHasGames(supabase, accountUserId)) {
+      if (await libraryHasGames(supabase, accountUserId, accountId)) {
         return NextResponse.json({ error: ALL_GAMES_ANALYSED }, { status: 422 })
       }
       return NextResponse.json({ error: noGamesCode(timeControlFilter) }, { status: 422 })
@@ -207,6 +227,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         batchSize,
         calibrationLevel: finalCalibration,
         userId: accountUserId ?? null,
+        ...(accountUserId && accountId ? { accountId } : {}),
         sessionToken: sessionToken ?? null,
         gameCount,
         queuedAt: new Date().toISOString(),
@@ -231,11 +252,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   track(userId ? 'analysis_started' : 'guest_analysis_started', { userId, guestToken: userId ? null : sessionToken, props: { platform, game_count: gameCount, time_class: timeControlFilter } })
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     jobId,
     gameCount,
     authed: !!accountUserId,
     ...(userId && !accountUserId ? { foreign: true } : {}),
     estimatedMinutes: estimatedMinutes(gameCount),
   })
+  if (accountUserId && accountId) res.cookies.set(activeCookie(accountId))
+  return res
 }

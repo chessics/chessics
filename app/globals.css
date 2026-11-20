@@ -561,6 +561,26 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 .lookup-list { border-block: 1px solid var(--border); }
 .lookup-list > a + a { border-top: 1px solid var(--border); }
 .lookup-more { margin-top: 6px; }
+.lookup-status { color: var(--text); }
+.lookup-summary { margin: 2px 0 10px; font-size: 14px; color: var(--text); }
+.lookup-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 10px; }
+.lookup-filter-group { display: flex; flex-wrap: wrap; gap: 3px; }
+.lookup-select { position: relative; display: inline-flex; align-items: center; }
+.lookup-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 0;
+  min-height: 36px;
+  max-width: 260px;
+  padding: 6px 30px 6px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.lookup-select svg { position: absolute; right: 10px; pointer-events: none; color: var(--text-muted); }
 .lookup-grid {
   display: grid;
   grid-template-columns: 90px 28px 56px minmax(80px, 180px) minmax(0, 1fr) 64px 96px;

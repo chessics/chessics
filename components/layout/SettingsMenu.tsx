@@ -5,7 +5,13 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import SettingsDialog from './SettingsDialog'
 
-export default function SettingsMenu({ variant = 'icon' }: { variant?: 'icon' | 'sidebar' }) {
+export default function SettingsMenu({
+  variant = 'icon',
+  linkedAccounts = false,
+}: {
+  variant?: 'icon' | 'sidebar'
+  linkedAccounts?: boolean
+}) {
   const inSidebar = variant === 'sidebar'
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -34,7 +40,7 @@ export default function SettingsMenu({ variant = 'icon' }: { variant?: 'icon' | 
         <Settings size={inSidebar ? 16 : 14} aria-hidden />
         {inSidebar && 'Settings'}
       </button>
-      {mounted && createPortal(<SettingsDialog open={open} onClose={() => setOpen(false)} />, document.body)}
+      {mounted && createPortal(<SettingsDialog open={open} onClose={() => setOpen(false)} linkedAccounts={linkedAccounts} />, document.body)}
     </>
   )
 }

@@ -20,6 +20,7 @@ export const RATE_LIMITS = {
   gameImport: { name: 'import', requests: 6, window: '1 h' },
   playerLookup: { name: 'player-lookup', requests: 30, window: '1 h' },
   transfer: { name: 'transfer', requests: 10, window: '10 m' },
+  accountLink: { name: 'account-link', requests: 20, window: '1 h' },
   playMove: { name: 'play-move', requests: 120, window: '1 m' },
   playEnd: { name: 'play-end', requests: 30, window: '1 m' },
   shareCreate: { name: 'share-create', requests: 30, window: '1 h' },

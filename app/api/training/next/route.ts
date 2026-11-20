@@ -6,6 +6,9 @@ import { previousMove } from '@/lib/training/previous-move'
 import { TRAINING_QUEUE_SOURCE_TABLE } from '@/lib/training/queue'
 import { sessionSummary, type SummaryGame } from '@/lib/training/summary'
 import { reasonGateEnabled, standaloneBlunderPositionsEnabled } from '@/lib/flags'
+import { accountScope, scopeAccountId } from '@/lib/accounts/active'
+import { accountGameIds } from '@/lib/accounts/store'
+import { onAccount } from '@/lib/accounts/rules'
 import {
   clampStartedAt,
   fromQueueSelectRow,
@@ -75,7 +78,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return json({ error: 'Lookup failed' }, 500)
   }
 
-  const selected = (positionsResult.data ?? []).map(fromQueueSelectRow)
+  let accountId: string | null | undefined
+  let accountGames: Set<string> | null = null
+  try {
+    accountId = scopeAccountId(await accountScope(supabase, user.id))
+    if (accountId === null) accountGames = new Set()
+    else if (accountId) {
+      const own = await accountGameIds(supabase, user.id, accountId)
+      if (own.error) return json({ error: 'Lookup failed' }, 500)
+      accountGames = own.ids
+    }
+  } catch (err) {
+    console.error('[training/next] linked accounts:', err)
+    return json({ error: 'Lookup failed' }, 500)
+  }
+
+  const selected = (positionsResult.data ?? [])
+    .map(fromQueueSelectRow)
+    .filter(row => accountGames === null || accountGames.has(row.game_id))
 
   const queries = preTerminalQueries(preTerminalLookups(selected))
   let rows = selected
@@ -123,10 +143,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!interactions.some(i => i.session_id === sessionId)) return json(body)
 
   const { data: games, error: gamesError } = await allRows<SummaryGame>((from, to) =>
-    supabase
-      .from('games')
-      .select('id, played_at, result')
-      .eq('user_id', user.id)
+    onAccount(supabase.from('games').select('id, played_at, result').eq('user_id', user.id), accountId)
       .order('played_at', { ascending: false })
       .order('id', { ascending: true })
       .range(from, to)

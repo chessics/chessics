@@ -21,6 +21,30 @@ export type TimeControlFilter = 'rapid_blitz' | 'all'
 
 const KEPT_TIME_CLASSES = new Set(['rapid', 'blitz'])
 
+export type WindowFilter = TimeControlFilter | 'live'
+const LIVE_TIME_CLASSES = new Set(['bullet', 'blitz', 'rapid'])
+
+export function keepsTimeClass(filter: WindowFilter, timeClass: string): boolean {
+  if (filter === 'rapid_blitz') return KEPT_TIME_CLASSES.has(timeClass)
+  if (filter === 'live') return LIVE_TIME_CLASSES.has(timeClass)
+  return true
+}
+
+export function openingFromEcoUrl(url: string | null): string | null {
+  if (!url) return null
+  const slug = url.split('/').filter(Boolean).pop() ?? ''
+  if (!/^[A-Za-z]/.test(slug) || /^openings$/i.test(slug)) return null
+  const words: string[] = []
+  for (const part of slug.split('-')) {
+    if (!part || /^\d/.test(part)) break
+    words.push(part)
+  }
+  if (words.length === 0) return null
+  return words
+    .map((w, i) => (i < words.length - 1 && /^(Queens|Kings|Bishops)$/.test(w) ? `${w.slice(0, -1)}'s` : w))
+    .join(' ')
+}
+
 export interface SyncedGame {
   pgn: string
   platform: 'chess_com'
@@ -103,7 +127,7 @@ function mapChessComGame(game: ChessComGame, username: string): SyncedGame {
     result: determineResult(game, userColor),
     user_rating_at_time: userSide.rating,
     opponent_rating_at_time: opponentSide.rating,
-    opening_name: extractPgnHeader(game.pgn, 'Opening'),
+    opening_name: extractPgnHeader(game.pgn, 'Opening') ?? openingFromEcoUrl(extractPgnHeader(game.pgn, 'ECOUrl')),
     opening_eco: extractPgnHeader(game.pgn, 'ECO'),
   }
 }
@@ -172,7 +196,7 @@ export interface FetchWindow {
   order: 'asc' | 'desc'
   max: number
   deadline: number
-  filter: TimeControlFilter
+  filter: WindowFilter
 }
 
 export interface WindowResult<G> {
@@ -224,7 +248,7 @@ export async function fetchChessComWindow(
     const monthGames = ((await res.json()) as { games?: ChessComGame[] }).games ?? []
     const inWindow = monthGames
       .filter((g) => (w.after === null || g.end_time * 1000 > w.after) && (w.before === null || g.end_time * 1000 < w.before))
-      .filter((g) => w.filter !== 'rapid_blitz' || KEPT_TIME_CLASSES.has(g.time_class))
+      .filter((g) => keepsTimeClass(w.filter, g.time_class))
       .filter((g) => analysableChessComGame(g))
       .sort((a, b) => (w.order === 'asc' ? a.end_time - b.end_time : b.end_time - a.end_time))
     for (const g of inWindow) {

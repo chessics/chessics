@@ -36,7 +36,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     order: 'desc',
     max: LOOKUP_MAX_GAMES,
     deadline: now + LOOKUP_BUDGET_MS,
-    filter: 'rapid_blitz',
+    filter: 'live',
   }
 
   try {

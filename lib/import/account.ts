@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchChessComWindow, type FetchWindow, type TimeControlFilter, type WindowResult } from '@/lib/sync/chess-com'
 import { fetchLichessWindow } from '@/lib/sync/lichess'
 import { OWNER_SAMPLE, ownerName } from '@/lib/sync/owner'
+import { onAccount } from '@/lib/accounts/rules'
 import { importPlatform, type Bounds, type ImportGame, type ImportResult } from './run'
 
 export type Platform = 'chess_com' | 'lichess'
@@ -13,7 +14,8 @@ export interface ImportRedis {
   del(key: string): Promise<unknown>
 }
 
-export const floorKey = (userId: string, platform: Platform) => `import:floor:${userId}:${platform}`
+export const floorKey = (userId: string, platform: Platform, accountId?: string) =>
+  accountId ? `import:floor:${userId}:${platform}:${accountId}` : `import:floor:${userId}:${platform}`
 const FLOOR_TTL_S = 100 * 86_400
 
 export const IMPORT_EVERY_S = 3600
@@ -45,13 +47,17 @@ export async function accountOwners(supabase: SupabaseClient, userId: string): P
   return owners
 }
 
-export async function platformBounds(supabase: SupabaseClient, userId: string, platform: Platform): Promise<Bounds | null> {
+export async function platformBounds(
+  supabase: SupabaseClient,
+  userId: string,
+  platform: Platform,
+  accountId?: string
+): Promise<Bounds | null> {
   const edge = async (ascending: boolean): Promise<number | null> => {
-    const { data, error } = await supabase
-      .from('games')
-      .select('played_at')
-      .eq('user_id', userId)
-      .eq('platform', platform)
+    const { data, error } = await onAccount(
+      supabase.from('games').select('played_at').eq('user_id', userId).eq('platform', platform),
+      accountId
+    )
       .not('played_at', 'is', null)
       .order('played_at', { ascending })
       .limit(1)
@@ -64,9 +70,10 @@ export async function platformBounds(supabase: SupabaseClient, userId: string, p
   return newest === null || oldest === null ? null : { newest, oldest }
 }
 
-export function gameRow(userId: string, g: ImportGame) {
+export function gameRow(userId: string, g: ImportGame, accountId?: string) {
   return {
     user_id: userId,
+    ...(accountId ? { account_id: accountId } : {}),
     pgn: g.pgn,
     platform: g.platform,
     platform_game_id: g.platform_game_id,
@@ -83,12 +90,17 @@ export function gameRow(userId: string, g: ImportGame) {
   }
 }
 
-export async function insertNewGames(supabase: SupabaseClient, userId: string, games: ImportGame[]): Promise<number> {
+export async function insertNewGames(
+  supabase: SupabaseClient,
+  userId: string,
+  games: ImportGame[],
+  accountId?: string
+): Promise<number> {
   let inserted = 0
   for (let i = 0; i < games.length; i += INSERT_CHUNK) {
     const { data, error } = await supabase
       .from('games')
-      .upsert(games.slice(i, i + INSERT_CHUNK).map((g) => gameRow(userId, g)), {
+      .upsert(games.slice(i, i + INSERT_CHUNK).map((g) => gameRow(userId, g, accountId)), {
         onConflict: 'platform,platform_game_id,user_id',
         ignoreDuplicates: true,
       })
@@ -105,17 +117,18 @@ export interface AccountImportArgs {
   userId: string
   platform: Platform
   username: string
+  accountId?: string
   deadline: number
   now?: () => number
   fetchWindow?: (w: FetchWindow) => Promise<WindowResult<ImportGame>>
 }
 
 export async function importAccountPlatform(a: AccountImportArgs): Promise<ImportResult> {
-  const key = floorKey(a.userId, a.platform)
+  const key = floorKey(a.userId, a.platform, a.accountId)
   return importPlatform({
     fetchWindow: a.fetchWindow ?? fetchWindowFor(a.platform, a.username),
-    bounds: () => platformBounds(a.supabase, a.userId, a.platform),
-    insert: (games) => insertNewGames(a.supabase, a.userId, games),
+    bounds: () => platformBounds(a.supabase, a.userId, a.platform, a.accountId),
+    insert: (games) => insertNewGames(a.supabase, a.userId, games, a.accountId),
     floorReached: async () => {
       try {
         return (await a.redis.get(key)) !== null
@@ -138,7 +151,7 @@ export async function importAccountPlatform(a: AccountImportArgs): Promise<Impor
 export async function fetchOlder(
   a: AccountImportArgs & { needed: number; filter: TimeControlFilter }
 ): Promise<{ inserted: number; complete: boolean }> {
-  const bounds = await platformBounds(a.supabase, a.userId, a.platform)
+  const bounds = await platformBounds(a.supabase, a.userId, a.platform, a.accountId)
   const { games, complete } = await (a.fetchWindow ?? fetchWindowFor(a.platform, a.username))({
     after: null,
     before: bounds ? bounds.oldest : null,
@@ -147,18 +160,19 @@ export async function fetchOlder(
     deadline: a.deadline,
     filter: a.filter,
   })
-  return { inserted: await insertNewGames(a.supabase, a.userId, games), complete }
+  return { inserted: await insertNewGames(a.supabase, a.userId, games, a.accountId), complete }
 }
 
 export async function nextBatchGames(
   supabase: SupabaseClient,
   userId: string,
-  batchSize: number
+  batchSize: number,
+  accountId?: string
 ): Promise<Array<{ id: string; user_rating_at_time: number | null }>> {
-  const { data, error } = await supabase
-    .from('games')
-    .select('id, user_rating_at_time')
-    .eq('user_id', userId)
+  const { data, error } = await onAccount(
+    supabase.from('games').select('id, user_rating_at_time').eq('user_id', userId),
+    accountId
+  )
     .eq('is_analyzed', false)
     .order('played_at', { ascending: false })
     .limit(batchSize)

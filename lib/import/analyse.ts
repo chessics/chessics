@@ -23,12 +23,12 @@ export async function batchFromLibrary(
     fetchFailed(err)
   }
 
-  let games = await nextBatchGames(a.supabase, a.userId, a.batchSize)
+  let games = await nextBatchGames(a.supabase, a.userId, a.batchSize, a.accountId)
   if (games.length < a.batchSize && !fetchError) {
     try {
       const older = await fetchOlder({ ...a, needed: a.batchSize - games.length, filter: a.filter })
       if (!older.complete) cut = true
-      if (older.inserted > 0) games = await nextBatchGames(a.supabase, a.userId, a.batchSize)
+      if (older.inserted > 0) games = await nextBatchGames(a.supabase, a.userId, a.batchSize, a.accountId)
     } catch (err) {
       fetchFailed(err)
     }

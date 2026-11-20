@@ -1,0 +1,113 @@
+.account-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.account-switcher-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.account-switcher select {
+  width: 100%;
+  max-width: 220px;
+  height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+}
+.account-switcher select:hover { border-color: var(--border-strong); }
+.account-switcher[data-pending] select { opacity: 0.6; }
+.account-switcher-error { font-size: 12px; color: var(--text); border-left: 2px solid var(--blunder); padding-left: 6px; }
+
+@media (max-width: 639px) {
+  .account-switcher {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 4px 6px;
+    margin-bottom: 2px;
+  }
+  .account-switcher select { flex: 1; max-width: none; }
+}
+
+.linked-accounts {
+  margin-top: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.linked-accounts-status { margin-top: 12px; font-size: 13px; color: var(--text-muted); }
+.linked-accounts-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.linked-accounts-list { margin-top: 12px; border-top: 1px solid var(--border); }
+.linked-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0 12px 12px;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
+}
+.linked-account[data-active] { border-left-color: var(--gold); }
+.linked-account-name { display: flex; flex: 1 1 9em; flex-direction: column; gap: 2px; min-width: 0; }
+.linked-account-username { font-size: 14px; overflow-wrap: break-word; }
+.linked-account-meta { font-size: 12px; color: var(--text-muted); }
+.linked-account-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.linked-account-confirm { font-size: 13px; }
+.linked-account:has(.linked-account-confirm) .linked-account-actions { flex-wrap: wrap; justify-content: flex-start; }
+
+.settings-action {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.settings-action:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-strong); }
+.settings-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.settings-action[data-pressed] { background: rgb(var(--accent-rgb) / 0.12); border-color: var(--border-strong); }
+.settings-action[data-tone='primary'] { color: var(--on-accent); background: var(--gold); border-color: transparent; }
+.settings-action[data-tone='primary']:hover:not(:disabled) { background: var(--gold); opacity: 0.9; }
+.settings-action[data-tone='danger'] { color: var(--on-accent); background: var(--blunder); border-color: transparent; }
+
+.linked-accounts-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.linked-accounts-platforms { display: flex; gap: 4px; }
+.linked-accounts-input {
+  flex: 1;
+  min-width: 160px;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.linked-accounts-input::placeholder { color: var(--text-muted); }
+.linked-accounts-input:focus { border-color: var(--border-strong); }
+.linked-accounts-message { min-height: 1.25em; margin-top: 10px; font-size: 13px; }
+.linked-accounts-message[data-tone='error'] { border-left: 2px solid var(--blunder); padding-left: 8px; }
+.linked-accounts-message:empty { margin-top: 0; }

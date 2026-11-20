@@ -8,6 +8,9 @@ import { Redis } from '@upstash/redis'
 import type { GuestSessionResult } from '@/types/guest'
 import { checkLimits, RATE_LIMITS, tooManyRequests, userKey } from '@/lib/ratelimit'
 import { trackSignup } from '@/lib/analytics/track'
+import { linkedAccountsEnabled } from '@/lib/flags'
+import { linkAccount, listAccounts } from '@/lib/accounts/store'
+import { isAccountPlatform, syncTarget } from '@/lib/accounts/rules'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -122,9 +125,25 @@ async function transfer(sessionToken: string, userId: string, supabase: UserClie
   const guestResult: GuestSessionResult =
     typeof raw === 'string' ? JSON.parse(raw) : (raw as GuestSessionResult)
 
+  const accountFor = new Map<string, string>()
   for (const platform of Array.from(new Set(guestResult.games.map(g => g.platform)))) {
     const guestName = ownerName(guestResult.games as GameForName[], platform)
     if (!guestName) continue
+    if (linkedAccountsEnabled()) {
+      if (!isAccountPlatform(platform)) continue
+      try {
+        const target = syncTarget(await listAccounts(supabase, userId), platform, guestName)
+        if (target.kind === 'foreign') return NextResponse.json({ error: 'not_your_games' }, { status: 403 })
+        const account = target.kind === 'linked'
+          ? target.account
+          : (await linkAccount(supabase, userId, platform, guestName)).account
+        accountFor.set(platform, account.id)
+      } catch (err) {
+        console.error('[transfer] linked accounts:', err)
+        return failed('read linked accounts')
+      }
+      continue
+    }
     const { data: earliest, error: ownerError } = await supabase
       .from('games')
       .select('pgn, platform, user_color')
@@ -161,6 +180,7 @@ async function transfer(sessionToken: string, userId: string, supabase: UserClie
         .upsert(
           {
             user_id: userId,
+            ...(accountFor.has(guestGame.platform) ? { account_id: accountFor.get(guestGame.platform) } : {}),
             pgn: guestGame.pgn,
             platform: guestGame.platform,
             platform_game_id: guestGame.platform_game_id,

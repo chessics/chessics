@@ -116,6 +116,7 @@ interface AnalysisJob {
   queuedAt: string
   retryCount?: number
   gameId?: string | null
+  accountId?: string | null
 }
 
 interface GuestGameResult {
@@ -274,6 +275,34 @@ async function processGuestJob(job: AnalysisJob): Promise<void> {
   console.log(`Guest job ${job.jobId} complete.`)
 }
 
+async function previousBatch(
+  userId: string,
+  accountId: string | null
+): Promise<{ id: string; overall_accuracy: number | null } | null> {
+  if (!accountId) {
+    const { data } = await supabase
+      .from('batch_reports')
+      .select('id, overall_accuracy')
+      .eq('user_id', userId)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return data ?? null
+  }
+  const { data: reports } = await supabase
+    .from('batch_reports')
+    .select('id, overall_accuracy, game_ids')
+    .eq('user_id', userId)
+    .order('generated_at', { ascending: false })
+    .limit(30)
+  const firsts = (reports ?? []).map((r) => (Array.isArray(r.game_ids) ? r.game_ids[0] : null)).filter((g): g is string => !!g)
+  if (firsts.length === 0) return null
+  const { data: owned } = await supabase.from('games').select('id').in('id', firsts).eq('account_id', accountId)
+  const mine = new Set((owned ?? []).map((g) => g.id as string))
+  const hit = (reports ?? []).find((r) => Array.isArray(r.game_ids) && mine.has(r.game_ids[0]))
+  return hit ? { id: hit.id, overall_accuracy: hit.overall_accuracy } : null
+}
+
 async function processAuthJob(job: AnalysisJob): Promise<void> {
   const { userId } = job
   if (!userId) throw new Error('Auth job missing userId')
@@ -314,13 +343,7 @@ async function processAuthJob(job: AnalysisJob): Promise<void> {
       ? Math.round(gameAccuracies.reduce((sum, a) => sum + a, 0) / gameAccuracies.length)
       : null
 
-  const { data: prevBatch } = await supabase
-    .from('batch_reports')
-    .select('id, overall_accuracy')
-    .eq('user_id', userId)
-    .order('generated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const prevBatch = await previousBatch(userId, job.accountId ?? null)
 
   const accuracyDelta =
     prevBatch && prevBatch.overall_accuracy !== null && overallAccuracy !== null
@@ -329,7 +352,7 @@ async function processAuthJob(job: AnalysisJob): Promise<void> {
 
   let trajectoryInput: BatchNarrativeInput['trajectory'] = null
   const headlineGroup = groups.find(g => g.frequency >= RECURRING_THRESHOLD) ?? null
-  if (prevBatch && headlineGroup) {
+  if (prevBatch && headlineGroup && !job.accountId) {
     const { data: existingPattern } = await supabase
       .from('user_patterns')
       .select('batch_history')

@@ -1,3 +1,6 @@
+import { accountScope, scopeAccountId } from '@/lib/accounts/active'
+import { accountGameIds } from '@/lib/accounts/store'
+import { onAccount } from '@/lib/accounts/rules'
 import { NextResponse, type NextRequest } from 'next/server'
 import { loadPositionHistory } from '@/lib/training/position-history'
 import { positionReturn } from '@/lib/training/summary'
@@ -278,7 +281,12 @@ export async function POST(
 
   const [history, recurrence] = await Promise.all([
     loadPositionHistory(supabase, user.id, params.id),
-    position.tag && position.span_plies !== 0 ? buildRecurrence(supabase, user.id, position.tag, priorExposures) : null,
+    position.tag && position.span_plies !== 0
+      ? buildRecurrence(supabase, user.id, position.tag, priorExposures).catch((err) => {
+          console.error('[commit] recurrence:', err)
+          return null
+        })
+      : null,
   ])
 
   return NextResponse.json(
@@ -321,16 +329,19 @@ async function buildRecurrence(
   tag: string,
   priorExposures: number
 ) {
+  const accountId = scopeAccountId(await accountScope(supabase, userId))
+  const own = accountId ? await accountGameIds(supabase, userId, accountId) : null
+  if (own?.error) throw new Error(`account games: ${own.error.message}`)
   const [positions, analysed] = await Promise.all([
     allRows<RecurrenceRow>((from, to) =>
       supabase.from('training_positions').select(RECURRENCE_SELECT).order('id', { ascending: true }).range(from, to)
     ),
     allRows<{ id: string }>((from, to) =>
-      supabase.from('games').select('id').eq('user_id', userId).eq('is_analyzed', true).order('id', { ascending: true }).range(from, to)
+      onAccount(supabase.from('games').select('id').eq('user_id', userId), accountId).eq('is_analyzed', true).order('id', { ascending: true }).range(from, to)
     ),
   ])
 
-  const rows = (positions.data ?? []) as RecurrenceRow[]
+  const rows = ((positions.data ?? []) as RecurrenceRow[]).filter(r => accountId === undefined || (own?.ids.has(r.game_id) ?? false))
   const withTag = gamesWithTag(rows, tag)
 
   const analysedGames = new Set<string>([

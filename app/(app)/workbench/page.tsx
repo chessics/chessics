@@ -9,6 +9,8 @@ import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
 import SignedOut from '@/components/layout/SignedOut'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { trajectoriesWithHistory } from '@/lib/workbench/trajectory'
+import { accountScope } from '@/lib/accounts/active'
+import { batchReportsForAccount } from '@/lib/accounts/batches'
 
 export const metadata: Metadata = { title: 'Report' }
 
@@ -29,6 +31,29 @@ export default async function WorkbenchPage() {
   if (session) {
     const userId = session.user.id
 
+    const scope = await accountScope(supabase, userId).catch((err) => {
+      console.error('[workbench] linked accounts:', err)
+      return null
+    })
+
+    if (scope === null) {
+      loadFailed = true
+    } else if (scope.scoped) {
+      const own = await batchReportsForAccount(supabase, userId, scope.active?.id ?? null)
+      const latestId = own.data[0]?.id
+      const batchResult = latestId
+        ? await supabase.from('batch_reports').select('*').eq('id', latestId).maybeSingle()
+        : { data: null, error: null }
+      loadFailed = !!own.error || !!batchResult.error
+      latestBatch = (batchResult.data ?? null) as BatchReport | null
+      allBatches = [...own.data].reverse().map(({ overall_accuracy, generated_at }) => ({ overall_accuracy, generated_at }))
+      if (scope.accounts.length <= 1) {
+        const patternsResult = await supabase.from('user_patterns').select('pattern_type, trajectory, batch_history').eq('user_id', userId)
+        trajectories = trajectoriesWithHistory(
+          (patternsResult.data ?? []) as Pick<UserPattern, 'pattern_type' | 'trajectory' | 'batch_history'>[]
+        )
+      }
+    } else {
     const [batchResult, patternsResult, allBatchesResult] = await Promise.all([
       supabase
         .from('batch_reports')
@@ -53,6 +78,7 @@ export default async function WorkbenchPage() {
       (patternsResult.data ?? []) as Pick<UserPattern, 'pattern_type' | 'trajectory' | 'batch_history'>[]
     )
     allBatches = allBatchesResult.data ?? []
+    }
 
     const ids = latestBatch?.game_ids ?? []
     if (latestBatch && ids.length > 0) {

@@ -7,6 +7,8 @@ import AutoImport from '@/components/workbench/AutoImport'
 import { autoImportEnabled, playerLookupEnabled } from '@/lib/flags'
 import PlayerLookupButton from '@/components/games/PlayerLookupButton'
 import SignedOut from '@/components/layout/SignedOut'
+import { accountScope, scopeAccountId } from '@/lib/accounts/active'
+import { onAccount } from '@/lib/accounts/rules'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { countNoun } from '@/lib/count-noun'
 import { withAccuracy, type GameWithAccuracy, type GameWithEmbeddedAnalysis } from '@/lib/games/accuracy'
@@ -32,14 +34,24 @@ export default async function GamesPage() {
 
   const userId = session.user.id
 
-  const { data: games, error } = await allRows<GameWithEmbeddedAnalysis>((from, to) =>
-    supabase
-      .from('games')
-      .select(`
+  const scope = await accountScope(supabase, userId).catch((err) => {
+    console.error('[games] linked accounts:', err)
+    return null
+  })
+  const accountId = scope ? scopeAccountId(scope) : undefined
+  const { data: games, error } = scope === null
+    ? { data: [] as GameWithEmbeddedAnalysis[], error: { message: 'linked accounts read failed' } }
+    : await allRows<GameWithEmbeddedAnalysis>((from, to) =>
+    onAccount(
+      supabase
+        .from('games')
+        .select(`
       *,
       game_analyses(overall_accuracy)
     `)
-      .eq('user_id', userId)
+        .eq('user_id', userId),
+      accountId
+    )
       .order('played_at', { ascending: false })
       .order('id', { ascending: true })
       .range(from, to)

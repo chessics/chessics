@@ -2,6 +2,7 @@
 
 import { Bell, Crosshair, LayoutGrid, Palette, Search, Shield, User, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import LinkedAccountsPanel from '@/components/accounts/LinkedAccountsPanel'
 import './settings.css'
 
 type Row = {
@@ -126,7 +127,17 @@ const SECTIONS: Section[] = [
   },
 ]
 
-export default function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+const LINKED_ACCOUNT_ROWS = new Set(['Chess.com username', 'Lichess username'])
+
+export default function SettingsDialog({
+  open,
+  onClose,
+  linkedAccounts = false,
+}: {
+  open: boolean
+  onClose: () => void
+  linkedAccounts?: boolean
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [active, setActive] = useState(SECTIONS[0].id)
   const [query, setQuery] = useState('')
@@ -216,9 +227,14 @@ export default function SettingsDialog({ open, onClose }: { open: boolean; onClo
 
             <section className="settings-content" aria-label={section.heading}>
               <h3>{section.heading}</h3>
-              <p className="settings-note">These settings aren’t built yet.</p>
+              {section.id === 'account' && linkedAccounts && <LinkedAccountsPanel />}
+              <p className="settings-note">
+                {section.id === 'account' && linkedAccounts ? 'The settings below aren’t built yet.' : 'These settings aren’t built yet.'}
+              </p>
               <ul className="settings-rows">
-                {section.rows.map((row) => (
+                {section.rows
+                  .filter((row) => !(section.id === 'account' && linkedAccounts && LINKED_ACCOUNT_ROWS.has(row.label)))
+                  .map((row) => (
                   <li key={row.label} className="settings-row">
                     <div>
                       <p className="settings-row-label">{row.label}</p>

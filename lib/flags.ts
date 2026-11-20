@@ -10,6 +10,7 @@ export const FLAGS = {
   reasonGate: false,
   standaloneBlunderPositions: false,
   waitingPuzzles: true,
+  linkedAccounts: false,
   autoImport: true,
   playerLookup: true,
   sharePositions: false,
@@ -27,6 +28,11 @@ export function reasonGateEnabled(
 export function standaloneBlunderPositionsEnabled(env: Record<string, string | undefined> = process.env): boolean {
   if (env.STANDALONE_BLUNDER_POSITIONS === 'on') return true
   return FLAGS.standaloneBlunderPositions
+}
+
+export function linkedAccountsEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.LINKED_ACCOUNTS === 'on') return true
+  return FLAGS.linkedAccounts
 }
 
 export function autoImportEnabled(env: Record<string, string | undefined> = process.env): boolean {

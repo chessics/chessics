@@ -1,15 +1,23 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { countNoun } from '@/lib/count-noun'
 import { formatTimeControl } from '@/lib/review/time-control'
 import {
+  familiesIn,
+  filterGames,
   LOOKUP_FIRST_ROWS,
   lookupMessage,
+  NO_FILTERS,
   noGamesLine,
   platformName,
+  recordLine,
+  speedsIn,
   type LookedUpGame,
+  type LookupFilters,
   type LookupPlatform,
+  type Speed,
 } from '@/lib/games/player-lookup'
 import { RESULT_BADGE } from '@/components/workbench/GamesLibraryClient'
 
@@ -68,14 +76,25 @@ function Badge({ result }: { result: LookedUpGame['result'] }) {
   )
 }
 
-export function PlayerGamesList({ result, shown }: { result: LookupResult; shown: number }) {
+export function PlayerGamesList({
+  result,
+  games = result.games,
+  shown,
+}: {
+  result: LookupResult
+  games?: readonly LookedUpGame[]
+  shown: number
+}) {
   const site = platformName(result.platform)
   if (result.games.length === 0) {
     return <p className="lookup-note">{noGamesLine(result.username)}</p>
   }
+  if (games.length === 0) {
+    return <p className="lookup-note">No games match these filters.</p>
+  }
   return (
     <div className="lookup-list">
-      {result.games.slice(0, shown).map((g) => (
+      {games.slice(0, shown).map((g) => (
         <a
           key={`${g.platform}:${g.id}`}
           href={g.url}
@@ -108,16 +127,62 @@ export function PlayerGamesList({ result, shown }: { result: LookupResult; shown
   )
 }
 
+const SPEED_WORD: Record<Speed, string> = { bullet: 'Bullet', blitz: 'Blitz', rapid: 'Rapid' }
+
+export function summaryLine(all: readonly LookedUpGame[], shown: readonly LookedUpGame[]): string {
+  const head = shown.length === all.length ? `${countNoun(all.length, 'game')} from the last 3 months` : `${shown.length} of ${countNoun(all.length, 'game')}`
+  return `${head}: ${recordLine(shown)}.`
+}
+
+function FilterGroup<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: ReadonlyArray<{ value: T; text: string }>
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div role="group" aria-label={label} className="lookup-filter-group">
+      {options.map((o) => (
+        <button key={o.value} type="button" className="games-filter" aria-pressed={value === o.value} onClick={() => onChange(o.value)}>
+          {o.text}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
   const [platform, setPlatform] = useState<LookupPlatform>('chess_com')
   const [username, setUsername] = useState('')
   const [state, setState] = useState<State>({ phase: 'idle' })
+  const [looking, setLooking] = useState<{ username: string; platform: LookupPlatform } | null>(null)
+  const [filters, setFilters] = useState<LookupFilters>(NO_FILTERS)
   const [shown, setShown] = useState(LOOKUP_FIRST_ROWS)
   const [announcement, setAnnouncement] = useState('')
   const inFlight = useRef<AbortController | null>(null)
   const input = useRef<HTMLInputElement>(null)
+  const resultHeading = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => () => inFlight.current?.abort(), [])
+
+  const result = state.phase === 'done' ? state.result : null
+  const filtered = useMemo(() => (result ? filterGames(result.games, filters) : []), [result, filters])
+  const speeds = useMemo(() => (result ? speedsIn(result.games) : []), [result])
+  const families = useMemo(() => (result ? familiesIn(result.games) : []), [result])
+
+  useEffect(() => {
+    if (result) resultHeading.current?.focus()
+  }, [result])
+
+  function setFilter(next: Partial<LookupFilters>) {
+    setFilters((f) => ({ ...f, ...next }))
+    setShown(LOOKUP_FIRST_ROWS)
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -127,6 +192,8 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
     const controller = new AbortController()
     inFlight.current = controller
     setState({ phase: 'loading' })
+    setLooking({ username: name, platform })
+    setFilters(NO_FILTERS)
     setShown(LOOKUP_FIRST_ROWS)
     setAnnouncement('')
     try {
@@ -137,7 +204,7 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
         setAnnouncement(
           out.result.games.length === 0
             ? noGamesLine(out.result.username)
-            : `${countNoun(out.result.games.length, 'game')} found for ${out.result.username}.`
+            : `Found ${countNoun(out.result.games.length, 'game')} for ${out.result.username}.`
         )
       } else {
         setState({ phase: 'failed', message: out.message })
@@ -150,11 +217,12 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
   function clear() {
     inFlight.current?.abort()
     setState({ phase: 'idle' })
+    setFilters(NO_FILTERS)
     setAnnouncement('')
     input.current?.focus()
   }
 
-  const result = state.phase === 'done' ? state.result : null
+  const filtersSet = filters.speed !== 'all' || filters.color !== 'all' || filters.family !== 'all'
 
   return (
     <section className={bare ? 'lookup lookup-bare' : 'lookup'} aria-labelledby="lookup-heading">
@@ -194,7 +262,13 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
           {state.phase === 'loading' ? 'Looking…' : 'Look up'}
         </button>
       </form>
-      <p className="lookup-note">Their last 3 months of rapid and blitz games. Nothing is saved to your account.</p>
+
+      {state.phase === 'idle' && <p className="lookup-note">Shows their bullet, blitz and rapid games from the last 3 months.</p>}
+      {state.phase === 'loading' && looking && (
+        <p className="lookup-note lookup-status">
+          Looking up {looking.username} on {platformName(looking.platform)}…
+        </p>
+      )}
 
       <p className="sr-only" aria-live="polite">
         {announcement}
@@ -205,7 +279,7 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
       {result && (
         <div className="lookup-result">
           <div className="lookup-result-head">
-            <h3 className="lookup-result-name">
+            <h3 ref={resultHeading} tabIndex={-1} className="lookup-result-name focus-landing">
               {result.username}
               <span className="lookup-result-site"> · {platformName(result.platform)}</span>
             </h3>
@@ -213,10 +287,56 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
               Clear
             </button>
           </div>
-          <PlayerGamesList result={result} shown={shown} />
-          {result.games.length > shown && (
-            <button type="button" className="games-filter lookup-more" onClick={() => setShown(result.games.length)}>
-              Show {result.games.length - shown} more
+
+          {result.games.length > 0 && (
+            <>
+              <p className="lookup-summary">{summaryLine(result.games, filtered)}</p>
+              <div className="lookup-filters">
+                {speeds.length > 1 && (
+                  <FilterGroup<Speed | 'all'>
+                    label="Filter by speed"
+                    value={filters.speed}
+                    onChange={(speed) => setFilter({ speed })}
+                    options={[{ value: 'all', text: 'All speeds' }, ...speeds.map((sp) => ({ value: sp, text: SPEED_WORD[sp] }))]}
+                  />
+                )}
+                <FilterGroup<'all' | 'white' | 'black'>
+                  label="Filter by color"
+                  value={filters.color}
+                  onChange={(color) => setFilter({ color })}
+                  options={[
+                    { value: 'all', text: 'Both colors' },
+                    { value: 'white', text: 'White' },
+                    { value: 'black', text: 'Black' },
+                  ]}
+                />
+                {families.length > 0 && (
+                  <label className="lookup-select">
+                    <span className="sr-only">Filter by opening</span>
+                    <select value={filters.family} onChange={(e) => setFilter({ family: e.target.value })}>
+                      <option value="all">All openings</option>
+                      {families.map((f) => (
+                        <option key={f.family} value={f.family}>
+                          {f.family} ({f.count})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} aria-hidden />
+                  </label>
+                )}
+                {filtersSet && (
+                  <button type="button" className="games-filter" onClick={() => setFilter(NO_FILTERS)}>
+                    Reset
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          <PlayerGamesList result={result} games={filtered} shown={shown} />
+          {filtered.length > shown && (
+            <button type="button" className="games-filter lookup-more" onClick={() => setShown(filtered.length)}>
+              Show {filtered.length - shown} more
             </button>
           )}
         </div>

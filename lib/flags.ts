@@ -11,6 +11,7 @@ export const FLAGS = {
   standaloneBlunderPositions: false,
   waitingPuzzles: true,
   autoImport: true,
+  playerLookup: true,
   sharePositions: false,
 } as const
 
@@ -31,6 +32,11 @@ export function standaloneBlunderPositionsEnabled(env: Record<string, string | u
 export function autoImportEnabled(env: Record<string, string | undefined> = process.env): boolean {
   if (env.AUTO_IMPORT === 'off') return false
   return FLAGS.autoImport
+}
+
+export function playerLookupEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.PLAYER_LOOKUP === 'off') return false
+  return FLAGS.playerLookup
 }
 
 export function sharePositionsEnabled(

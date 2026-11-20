@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { allRows } from '@/lib/supabase/row-cap'
 import GamesLibraryClient from '@/components/workbench/GamesLibraryClient'
 import AutoImport from '@/components/workbench/AutoImport'
-import { autoImportEnabled } from '@/lib/flags'
+import { autoImportEnabled, playerLookupEnabled } from '@/lib/flags'
+import PlayerLookup from '@/components/games/PlayerLookup'
 import SignedOut from '@/components/layout/SignedOut'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { countNoun } from '@/lib/count-noun'
@@ -69,6 +70,8 @@ export default async function GamesPage() {
           </Link>
         )}
       </div>
+
+      {playerLookupEnabled() && <PlayerLookup />}
 
       {error ? (
         <LoadFailed what="Your games" href="/games" />

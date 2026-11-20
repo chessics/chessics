@@ -509,3 +509,87 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   .games-label-full { display: none; }
   .games-label-short { display: inline; }
 }
+
+.lookup {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.lookup-heading { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+.lookup-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.lookup-platforms { display: flex; gap: 3px; }
+.lookup-input {
+  flex: 1 1 180px;
+  max-width: 280px;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  outline: none;
+}
+.lookup-input::placeholder { color: var(--text-muted); }
+.lookup-form .editorial-action[aria-disabled='true'] { cursor: default; opacity: 0.7; }
+.lookup-note { margin-top: 8px; font-size: 13px; color: var(--text-muted); }
+.lookup-error {
+  margin-top: 10px;
+  padding-left: 10px;
+  font-size: 13px;
+  color: var(--text);
+  border-left: 2px solid var(--oxblood);
+}
+.lookup-result { margin-top: 16px; }
+.lookup-result-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.lookup-result-name { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.lookup-result-site { font-weight: 400; color: var(--text-muted); }
+.lookup-list { border-block: 1px solid var(--border); }
+.lookup-list > a + a { border-top: 1px solid var(--border); }
+.lookup-more { margin-top: 6px; }
+.lookup-grid {
+  display: grid;
+  grid-template-columns: 90px 28px 56px minmax(80px, 180px) minmax(0, 1fr) 64px 96px;
+  align-items: center;
+  column-gap: 8px;
+  padding: 10px 16px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+}
+.lookup-badge {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  line-height: 20px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid;
+}
+.lookup-cell-date, .lookup-cell-time { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }
+.lookup-cell-color { font-size: 12px; color: var(--text-muted); }
+.lookup-cell-opponent { color: var(--text); overflow-wrap: anywhere; min-width: 0; }
+.lookup-rating { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.lookup-cell-opening { font-size: 12px; color: var(--text-dim); overflow-wrap: anywhere; min-width: 0; }
+.lookup-cell-action { justify-self: end; font-size: 12px; color: var(--brass); white-space: nowrap; }
+@media (max-width: 767px) {
+  .lookup-input { max-width: none; }
+  .lookup-grid {
+    grid-template-columns: 28px auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'result opponent opponent color'
+      'result date time action'
+      '. opening opening opening';
+    column-gap: 6px;
+    row-gap: 4px;
+    padding: 10px 12px;
+  }
+  .lookup-cell-result { grid-area: result; align-self: start; }
+  .lookup-cell-opponent { grid-area: opponent; }
+  .lookup-cell-color { grid-area: color; justify-self: end; }
+  .lookup-cell-date { grid-area: date; }
+  .lookup-cell-time { grid-area: time; padding-left: 10px; }
+  .lookup-cell-action { grid-area: action; }
+  .lookup-cell-opening { grid-area: opening; }
+  .lookup-cell-opening[data-empty] { display: none; }
+}

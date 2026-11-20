@@ -123,6 +123,7 @@ export default function Gallery() {
                     {/* eslint-disable-next-line @next/next/no-img-element -- art-directed <picture>; next/image cannot switch crops by media query */}
                     <img
                       className={styles.painting}
+                      draggable={false}
                       src={`/landing/${slide.id}-desktop-1920.webp`}
                       srcSet={srcSet(slide.id, 'desktop', 'webp', slide.desktop.sizes)}
                       sizes="100vw"

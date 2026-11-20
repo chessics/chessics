@@ -17,6 +17,7 @@
 .hero { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: 620px; min-height: max(620px, 100svh); isolation: isolate; }
 
 .frame { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--ink); container-type: size; }
+.frame { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.8s var(--ease-in-out);
   --ar: var(--d-ar); --ax: var(--d-ax); --ay: var(--d-ay); --bx: var(--d-bx); --by: var(--d-by); }
 .slide[data-phase='shown'] { opacity: 1; }
@@ -28,7 +29,7 @@
   transform-origin: var(--x) var(--y); }
 .slide[data-phase='shown'] .art, .slide[data-phase='leaving'] .art { animation: zoom-out 10.6s cubic-bezier(.33, 0, .2, 1) both; }
 .frame[data-paused] .art { animation-play-state: paused; }
-.painting { display: block; width: 100%; height: 100%; object-fit: cover; object-position: calc(var(--ax) * 100%) calc(var(--ay) * 100%); animation: lights-up .9s var(--ease-out) both; }
+.painting { -webkit-user-drag: none; display: block; width: 100%; height: 100%; object-fit: cover; object-position: calc(var(--ax) * 100%) calc(var(--ay) * 100%); animation: lights-up .9s var(--ease-out) both; }
 @keyframes lights-up { from { opacity: 0; } }
 @keyframes zoom-out { from { transform: scale(1.06); } to { transform: scale(1); } }
 

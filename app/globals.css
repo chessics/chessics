@@ -42,8 +42,8 @@
 :root[data-theme='light'] {
   --bg: #e8d8ac;
   --surface: #f1e5c3;
-  --surface-2: #f5ebcf;
-  --surface-3: #f9f2de;
+  --surface-2: #e4d4a7;
+  --surface-3: #e1d0a0;
   --text: #25231e;
   --text-rgb: 37 35 30;
   --text-muted: #5e5640;
@@ -67,8 +67,8 @@
   :root:not([data-theme='dark']) {
     --bg: #e8d8ac;
     --surface: #f1e5c3;
-    --surface-2: #f5ebcf;
-    --surface-3: #f9f2de;
+    --surface-2: #e4d4a7;
+    --surface-3: #e1d0a0;
     --text: #25231e;
     --text-rgb: 37 35 30;
     --text-muted: #5e5640;

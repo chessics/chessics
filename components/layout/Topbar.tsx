@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import SectionLinks from './SectionLinks'
+import SettingsMenu from './SettingsMenu'
 import ThemeToggle from './ThemeToggle'
 
 export default function Topbar({ signedIn }: { signedIn: boolean }) {
@@ -39,6 +40,9 @@ export default function Topbar({ signedIn }: { signedIn: boolean }) {
 
       <div className="flex items-center gap-3">
         <ThemeToggle />
+        <div className="sm:hidden">
+          <SettingsMenu />
+        </div>
         {signedIn ? (
           <button
             onClick={handleSignOut}

@@ -32,6 +32,10 @@ export function attempt(state: PlayState, uci: string): PlayState {
   return verdict === 'solved' ? { ...base, status: 'solved', lit: moved.to } : { ...base, status: 'replying' }
 }
 
+export function rejects(state: PlayState, uci: string): boolean {
+  return attempt(state, uci).fen === state.fen
+}
+
 export function reply(state: PlayState): PlayState {
   if (state.status !== 'replying') return state
   const uci = state.puzzle.solution[state.played]

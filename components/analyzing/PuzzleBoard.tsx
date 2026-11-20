@@ -16,7 +16,7 @@ import {
   legalDests,
   type KeyboardState,
 } from '@/lib/training/keyboard-board'
-import type { PlayState } from '@/lib/puzzles/play'
+import { rejects, type PlayState } from '@/lib/puzzles/play'
 
 const MOVE_ANIMATION_MS = 200
 const SETTLE_MS = MOVE_ANIMATION_MS + 60
@@ -90,9 +90,12 @@ export default function PuzzleBoard({ state, size, onMove, onAnnounce }: PuzzleB
           events: {
             after: (orig: Key, dest: Key) => {
               const now = latest.current.state
-              latest.current.onMove(arrowUci(arrowFromMove(now.fen, orig, dest)))
-              setTimeout(() => sync(), 0)
-              setTimeout(() => sync(), SETTLE_MS)
+              const uci = arrowUci(arrowFromMove(now.fen, orig, dest))
+              latest.current.onMove(uci)
+              if (rejects(now, uci)) {
+                setTimeout(() => sync(), 0)
+                setTimeout(() => sync(), SETTLE_MS)
+              }
             },
           },
         },

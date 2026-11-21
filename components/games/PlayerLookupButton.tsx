@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import PlayerLookup from './PlayerLookup'
+import { useScrollLock } from '@/lib/scroll-lock'
 import '@/components/layout/settings.css'
 
 export default function PlayerLookupButton() {
@@ -12,6 +13,7 @@ export default function PlayerLookupButton() {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => setMounted(true), [])
+  useScrollLock(open)
 
   useEffect(() => {
     const dialog = dialogRef.current

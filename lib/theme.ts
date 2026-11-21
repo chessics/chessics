@@ -19,3 +19,28 @@ export function currentTheme(root: HTMLElement, prefersLight: boolean): Theme {
 export function otherTheme(theme: Theme): Theme {
   return theme === 'light' ? 'dark' : 'light'
 }
+
+export type ThemeChoice = 'system' | Theme
+
+export function storedThemeChoice(storage: Pick<Storage, 'getItem'> | null): ThemeChoice {
+  try {
+    const t = storage?.getItem(THEME_STORAGE_KEY)
+    return isTheme(t) ? t : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+export function applyThemeChoice(
+  choice: ThemeChoice,
+  root: HTMLElement,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | null
+): void {
+  if (choice === 'system') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', choice)
+  try {
+    if (choice === 'system') storage?.removeItem(THEME_STORAGE_KEY)
+    else storage?.setItem(THEME_STORAGE_KEY, choice)
+  } catch {
+  }
+}

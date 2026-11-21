@@ -8,6 +8,7 @@ import { autoImportEnabled, playerLookupEnabled } from '@/lib/flags'
 import PlayerLookupButton from '@/components/games/PlayerLookupButton'
 import SignedOut from '@/components/layout/SignedOut'
 import { accountScope, scopeAccountId } from '@/lib/accounts/active'
+import AccountSwitcher from '@/components/accounts/AccountSwitcher'
 import { onAccount } from '@/lib/accounts/rules'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { countNoun } from '@/lib/count-noun'
@@ -74,12 +75,20 @@ export default async function GamesPage() {
               {countNoun(flatGames.length, 'game')} · {analysed} analyzed
             </p>
           )}
+          {scope?.scoped && scope.accounts.length > 1 && (
+            <div className="mt-2">
+              <AccountSwitcher
+                accounts={scope.accounts.map(({ id, platform, username }) => ({ id, platform, username }))}
+                activeId={scope.active?.id ?? null}
+              />
+            </div>
+          )}
         </div>
 
         <div className="collection-actions">
           {playerLookupEnabled() && <PlayerLookupButton />}
           {!error && flatGames.length > 0 && (
-            <Link href="/" className="editorial-action">
+            <Link href="/analyze" className="editorial-action">
               Analyze games
             </Link>
           )}
@@ -97,10 +106,10 @@ export default async function GamesPage() {
             No games yet.
           </p>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Enter your Chess.com or Lichess username on the start page to analyze your last games.
+            Add your Chess.com or Lichess username and analyze your last games.
           </p>
           <Link
-            href="/"
+            href="/analyze"
             className="px-5 py-2.5 text-sm font-medium"
             style={{ background: 'var(--gold)', color: 'var(--bg)', textDecoration: 'none' }}
           >

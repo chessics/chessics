@@ -8,9 +8,11 @@ import SettingsDialog from './SettingsDialog'
 export default function SettingsMenu({
   variant = 'icon',
   linkedAccounts = false,
+  signedIn = false,
 }: {
   variant?: 'icon' | 'sidebar'
   linkedAccounts?: boolean
+  signedIn?: boolean
 }) {
   const inSidebar = variant === 'sidebar'
   const [open, setOpen] = useState(false)
@@ -40,7 +42,7 @@ export default function SettingsMenu({
         <Settings size={inSidebar ? 16 : 14} aria-hidden />
         {inSidebar && 'Settings'}
       </button>
-      {mounted && createPortal(<SettingsDialog open={open} onClose={() => setOpen(false)} linkedAccounts={linkedAccounts} />, document.body)}
+      {mounted && createPortal(<SettingsDialog open={open} onClose={() => setOpen(false)} linkedAccounts={linkedAccounts} signedIn={signedIn} />, document.body)}
     </>
   )
 }

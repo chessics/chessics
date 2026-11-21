@@ -13,6 +13,7 @@ import { Chess } from 'chess.js'
 import type { BoardShape } from './ChessBoard'
 import { costlyMoment, keyMoment, keyMomentSentences, keyMomentTitle, type KeyMoment } from '@/lib/review/key-moment'
 import { missedChances } from '@/lib/review/missed-chances'
+import { mistakePlies, moveNote, stepMistake } from '@/lib/review/move-note'
 import { turningMoveWhy } from '@/lib/review/turning-move-why'
 import { bringBoardIntoView } from '@/lib/review/board-into-view'
 import { groupChains, groupSentence, middleLabel } from '@/lib/review/chain-groups'
@@ -434,6 +435,8 @@ export default function GameReviewClient({
   const takeOverLink = takeOverHref(takeOver, game.id, currentPly, playable)
   const judgedMoves = useMemo(() => withJudgement(moves), [moves])
   const chances = useMemo(() => missedChances(moves, game.user_color), [moves, game.user_color])
+  const chancePlies = useMemo(() => new Set(chances.map((c) => c.replyPly)), [chances])
+  const mistakes = useMemo(() => mistakePlies(judgedMoves, game.user_color, chancePlies), [judgedMoves, game.user_color, chancePlies])
   const timeBars = useMemo(
     () =>
       clock
@@ -548,6 +551,23 @@ export default function GameReviewClient({
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  const judgedSelected = selectedPly > 0 ? judgedMoves[selectedPly - 1] : undefined
+  const note =
+    judgedSelected && analysis
+      ? moveNote({
+          move: judgedSelected,
+          userColor: game.user_color,
+          spentMs: clock?.spent.get(judgedSelected.ply_number),
+          missedChance: chancePlies.has(judgedSelected.ply_number),
+        })
+      : null
+  const prevMistake = stepMistake(mistakes, selectedPly, -1)
+  const nextMistake = stepMistake(mistakes, selectedPly, 1)
+  const goToMistake = (ply: number | null) => {
+    if (ply === null) return
+    showPositionBefore(ply, 'chain_blunder')
+  }
 
   return (
     <div
@@ -711,6 +731,26 @@ export default function GameReviewClient({
 
         <p className="review-position" aria-live="polite">{positionLabel}</p>
 
+        {note && (
+          <div className="review-note" data-tone={note.tone} aria-live="polite">
+            <p className="review-note-title">{note.title}</p>
+            <p className="review-note-text">{note.text}</p>
+          </div>
+        )}
+        {mistakes.length > 0 && (
+          <div className="review-mistake-steps" role="group" aria-label="Step through your mistakes">
+            <button type="button" onClick={() => goToMistake(prevMistake)} disabled={prevMistake === null}>
+              ← Previous mistake
+            </button>
+            <span className="review-mistake-count">
+              {mistakes.length} {mistakes.length === 1 ? 'mistake' : 'mistakes'} in this game
+            </span>
+            <button type="button" onClick={() => goToMistake(nextMistake)} disabled={nextMistake === null}>
+              Next mistake →
+            </button>
+          </div>
+        )}
+
         <div
           style={{
             display: 'flex',
@@ -830,6 +870,70 @@ export default function GameReviewClient({
       <div
         className="review-right"
       >
+        {analysis &&
+          (analysis.opening_accuracy !== null ||
+            analysis.middlegame_accuracy !== null ||
+            analysis.endgame_accuracy !== null) && (
+            <section className="review-phases" aria-labelledby="review-phases-title">
+              <h2 id="review-phases-title">Accuracy by phase</h2>
+              <div className="review-phase-values"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: 8,
+              }}
+            >
+              {(
+                [
+                  { label: 'Opening', val: analysis.opening_accuracy },
+                  { label: 'Middlegame', val: analysis.middlegame_accuracy },
+                  { label: 'Endgame', val: analysis.endgame_accuracy },
+                ] as const
+              ).map(({ label, val }) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: '14px 8px 12px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 20,
+                      fontWeight: 700,
+                      fontFamily: 'JetBrains Mono, monospace',
+                      color:
+                        val === null
+                          ? 'var(--text-dim)'
+                          : val >= 85
+                            ? 'var(--good)'
+                            : val >= 65
+                              ? 'var(--gold)'
+                              : 'var(--mistake)',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {val !== null ? `${val.toFixed(0)}%` : '—'}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: 'var(--text-dim)',
+                      marginTop: 4,
+                      letterSpacing: '0.06em',
+
+                    }}
+                  >
+                    {label}
+                  </div>
+                </div>
+              ))}
+              </div>
+            </section>
+          )}
+
         {moment && (
           <MomentCard
             moment={moment}
@@ -844,6 +948,25 @@ export default function GameReviewClient({
             )}
             {relatedBoards.length > 0 && <RelatedGameBoards boards={relatedBoards} />}
           </MomentCard>
+        )}
+
+        {chances.length > 0 && (
+          <section className="review-chances" aria-labelledby="review-chances-title">
+            <h2 id="review-chances-title">Chances you missed</h2>
+            <ul className="space-y-2">
+              {chances.map(chance => (
+                <li key={chance.replyPly} className="text-sm text-text">
+                  <p><LitProse text={chance.sentence} lit={lit} /></p>
+                  {moves[chance.replyPly - 1]?.ply_number === chance.replyPly && (
+                    <button type="button" className="min-h-11 text-gold underline"
+                      onClick={() => showPositionBefore(chance.replyPly, 'chain_blunder')}>
+                      Show move {chance.moveNumber}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <section className="review-scoresheet" aria-labelledby="review-moves-title">
@@ -925,25 +1048,6 @@ export default function GameReviewClient({
 
         {slip && (
           <MomentCard moment={slip} id="costly-move" lit={lit} showPositionBefore={showPositionBefore} />
-        )}
-
-        {chances.length > 0 && (
-          <details className="border-t border-[var(--border)]">
-            <summary className="cursor-pointer py-3 text-sm text-text-muted">Chances you missed</summary>
-            <ul className="space-y-2">
-              {chances.map(chance => (
-                <li key={chance.replyPly} className="text-sm text-text">
-                  <p><LitProse text={chance.sentence} lit={lit} /></p>
-                  {moves[chance.replyPly - 1]?.ply_number === chance.replyPly && (
-                    <button type="button" className="min-h-11 text-gold underline"
-                      onClick={() => showPositionBefore(chance.replyPly, 'chain_blunder')}>
-                      Show move {chance.moveNumber}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </details>
         )}
 
         {causalChains.length > 0 && (
@@ -1108,70 +1212,6 @@ export default function GameReviewClient({
             </div>
           </div>
         )}
-
-        {analysis &&
-          (analysis.opening_accuracy !== null ||
-            analysis.middlegame_accuracy !== null ||
-            analysis.endgame_accuracy !== null) && (
-            <details className="review-phases">
-              <summary>Accuracy by phase</summary>
-              <div className="review-phase-values"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: 8,
-              }}
-            >
-              {(
-                [
-                  { label: 'Opening', val: analysis.opening_accuracy },
-                  { label: 'Middlegame', val: analysis.middlegame_accuracy },
-                  { label: 'Endgame', val: analysis.endgame_accuracy },
-                ] as const
-              ).map(({ label, val }) => (
-                <div
-                  key={label}
-                  style={{
-                    padding: '14px 8px 12px',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 20,
-                      fontWeight: 700,
-                      fontFamily: 'JetBrains Mono, monospace',
-                      color:
-                        val === null
-                          ? 'var(--text-dim)'
-                          : val >= 85
-                            ? 'var(--good)'
-                            : val >= 65
-                              ? 'var(--gold)'
-                              : 'var(--mistake)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {val !== null ? `${val.toFixed(0)}%` : '—'}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: 'var(--text-dim)',
-                      marginTop: 4,
-                      letterSpacing: '0.06em',
-
-                    }}
-                  >
-                    {label}
-                  </div>
-                </div>
-              ))}
-              </div>
-            </details>
-          )}
 
         {!analysis && (
           <div

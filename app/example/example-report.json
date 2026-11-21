@@ -1,11 +1,11 @@
 {
   "gameCount": 10,
-  "verdict": "In 3 of your 10 games, a move between moves 15 and 35 began a slide that ended in a blunder.",
+  "verdict": "In 3 of your 10 games, a move between moves 15 and 35 cost you ground, and you blundered after it.",
   "findings": [
     {
       "tag": "king_safety",
       "label": "Moves 15 to 35",
-      "checked": "The move on each board came between moves 15 and 35.",
+      "checked": "Each board shows a move between moves 15 and 35.",
       "frequency": 3,
       "gameCount": 10,
       "recurring": true,
@@ -87,7 +87,7 @@
     {
       "tag": "hanging_piece",
       "label": "Hanging piece",
-      "checked": "The engine rated the move on each board a blunder, and a second blunder later ended the slide it began.",
+      "checked": "Each board shows a blunder that led to a second one.",
       "frequency": 2,
       "gameCount": 10,
       "recurring": false,
@@ -147,7 +147,7 @@
     {
       "tag": "poor_piece_coordination",
       "label": "Poor piece coordination",
-      "checked": "The move on each board either was one of three inaccuracies in a row or began a slide that ran through two or more smaller losses.",
+      "checked": "Each board shows one of three small slips in a row, or the first of several small losses in a row.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,
@@ -207,7 +207,7 @@
     {
       "tag": "failed_endgame_conversion",
       "label": "Failed endgame conversion",
-      "checked": "The move on each board came after move 35.",
+      "checked": "Each board shows a move after move 35.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,
@@ -248,7 +248,7 @@
     {
       "tag": "pawn_structure_weakness",
       "label": "Pawn structure weakness",
-      "checked": "The move on each board was a pawn move between moves 5 and 40 that lost ground, but less than a blunder.",
+      "checked": "Each board shows a pawn move between moves 5 and 40 that cost you ground, but less than a blunder.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,

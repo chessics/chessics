@@ -7,7 +7,7 @@ import { firstSentence } from '@/lib/first-sentence'
 import { checkBatchProse } from '@/lib/prose/check'
 import { sentenceCase } from '@/lib/diagnosis/finding'
 import { countNoun } from '@/lib/count-noun'
-import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
+import { MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { findingHref } from '@/lib/workbench/finding-link'
 
 interface BatchReportSummaryProps {
@@ -110,7 +110,7 @@ export default function BatchReportSummary({
           Analyze your last games to find the habit behind your losses.
         </p>
         <Link
-          href="/"
+          href="/analyze"
           className="inline-flex items-center px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80"
           style={{ background: 'var(--brass)', color: 'var(--on-accent)' }}
         >
@@ -152,7 +152,7 @@ export default function BatchReportSummary({
       )}
       {verdict?.needsMoreGames && (
         <Link
-          href={`/workbench/batch/${latestBatch.id}#${ANALYZE_MORE_ID}`}
+          href="/analyze"
           className="text-sm w-fit"
           style={{ color: 'var(--brass)', textDecoration: 'underline', textUnderlineOffset: 3 }}
         >
@@ -163,7 +163,7 @@ export default function BatchReportSummary({
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-          Last {countNoun(latestBatch.game_count, 'game')} · {formatDate(latestBatch.generated_at)}
+          {countNoun(latestBatch.game_count, 'game')} · {formatDate(latestBatch.generated_at)}
         </p>
         <div className="flex items-center gap-3">
           {latestBatch.overall_accuracy !== null && (

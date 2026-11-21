@@ -49,13 +49,21 @@ export default function LoginPage() {
           <Link href="/" className="font-logo" style={{ fontSize: 28, color: 'var(--text)' }}>
             chess<span style={{ color: 'var(--gold)' }}>ics</span>
           </Link>
-          <h1 className="mt-4 font-headline text-2xl font-medium" style={{ color: 'var(--text)' }}>Welcome back</h1>
+          <h1 className="mt-4 font-headline text-2xl font-medium" style={{ color: 'var(--text)' }}>Sign in</h1>
+          <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Your reports, your training and more of your games. New here?{' '}
+            <Link href="/signup" style={{ color: 'var(--text)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+              Create an account
+            </Link>
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Email
           <input
             type="email"
-            placeholder="Email"
+            placeholder="you@example.com"
             aria-label="Email"
             autoComplete="email"
             value={email}
@@ -65,9 +73,11 @@ export default function LoginPage() {
             className="w-full px-4 py-3 text-sm outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
           />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Password
           <input
             type="password"
-            placeholder="Password"
             aria-label="Password"
             autoComplete="current-password"
             value={password}
@@ -77,6 +87,7 @@ export default function LoginPage() {
             className="w-full px-4 py-3 text-sm outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--text)' }}
           />
+          </label>
           <Link href="/forgot-password" className="self-start text-sm text-gold underline">
             Forgot password?
           </Link>
@@ -141,10 +152,10 @@ export default function LoginPage() {
           </>
         )}
 
-        <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>
-          No account?{' '}
-          <Link href="/signup" style={{ color: 'var(--gold-dim)', textDecoration: 'underline' }}>
-            Create one
+        <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
+          Just want a look first?{' '}
+          <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
+            Analyze 10 games without an account
           </Link>
         </p>
       </div>

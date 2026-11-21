@@ -8,7 +8,9 @@ import { DAILY_CAP_CODE, dailyCapMessage, failureMessage } from '@/lib/ratelimit
 import { formatTimeControl } from '@/lib/review/time-control'
 import { countNoun } from '@/lib/count-noun'
 import { createStatusPoller, POLL_INTERVAL_MS } from '@/lib/sync/poll'
-import { nextRowJob, rowJobAnnouncement, rowJobLabel, STATUS_LOST_LABEL, type RowJob } from '@/lib/games/analyze-job'
+import { elapsedLabel, nextRowJob, rowJobAnnouncement, rowJobLabel, rowJobStep, STATUS_LOST_LABEL, type RowJob } from '@/lib/games/analyze-job'
+import { openingFamily } from '@/lib/games/player-lookup'
+import OptionPicker from '@/components/ui/OptionPicker'
 
 const RETRY_LABEL = "Couldn't queue, retry"
 export const NOT_STANDARD_LABEL = "Variant, can't analyze"
@@ -118,9 +120,22 @@ function FilterTab({
 export default function GamesLibraryClient({ games }: Props) {
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [colorFilter, setColorFilter] = useState<ColorFilter>('all')
+  const [familyFilter, setFamilyFilter] = useState<string>('all')
+  const families = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const g of games) {
+      const f = openingFamily(g.opening_name ?? null)
+      if (f) counts.set(f, (counts.get(f) ?? 0) + 1)
+    }
+    return Array.from(counts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([family, count]) => ({ family, count }))
+  }, [games])
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [jobs, setJobs] = useState<Map<string, RowJob>>(new Map())
   const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const [rowProgress, setRowProgress] = useState<Map<string, { startedAt: number; progress: number | null }>>(new Map())
+  const [now, setNow] = useState(() => Date.now())
   const router = useRouter()
   const [failedIds, setFailedIds] = useState<Map<string, string>>(new Map())
   const [announcement, setAnnouncement] = useState('')
@@ -155,14 +170,24 @@ export default function GamesLibraryClient({ games }: Props) {
         resultFilter === 'all' || g.result === resultFilter
       const matchColor =
         colorFilter === 'all' || g.user_color === colorFilter
-      return matchResult && matchColor
+      const matchFamily =
+        familyFilter === 'all' || openingFamily(g.opening_name ?? null) === familyFilter
+      return matchResult && matchColor && matchFamily
     })
-  }, [games, resultFilter, colorFilter])
+  }, [games, resultFilter, colorFilter, familyFilter])
 
   useEffect(() => {
     const running = timers.current
     return () => running.forEach((t) => clearInterval(t))
   }, [])
+
+  const anyRunning = Array.from(jobs.values()).some((j) => j.phase === 'starting' || j.phase === 'analyzing')
+  useEffect(() => {
+    if (!anyRunning) return
+    setNow(Date.now())
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [anyRunning])
 
   const stopWatching = (gameId: string) => {
     const t = timers.current.get(gameId)
@@ -183,9 +208,17 @@ export default function GamesLibraryClient({ games }: Props) {
     stopWatching(gameId)
     let current: RowJob = { phase: 'starting', jobId }
     setJob(gameId, current)
-    const tick = createStatusPoller<{ status?: unknown }>({
+    setRowProgress((prev) => new Map(prev).set(gameId, { startedAt: Date.now(), progress: null }))
+    const tick = createStatusPoller<{ status?: unknown; progress?: unknown }>({
       fetchStatus: () => fetch(`/api/sync/status?jobId=${encodeURIComponent(jobId)}`),
       onStatus: (body) => {
+        if (typeof body.progress === 'number') {
+          const p = body.progress
+          setRowProgress((prev) => {
+            const was = prev.get(gameId)
+            return was && was.progress === p ? prev : new Map(prev).set(gameId, { startedAt: was?.startedAt ?? Date.now(), progress: p })
+          })
+        }
         const next = nextRowJob(current, body)
         if (!next) return
         current = next
@@ -285,6 +318,22 @@ export default function GamesLibraryClient({ games }: Props) {
             </FilterTab>
           ))}
         </div>
+
+        {families.length > 0 && (
+          <>
+            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+            <OptionPicker
+              label="Filter by opening"
+              value={familyFilter}
+              emphasised={familyFilter !== 'all'}
+              onChange={setFamilyFilter}
+              options={[
+                { value: 'all', label: 'All openings' },
+                ...families.map((f) => ({ value: f.family, label: f.family, detail: String(f.count) })),
+              ]}
+            />
+          </>
+        )}
 
         <span
           style={{
@@ -511,6 +560,22 @@ export default function GamesLibraryClient({ games }: Props) {
                     </button>
                   )}
                 </div>
+
+                {job && (job.phase === 'starting' || job.phase === 'analyzing') && (() => {
+                  const step = rowJobStep(job.phase, rowProgress.get(game.id)?.progress ?? null)
+                  const started = rowProgress.get(game.id)?.startedAt ?? now
+                  return (
+                    <div className="games-cell-progress" aria-hidden="true">
+                      <div className="games-progress-bar">
+                        <span style={{ transform: `scaleX(${step.percent / 100})` }} />
+                      </div>
+                      <p className="games-progress-text">
+                        {step.label}… <span className="games-progress-time">{elapsedLabel(now - started)}</span>
+                        <span className="games-progress-leave"> It keeps going if you leave this page.</span>
+                      </p>
+                    </div>
+                  )
+                })()}
               </>
             )
 

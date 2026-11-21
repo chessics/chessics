@@ -3,12 +3,15 @@
 import { Bell, Crosshair, LayoutGrid, Palette, Search, Shield, User, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import LinkedAccountsPanel from '@/components/accounts/LinkedAccountsPanel'
+import { useScrollLock } from '@/lib/scroll-lock'
+import ThemeChoice from './ThemeChoice'
+import SignOutButton from './SignOutButton'
 import './settings.css'
 
 type Row = {
   label: string
   hint?: string
-  control: 'field' | 'select' | 'toggle' | 'button'
+  control: 'field' | 'select' | 'toggle' | 'button' | 'theme' | 'signout'
   value: string
 }
 type Section = {
@@ -35,6 +38,12 @@ const SECTIONS: Section[] = [
       },
       { label: 'Lichess username', control: 'field', value: 'Not set' },
       {
+        label: 'Sign out',
+        hint: 'Sign out of Chessics in this browser.',
+        control: 'signout',
+        value: 'Sign out',
+      },
+      {
         label: 'Sign out of all devices',
         control: 'button',
         value: 'Sign out everywhere',
@@ -49,8 +58,8 @@ const SECTIONS: Section[] = [
     rows: [
       {
         label: 'Theme',
-        hint: 'Use the switch in the top bar for now.',
-        control: 'select',
+        hint: 'System follows your device’s light or dark setting.',
+        control: 'theme',
         value: 'System',
       },
       { label: 'Text size', control: 'select', value: 'Default' },
@@ -129,19 +138,24 @@ const SECTIONS: Section[] = [
 
 const LINKED_ACCOUNT_ROWS = new Set(['Chess.com username', 'Lichess username'])
 
+const isLive = (row: Row) => row.control === 'theme' || row.control === 'signout'
+
 export default function SettingsDialog({
   open,
   onClose,
   linkedAccounts = false,
+  signedIn = false,
 }: {
   open: boolean
   onClose: () => void
+  signedIn?: boolean
   linkedAccounts?: boolean
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [active, setActive] = useState(SECTIONS[0].id)
   const [query, setQuery] = useState('')
   const headingId = useId()
+  useScrollLock(open)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -228,13 +242,18 @@ export default function SettingsDialog({
             <section className="settings-content" aria-label={section.heading}>
               <h3>{section.heading}</h3>
               {section.id === 'account' && linkedAccounts && <LinkedAccountsPanel />}
-              <p className="settings-note">
-                {section.id === 'account' && linkedAccounts ? 'The settings below aren’t built yet.' : 'These settings aren’t built yet.'}
-              </p>
+              {(() => {
+                const filler = rowsFor(section, linkedAccounts, signedIn).filter((r) => !isLive(r)).length
+                const live = section.id === 'account' && linkedAccounts ? 1 : rowsFor(section, linkedAccounts, signedIn).length - filler
+                if (filler === 0) return null
+                return (
+                  <p className="settings-note">
+                    {live > 0 ? 'The other settings here aren’t built yet.' : 'These settings aren’t built yet.'}
+                  </p>
+                )
+              })()}
               <ul className="settings-rows">
-                {section.rows
-                  .filter((row) => !(section.id === 'account' && linkedAccounts && LINKED_ACCOUNT_ROWS.has(row.label)))
-                  .map((row) => (
+                {rowsFor(section, linkedAccounts, signedIn).map((row) => (
                   <li key={row.label} className="settings-row">
                     <div>
                       <p className="settings-row-label">{row.label}</p>
@@ -252,7 +271,17 @@ export default function SettingsDialog({
   )
 }
 
+function rowsFor(section: Section, linkedAccounts: boolean, signedIn: boolean): Row[] {
+  return section.rows.filter((row) => {
+    if (section.id === 'account' && linkedAccounts && LINKED_ACCOUNT_ROWS.has(row.label)) return false
+    if (row.control === 'signout' && !signedIn) return false
+    return true
+  })
+}
+
 function Control({ row }: { row: Row }) {
+  if (row.control === 'theme') return <ThemeChoice />
+  if (row.control === 'signout') return <SignOutButton />
   const title = 'Coming soon'
   if (row.control === 'button') {
     return (

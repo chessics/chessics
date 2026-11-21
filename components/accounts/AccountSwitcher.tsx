@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useId, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import OptionPicker from '@/components/ui/OptionPicker'
 import './accounts.css'
 import { accountLabel, type AccountPlatform } from '@/lib/accounts/rules'
 
@@ -13,7 +14,6 @@ export interface SwitcherAccount {
 
 export default function AccountSwitcher({ accounts, activeId }: { accounts: SwitcherAccount[]; activeId: string | null }) {
   const router = useRouter()
-  const id = useId()
   const [value, setValue] = useState(activeId ?? accounts[0]?.id ?? '')
   const [failed, setFailed] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -42,16 +42,16 @@ export default function AccountSwitcher({ accounts, activeId }: { accounts: Swit
 
   return (
     <div className="account-switcher" data-pending={pending || undefined}>
-      <label htmlFor={id} className="account-switcher-label">
-        Account
-      </label>
-      <select id={id} value={value} onChange={(e) => pick(e.target.value)} aria-busy={pending || undefined}>
-        {accounts.map((a) => (
-          <option key={a.id} value={a.id}>
-            {accountLabel(a)}
-          </option>
-        ))}
-      </select>
+      <span className="account-switcher-label" aria-hidden>
+        Showing
+      </span>
+      <OptionPicker
+        label="Account shown"
+        value={value}
+        onChange={(next) => void pick(next)}
+        disabled={pending}
+        options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+      />
       {failed && (
         <p role="alert" className="account-switcher-error">
           Couldn’t switch. Try again.

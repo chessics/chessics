@@ -1,0 +1,61 @@
+.option-picker { position: relative; display: inline-flex; min-width: 0; }
+
+.option-picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 260px;
+  min-height: 36px;
+  padding: 6px 9px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.option-picker-value { overflow: hidden; text-overflow: ellipsis; }
+.option-picker-caret { flex-shrink: 0; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+.option-picker[data-open] .option-picker-caret { transform: rotate(180deg); }
+.option-picker[data-open] .option-picker-button,
+.option-picker[data-set] .option-picker-button { color: var(--text); border-color: var(--brass); }
+.option-picker-button:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (hover: hover) {
+  .option-picker-button:hover:not(:disabled) { color: var(--text); background: rgb(var(--accent-rgb) / 0.07); }
+}
+
+.option-picker-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 60;
+  min-width: max(100%, 220px);
+  max-width: min(340px, calc(100vw - 32px));
+  max-height: 288px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  outline: none;
+}
+.option-picker-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.option-picker-option[data-active] { color: var(--text); background: rgb(var(--accent-rgb) / 0.1); }
+.option-picker-option[aria-selected='true'] { color: var(--text); }
+.option-picker-check { display: flex; color: var(--brass); }
+.option-picker-label { overflow-wrap: anywhere; }
+.option-picker-detail { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .option-picker-caret { transition: none; }
+}

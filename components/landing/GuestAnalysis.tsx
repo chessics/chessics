@@ -180,7 +180,7 @@ export default function GuestAnalysis() {
             <p className={styles.note}>
               <span>Your last 10 games, analyzed for free. No signup needed.</span>
               {!error?.showExample && exampleLink}
-              <a href="/signup">Create an account</a>
+              <a href="/login">Have an account? Sign in</a>
             </p>
           </form>
         )}

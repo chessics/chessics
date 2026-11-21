@@ -37,6 +37,15 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  if (session && pathname === '/') {
+    const target = request.nextUrl.clone()
+    target.pathname = request.nextUrl.searchParams.has('error') ? '/analyze' : '/workbench'
+    if (target.pathname === '/workbench') target.search = ''
+    const response = NextResponse.redirect(target)
+    for (const cookie of supabaseResponse.cookies.getAll()) response.cookies.set(cookie)
+    return response
+  }
+
   if (session && (pathname === '/login' || pathname === '/signup')) {
     const next = pathname === '/login' ? request.nextUrl.searchParams.get('next') : null
     return NextResponse.redirect(new URL(loginReviewPath(next), request.url))

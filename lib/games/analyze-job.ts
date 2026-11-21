@@ -42,3 +42,18 @@ export function rowJobAnnouncement(opponent: string | null, job: RowJob): string
     }
   }
 }
+
+export function rowJobStep(phase: 'starting' | 'analyzing', progress: number | null): { label: string; percent: number } {
+  if (phase === 'starting') return { label: 'Waiting for the engine', percent: 3 }
+  const p = typeof progress === 'number' && Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 5
+  if (p < 15) return { label: 'Loading the game', percent: Math.max(p, 5) }
+  if (p < 80) return { label: 'The engine is checking every move', percent: p }
+  if (p < 90) return { label: 'Finding where the game turned', percent: p }
+  return { label: 'Writing up the review', percent: p }
+}
+
+export function elapsedLabel(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  if (s < 60) return `${s} s`
+  return `${Math.floor(s / 60)} min ${s % 60} s`
+}

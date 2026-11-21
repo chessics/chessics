@@ -17,7 +17,7 @@ export default function LandingPage() {
           <Link href="/" className={styles.logo} aria-label="Chessics home">chessics</Link>
           <nav aria-label="Main navigation">
             <Link href="/about">How it works</Link>
-            <Link href="/login">Sign in</Link>
+            <Link href="/login" className={styles.signIn}>Sign in</Link>
           </nav>
         </header>
 

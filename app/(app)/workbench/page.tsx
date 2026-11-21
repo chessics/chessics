@@ -11,6 +11,8 @@ import LoadFailed from '@/components/layout/LoadFailed'
 import { trajectoriesWithHistory } from '@/lib/workbench/trajectory'
 import { accountScope } from '@/lib/accounts/active'
 import { batchReportsForAccount } from '@/lib/accounts/batches'
+import { earlierReports, headlineReport, trendReports, type ReportRow } from '@/lib/workbench/report-choice'
+import EarlierReports from '@/components/workbench/EarlierReports'
 
 export const metadata: Metadata = { title: 'Report' }
 
@@ -24,6 +26,7 @@ export default async function WorkbenchPage() {
   let latestBatch: BatchReport | null = null
   let trajectories: Record<string, Trajectory> = {}
   let allBatches: Array<{ overall_accuracy: number | null; generated_at: string }> = []
+  let earlier: ReportRow[] = []
   let results: Record<string, 'win' | 'loss' | 'draw' | null> | undefined
   let recounted: BatchPatternGroup[] | undefined
   let loadFailed = false
@@ -40,13 +43,14 @@ export default async function WorkbenchPage() {
       loadFailed = true
     } else if (scope.scoped) {
       const own = await batchReportsForAccount(supabase, userId, scope.active?.id ?? null)
-      const latestId = own.data[0]?.id
-      const batchResult = latestId
-        ? await supabase.from('batch_reports').select('*').eq('id', latestId).maybeSingle()
+      const lead = headlineReport(own.data)
+      const batchResult = lead
+        ? await supabase.from('batch_reports').select('*').eq('id', lead.id).maybeSingle()
         : { data: null, error: null }
       loadFailed = !!own.error || !!batchResult.error
       latestBatch = (batchResult.data ?? null) as BatchReport | null
-      allBatches = [...own.data].reverse().map(({ overall_accuracy, generated_at }) => ({ overall_accuracy, generated_at }))
+      earlier = earlierReports(own.data, lead?.id ?? null)
+      allBatches = trendReports(own.data).map(({ overall_accuracy, generated_at }) => ({ overall_accuracy, generated_at }))
       if (scope.accounts.length <= 1) {
         const patternsResult = await supabase.from('user_patterns').select('pattern_type, trajectory, batch_history').eq('user_id', userId)
         trajectories = trajectoriesWithHistory(
@@ -54,30 +58,28 @@ export default async function WorkbenchPage() {
         )
       }
     } else {
-    const [batchResult, patternsResult, allBatchesResult] = await Promise.all([
+    const [reportsResult, patternsResult] = await Promise.all([
       supabase
         .from('batch_reports')
-        .select('*')
+        .select('id, generated_at, overall_accuracy, game_count')
         .eq('user_id', userId)
-        .order('generated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .order('generated_at', { ascending: false }),
 
       supabase.from('user_patterns').select('pattern_type, trajectory, batch_history').eq('user_id', userId),
-
-      supabase
-        .from('batch_reports')
-        .select('overall_accuracy, generated_at')
-        .eq('user_id', userId)
-        .order('generated_at', { ascending: true }),
     ])
+    const rows = (reportsResult.data ?? []) as ReportRow[]
+    const lead = headlineReport(rows)
+    const batchResult = lead
+      ? await supabase.from('batch_reports').select('*').eq('id', lead.id).maybeSingle()
+      : { data: null, error: null }
 
-    loadFailed = !!batchResult.error
+    loadFailed = !!reportsResult.error || !!batchResult.error
     latestBatch = (batchResult.data ?? null) as BatchReport | null
+    earlier = earlierReports(rows, lead?.id ?? null)
     trajectories = trajectoriesWithHistory(
       (patternsResult.data ?? []) as Pick<UserPattern, 'pattern_type' | 'trajectory' | 'batch_history'>[]
     )
-    allBatches = allBatchesResult.data ?? []
+    allBatches = trendReports(rows).map(({ overall_accuracy, generated_at }) => ({ overall_accuracy, generated_at }))
     }
 
     const ids = latestBatch?.game_ids ?? []
@@ -122,6 +124,7 @@ export default async function WorkbenchPage() {
           recounted={recounted}
         />
       )}
+      {session && !loadFailed && <EarlierReports reports={earlier} />}
     </div>
   )
 }

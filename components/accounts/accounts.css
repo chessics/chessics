@@ -1,42 +1,7 @@
-.account-switcher {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0 8px 12px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.account-switcher-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.account-switcher select {
-  width: 100%;
-  max-width: 220px;
-  height: 34px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  cursor: pointer;
-}
-.account-switcher select:hover { border-color: var(--border-strong); }
-.account-switcher[data-pending] select { opacity: 0.6; }
-.account-switcher-error { font-size: 12px; color: var(--text); border-left: 2px solid var(--blunder); padding-left: 6px; }
-
-@media (max-width: 639px) {
-  .account-switcher {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 4px 4px 6px;
-    margin-bottom: 2px;
-  }
-  .account-switcher select { flex: 1; max-width: none; }
-}
+.account-switcher { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.account-switcher-label { font-size: 13px; color: var(--text-muted); }
+.account-switcher[data-pending] .option-picker-button { opacity: 0.6; }
+.account-switcher-error { flex-basis: 100%; font-size: 12px; color: var(--text); border-left: 2px solid var(--blunder); padding-left: 6px; }
 
 .linked-accounts {
   margin-top: 14px;

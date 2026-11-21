@@ -115,7 +115,7 @@ export default function LinkedAccountsPanel() {
     <div className="linked-accounts">
       <p className="settings-row-label">Chess accounts</p>
       <p className="settings-row-hint">
-        Each account keeps its own games, reports and training. Choose which one you see from the Account menu.
+        Each account keeps its own games, reports and training. Choose which one you see with Show, or from the list above your game library.
       </p>
 
       {load.kind === 'loading' && <p className="linked-accounts-status">Loading your accounts…</p>}

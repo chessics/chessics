@@ -265,6 +265,11 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .games-progress-bar::after { display: none; }
+  .games-progress-bar > span { transition: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
@@ -374,13 +379,47 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   font-weight: 500;
 }
 .review-scoresheet button[aria-current] { border-inline-start: 2px solid var(--brass) !important; }
-.review-phases { border-block-start: 1px solid var(--border); }
-.review-phases summary {
-  padding-block: 10px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 13px;
+.review-phases h2, .review-chances h2 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 7px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 500;
 }
+.review-chances li { padding-left: 10px; border-left: 2px solid var(--held); }
+
+.review-note {
+  margin-left: 22px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--border-strong);
+  background: rgb(var(--accent-rgb) / 0.06);
+}
+.review-note[data-tone='blunder'], .review-note[data-tone='mistake'] { border-left-color: var(--blunder); }
+.review-note[data-tone='chance'], .review-note[data-tone='opponent'] { border-left-color: var(--held); }
+.review-note-title { font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.review-note-text { margin-top: 2px; font-size: 13px; color: var(--text-muted); }
+.review-mistake-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-left: 22px;
+}
+.review-mistake-steps button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+}
+.review-mistake-steps button:disabled { color: var(--text-dim); border-color: var(--border); cursor: default; }
+@media (hover: hover) {
+  .review-mistake-steps button:hover:not(:disabled) { background: rgb(var(--accent-rgb) / 0.1); }
+}
+.review-mistake-count { font-size: 12px; color: var(--text-dim); }
+
 .editorial-action {
   display: inline-flex;
   justify-content: center;
@@ -394,6 +433,21 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   text-decoration: none;
 }
 .editorial-action:hover { background: var(--gold); }
+.topbar-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .topbar-action:hover { background: rgb(var(--accent-rgb) / 0.1); }
+}
 .review-moment-actions {
   display: flex;
   flex-wrap: wrap;
@@ -496,7 +550,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
 .games-label-short {
   display: none;
 }
-@media (max-width: 767px) {
+@media (max-width: 899px) {
   .games-grid {
     grid-template-columns: 28px auto auto minmax(0, 1fr) auto;
     grid-template-areas:
@@ -627,4 +681,54 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   .lookup-cell-action { grid-area: action; }
   .lookup-cell-opening { grid-area: opening; }
   .lookup-cell-opening[data-empty] { display: none; }
+}
+
+.earlier-reports { display: flex; flex-direction: column; gap: 8px; }
+.earlier-reports-title { font-size: 15px; font-weight: 500; color: var(--text); }
+.earlier-reports ul { border-top: 1px solid var(--border); }
+.earlier-report {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+}
+.earlier-report-count { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }
+.earlier-report-open { font-size: 13px; color: var(--brass); }
+@media (hover: hover) {
+  .earlier-report:hover { background: rgb(var(--accent-rgb) / 0.07); }
+}
+.earlier-reports-note { font-size: 12px; color: var(--text-dim); }
+
+.games-cell-progress { grid-column: 1 / -1; padding: 8px 4px 2px; }
+.games-progress-bar { position: relative; height: 3px; overflow: hidden; background: var(--surface-3); }
+.games-progress-bar > span {
+  position: absolute;
+  inset: 0;
+  background: var(--brass);
+  transform-origin: left;
+  transition: transform 600ms cubic-bezier(.23, 1, .32, 1);
+}
+.games-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgb(var(--text-rgb) / 0.35), transparent);
+  animation: games-progress-run 1.6s cubic-bezier(.45, 0, .25, 1) infinite;
+}
+@keyframes games-progress-run {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+.games-progress-text { margin-top: 6px; font-size: 12px; color: var(--text-muted); }
+.games-progress-time { font-family: 'JetBrains Mono', monospace; color: var(--text-dim); }
+.games-progress-leave { color: var(--text-dim); }
+
+@media (pointer: coarse) {
+  .review-mistake-steps button { min-height: 44px; }
 }

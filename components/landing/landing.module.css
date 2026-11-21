@@ -38,7 +38,8 @@
 .slide[data-slide='daumier'] .painting { filter: brightness(.78) contrast(1.05) saturate(.85); }
 
 .lamp { position: absolute; left: var(--x); top: var(--y); width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 190, 112, .14) 0, rgba(255, 190, 112, .05) 13vmax, rgba(9, 7, 5, .16) 26vmax, rgba(9, 7, 5, .5) 46vmax); }
+  background: radial-gradient(circle at 50% 50%, rgba(255, 190, 112, .14) 0, rgba(255, 190, 112, .05) 13vmax, rgba(9, 7, 5, .16) 26vmax, rgba(9, 7, 5, .5) 46vmax);
+  animation: lights-up .9s var(--ease-out) both; }
 
 .shade { position: absolute; inset: 0; pointer-events: none;
   background:
@@ -52,6 +53,8 @@
 .logo { font: 500 28px/1 var(--serif); letter-spacing: -.01em; color: var(--ivory); text-decoration: none; }
 .top nav { display: flex; gap: 8px; }
 .top nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; font: 500 14px var(--sans); color: var(--ivory-2); text-decoration: none; text-underline-offset: 5px; }
+.top nav a.signIn { border: 1px solid var(--hair); color: var(--ivory); padding: 0 16px; }
+@media (hover: hover) { .top nav a.signIn:hover { border-color: var(--ivory-dim); background: rgba(239, 230, 212, .06); } }
 
 .band { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 48px; padding: 0 48px 40px; animation: enter .7s .5s var(--ease-out) both; }
 .intro { min-width: 0; padding-bottom: 32px; }

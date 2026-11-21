@@ -135,7 +135,7 @@ export default function Gallery() {
                       ref={el => { if (el?.complete && el.naturalWidth) onLoaded(i) }}
                     />
                   </picture>
-                  <div className={styles.lamp} aria-hidden="true" />
+                  {loaded.has(i) && <div className={styles.lamp} aria-hidden="true" />}
                 </div>
               )}
             </div>

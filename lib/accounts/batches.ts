@@ -6,6 +6,7 @@ export interface AccountBatch {
   id: string
   generated_at: string
   overall_accuracy: number | null
+  game_count: number | null
 }
 
 export async function batchReportsForAccount(
@@ -16,7 +17,7 @@ export async function batchReportsForAccount(
   if (accountId === null || accountId === NO_ACCOUNT) return { data: [], error: null }
   const { data: reports, error } = await supabase
     .from('batch_reports')
-    .select('id, generated_at, overall_accuracy, game_ids')
+    .select('id, generated_at, overall_accuracy, game_count, game_ids')
     .eq('user_id', userId)
     .order('generated_at', { ascending: false })
   if (error) return { data: [], error }
@@ -35,7 +36,7 @@ export async function batchReportsForAccount(
   return {
     data: rows
       .filter((r) => r.game_ids?.[0] && mine.has(r.game_ids[0]))
-      .map(({ id, generated_at, overall_accuracy }) => ({ id, generated_at, overall_accuracy })),
+      .map(({ id, generated_at, overall_accuracy, game_count }) => ({ id, generated_at, overall_accuracy, game_count })),
     error: null,
   }
 }

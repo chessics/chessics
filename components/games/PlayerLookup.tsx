@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import OptionPicker from '@/components/ui/OptionPicker'
 import { countNoun } from '@/lib/count-noun'
 import { formatTimeControl } from '@/lib/review/time-control'
 import {
@@ -311,18 +311,16 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
                   ]}
                 />
                 {families.length > 0 && (
-                  <label className="lookup-select">
-                    <span className="sr-only">Filter by opening</span>
-                    <select value={filters.family} onChange={(e) => setFilter({ family: e.target.value })}>
-                      <option value="all">All openings</option>
-                      {families.map((f) => (
-                        <option key={f.family} value={f.family}>
-                          {f.family} ({f.count})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} aria-hidden />
-                  </label>
+                  <OptionPicker
+                    label="Filter by opening"
+                    value={filters.family}
+                    emphasised={filters.family !== 'all'}
+                    onChange={(family) => setFilter({ family })}
+                    options={[
+                      { value: 'all', label: 'All openings' },
+                      ...families.map((f) => ({ value: f.family, label: f.family, detail: String(f.count) })),
+                    ]}
+                  />
                 )}
                 {filtersSet && (
                   <button type="button" className="games-filter" onClick={() => setFilter(NO_FILTERS)}>

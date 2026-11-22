@@ -46,6 +46,12 @@ The landing page shows three pictures of chess players, all in the public domain
 - Honoré Daumier, *The Chess Players* (*Les Joueurs d'échecs*), 1860s, oil on wood. Public domain,
   via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Honor%C3%A9_Daumier_032.jpg).
 
+## Data
+
+The puzzles shown while an analysis runs come from the [Lichess puzzle database](https://database.lichess.org/#puzzles)
+(CC0), each with its rating and themes as Lichess publishes them. The file is
+`public/puzzles/lichess.json`.
+
 ## Services
 
 Supabase (database and accounts), Upstash (Redis), Vercel (the site, and Web Analytics for anonymous visit counts), Railway (the analysis

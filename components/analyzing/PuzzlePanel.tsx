@@ -3,8 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PuzzleBoard from './PuzzleBoard'
 import { PUZZLES } from '@/lib/puzzles/set'
-import { markSeen, nextPuzzle, parseSeen, SEEN_STORAGE_KEY, type Puzzle } from '@/lib/puzzles/rules'
-import { attempt, isOver, playHeading, playMessage, reply, showLine, showStep, startPuzzle, type PlayState } from '@/lib/puzzles/play'
+import { legalMove, type Puzzle } from '@/lib/puzzles/rules'
+import { fromLichess, LICHESS_SET_URL, parseLichessSet } from '@/lib/puzzles/lichess'
+import {
+  climb,
+  LADDER_STORAGE_KEY,
+  OLD_SEEN_STORAGE_KEY,
+  outcomeOf,
+  parseLadder,
+  pickPuzzle,
+  served,
+  type Ladder,
+  type Pickable,
+} from '@/lib/puzzles/adaptive'
+import { attempt, isOver, lead, playHeading, playMessage, reply, showLine, showStep, startPuzzle, type PlayState } from '@/lib/puzzles/play'
 import { puzzleCaption } from '@/lib/puzzles/caption'
 
 export const COORD_GUTTER = 12
@@ -21,35 +33,125 @@ export function puzzleBoardSize(columnWidth: number, viewportHeight = Infinity):
 
 export const REPLY_DELAY_MS = 450
 export const SHOW_STEP_MS = 700
+export const LEAD_DELAY_MS = 650
+export const SET_LOAD_TIMEOUT_MS = 5000
+export const SET_MIN_ROWS = 50
+export const FALLBACK_RATING = 800
 
-function readSeen(): string[] {
+export interface PoolItem extends Pickable {
+  load: () => Puzzle | null
+}
+
+export function poolFromPuzzles(set: Puzzle[]): PoolItem[] {
+  return set.map(p => ({ id: p.id, rating: p.rating ?? FALLBACK_RATING, theme: p.theme, load: () => p }))
+}
+
+export function poolFromLichess(json: unknown): PoolItem[] {
+  return parseLichessSet(json).map(e => ({ id: e.id, rating: e.rating, theme: e.theme, load: () => fromLichess(e.row) }))
+}
+
+function readLadder(): Ladder {
   try {
-    return parseSeen(window.localStorage.getItem(SEEN_STORAGE_KEY))
+    return parseLadder(window.localStorage.getItem(LADDER_STORAGE_KEY))
   } catch {
-    return []
+    return parseLadder(null)
   }
 }
 
-function writeSeen(seen: string[]) {
+function writeLadder(ladder: Ladder) {
   try {
-    window.localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(seen))
+    window.localStorage.setItem(LADDER_STORAGE_KEY, JSON.stringify(ladder))
+    window.localStorage.removeItem(OLD_SEEN_STORAGE_KEY)
   } catch {
   }
 }
 
-function firstPuzzle(set: Puzzle[]): Puzzle {
-  const seen = readSeen()
-  const { puzzle, restart } = nextPuzzle(set, seen)
-  if (restart) writeSeen([])
-  return puzzle
+export function choosePuzzle(
+  pool: PoolItem[],
+  ladder: Ladder,
+  random: () => number,
+  current: string | null = null
+): { puzzle: Puzzle; ladder: Ladder } | null {
+  let left = pool
+  for (let tries = 0; tries < 20 && left.length > 0; tries++) {
+    const item = pickPuzzle(left, ladder, random, current)
+    if (!item) return null
+    const puzzle = item.load()
+    if (puzzle) return { puzzle, ladder: served(ladder, item) }
+    left = left.filter(p => p.id !== item.id)
+  }
+  return null
 }
 
-export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
-  const [state, setState] = useState<PlayState>(() => startPuzzle(firstPuzzle(set)))
+export function levelHint(before: number, after: number): string | null {
+  if (after > before) return 'The next one is harder.'
+  if (after < before) return 'The next one is easier.'
+  return null
+}
+
+export function leadAnnouncement(p: Puzzle): string | null {
+  if (!p.lead) return null
+  const move = legalMove(p.lead.fen, p.lead.move)
+  if (!move) return null
+  const mover = p.side === 'white' ? 'Black' : 'White'
+  return `${mover} played ${move.san}. ${p.side === 'white' ? 'White' : 'Black'} to move.`
+}
+
+async function loadPool(): Promise<PoolItem[]> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), SET_LOAD_TIMEOUT_MS)
+  try {
+    const res = await fetch(LICHESS_SET_URL, { signal: ctrl.signal })
+    if (!res.ok) return poolFromPuzzles(PUZZLES)
+    const pool = poolFromLichess(await res.json())
+    return pool.length >= SET_MIN_ROWS ? pool : poolFromPuzzles(PUZZLES)
+  } catch {
+    return poolFromPuzzles(PUZZLES)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export default function PuzzlePanel({ set }: { set?: Puzzle[] }) {
+  const poolRef = useRef<PoolItem[] | null>(set ? poolFromPuzzles(set) : null)
+  const ladderRef = useRef<Ladder | null>(null)
+  const [state, setState] = useState<PlayState | null>(() => {
+    if (!poolRef.current) return null
+    const first = poolRef.current[0]?.load()
+    return first ? startPuzzle(first) : null
+  })
   const [said, setSaid] = useState('')
+  const [hint, setHint] = useState<string | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState(320)
   const nextRef = useRef<HTMLButtonElement>(null)
+
+  const serve = useCallback((current: string | null) => {
+    const pool = poolRef.current
+    if (!pool) return
+    const ladder = ladderRef.current ?? readLadder()
+    const chosen = choosePuzzle(pool, ladder, Math.random, current)
+    if (!chosen) return
+    ladderRef.current = chosen.ladder
+    writeLadder(chosen.ladder)
+    setState(startPuzzle(chosen.puzzle))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    if (set) {
+      ladderRef.current = readLadder()
+      return
+    }
+    loadPool().then(pool => {
+      if (cancelled) return
+      poolRef.current = pool
+      serve(null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [set, serve])
 
   useEffect(() => {
     const el = wrapRef.current
@@ -66,44 +168,68 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (state.status !== 'replying') return
-    const t = setTimeout(() => setState(s => reply(s)), REPLY_DELAY_MS)
-    return () => clearTimeout(t)
-  }, [state.status, state.played])
+  const status = state?.status
+  const played = state?.played
+  const puzzleId = state?.puzzle.id
 
   useEffect(() => {
-    if (state.status !== 'showing') return
-    const t = setTimeout(() => setState(s => showStep(s)), SHOW_STEP_MS)
+    if (status !== 'leading') return
+    const t = setTimeout(() => {
+      setState(s => (s ? lead(s) : s))
+      if (state) {
+        const line = leadAnnouncement(state.puzzle)
+        if (line) setSaid(line)
+      }
+    }, LEAD_DELAY_MS)
     return () => clearTimeout(t)
-  }, [state.status, state.played])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, puzzleId])
 
   useEffect(() => {
-    if (isOver(state)) writeSeen(markSeen(set, readSeen(), state.puzzle.id))
+    if (status !== 'replying') return
+    const t = setTimeout(() => setState(s => (s ? reply(s) : s)), REPLY_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [status, played])
+
+  useEffect(() => {
+    if (status !== 'showing') return
+    const t = setTimeout(() => setState(s => (s ? showStep(s) : s)), SHOW_STEP_MS)
+    return () => clearTimeout(t)
+  }, [status, played])
+
+  useEffect(() => {
+    if (!state) return
+    if (state.status === 'solved' || state.status === 'shown') {
+      const before = ladderRef.current ?? readLadder()
+      const next = climb(before, outcomeOf(state.status, state.misses))
+      ladderRef.current = next
+      writeLadder(next)
+      setHint(levelHint(before.level, next.level))
+    } else {
+      setHint(null)
+    }
     const message = playMessage(state)
     if (message) setSaid(message)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status, state.missed, state.puzzle.id])
+  }, [status, state?.missed, puzzleId])
 
   const onMove = useCallback((uci: string) => {
-    setState(s => attempt(s, uci))
+    setState(s => (s ? attempt(s, uci) : s))
   }, [])
 
   const next = () => {
-    const { puzzle, restart } = nextPuzzle(set, readSeen(), state.puzzle.id)
-    if (restart) writeSeen([])
-    setSaid(playHeading(startPuzzle(puzzle)))
-    setState(startPuzzle(puzzle))
+    if (!state) return
+    serve(state.puzzle.id)
   }
 
   useEffect(() => {
-    if (isOver(state)) nextRef.current?.focus({ preventScroll: true })
+    if (state && isOver(state)) nextRef.current?.focus({ preventScroll: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status])
+  }, [status])
 
-  const over = isOver(state)
-  const message = playMessage(state)
-  const caption = over ? puzzleCaption(state.puzzle) : null
+  const over = state ? isOver(state) : false
+  const message = state ? playMessage(state) : null
+  const caption = state && over ? puzzleCaption(state.puzzle) : null
 
   return (
     <section className="puzzle-panel flex flex-col gap-3" aria-labelledby="puzzle-heading">
@@ -112,12 +238,23 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
           A puzzle while you wait
         </h2>
         <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }} data-testid="puzzle-turn">
-          {playHeading(state)}
+          {state ? playHeading(state) : ''}
         </span>
       </div>
 
       <div ref={wrapRef} className="w-full" style={{ maxWidth: PUZZLE_BOARD_MAX }}>
-        <PuzzleBoard state={state} size={size} onMove={onMove} onAnnounce={setSaid} />
+        {state ? (
+          <PuzzleBoard state={state} size={size} onMove={onMove} onAnnounce={setSaid} />
+        ) : (
+          <div
+            aria-busy="true"
+            data-testid="puzzle-loading"
+            className="flex items-center justify-center text-sm"
+            style={{ width: size, height: size, background: 'var(--surface)', color: 'var(--text-muted)' }}
+          >
+            Setting up a puzzle…
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-4" style={{ minHeight: 40, maxWidth: size }}>
@@ -130,15 +267,15 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
             type="button"
             onClick={next}
             className="text-sm px-4 py-2"
-            style={{ background: 'var(--brass)', color: 'var(--bg)', border: '1px solid var(--brass)' }}
+            style={{ background: 'var(--brass)', color: 'var(--on-accent)', border: '1px solid var(--brass)' }}
           >
             Next puzzle
           </button>
         ) : (
           <button
             type="button"
-            onClick={() => setState(s => showLine(s))}
-            disabled={state.status === 'showing'}
+            onClick={() => setState(s => (s ? showLine(s) : s))}
+            disabled={!state || state.status === 'showing'}
             className="text-sm px-4 py-2"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'transparent' }}
           >
@@ -150,6 +287,7 @@ export default function PuzzlePanel({ set = PUZZLES }: { set?: Puzzle[] }) {
       {caption && (
         <p className="text-xs" style={{ color: 'var(--text-muted)', maxWidth: size }} data-testid="puzzle-caption">
           {caption}
+          {hint && ` ${hint}`}
         </p>
       )}
 

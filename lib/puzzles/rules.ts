@@ -7,6 +7,8 @@ export interface Puzzle {
   solution: string[]
   theme: string
   source: string | null
+  rating?: number
+  lead?: { fen: string; move: string }
 }
 
 export type MoveVerdict = 'right' | 'solved' | 'wrong'
@@ -57,30 +59,3 @@ export function replyAfter(puzzle: Puzzle, ply: number): string | null {
 export function solverMoves(puzzle: Puzzle): string[] {
   return puzzle.solution.filter((_, i) => i % 2 === 0)
 }
-
-export function nextPuzzle(set: Puzzle[], seen: string[], current: string | null = null): { puzzle: Puzzle; restart: boolean } {
-  const seenIds = new Set(seen)
-  const fresh = set.find(p => !seenIds.has(p.id) && p.id !== current)
-  if (fresh) return { puzzle: fresh, restart: false }
-  const again = set.find(p => p.id !== current) ?? set[0]
-  return { puzzle: again, restart: true }
-}
-
-export function markSeen(set: Puzzle[], seen: string[], id: string): string[] {
-  const known = new Set(set.map(p => p.id))
-  const out = seen.filter(s => known.has(s) && s !== id)
-  if (known.has(id)) out.push(id)
-  return out
-}
-
-export function parseSeen(raw: string | null): string[] {
-  if (!raw) return []
-  try {
-    const v = JSON.parse(raw)
-    return Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-export const SEEN_STORAGE_KEY = 'chessics_puzzles_seen'

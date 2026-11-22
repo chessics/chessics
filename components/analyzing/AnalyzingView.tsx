@@ -58,7 +58,7 @@ export default function AnalyzingView({
     return () => mq.removeEventListener?.('change', update)
   }, [])
 
-  const bars: StripBarState[] = Array.from({ length: batchSize }, (_, i) => (i < gamesDone ? 'quiet' : 'pending'))
+  const bars: StripBarState[] = Array.from({ length: batchSize }, (_, i) => (i < gamesDone ? 'affected' : 'pending'))
 
   const stageItems = [
     `Get games from ${platformLabel(platform)}`,

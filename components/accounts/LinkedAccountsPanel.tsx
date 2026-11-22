@@ -6,6 +6,7 @@ import { countNoun } from '@/lib/count-noun'
 import { linkErrorMessage, linkedMessage } from '@/lib/accounts/messages'
 import { PLATFORM_LABEL, type AccountPlatform } from '@/lib/accounts/rules'
 import './accounts.css'
+import { CHESS_USERNAME_FIELD } from '@/lib/forms/chess-username-field'
 
 interface Row {
   id: string
@@ -205,10 +206,8 @@ export default function LinkedAccountsPanel() {
             ref={inputRef}
             id={inputId}
             className="linked-accounts-input"
+            {...CHESS_USERNAME_FIELD}
             placeholder={`${PLATFORM_LABEL[platform]} username`}
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
             maxLength={30}
             value={username}
             disabled={full}

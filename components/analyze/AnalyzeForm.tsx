@@ -9,6 +9,7 @@ import { landingErrorMessage } from '@/lib/sync/poll'
 import { countNoun } from '@/lib/count-noun'
 import { analyzeSession, BATCH_CHOICES, type AnalyzeFilter } from '@/lib/sync/analyze-session'
 import '@/components/analyze/analyze.css'
+import { CHESS_USERNAME_FIELD } from '@/lib/forms/chess-username-field'
 
 export interface AnalyzeAccount {
   id: string
@@ -101,12 +102,9 @@ export default function AnalyzeForm({
               ))}
             </div>
             <input
-              type="text"
+              {...CHESS_USERNAME_FIELD}
               aria-label={`${PLATFORM_LABEL[platform]} username`}
               placeholder="Username"
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
               maxLength={50}
               value={username}
               onChange={(e) => setUsername(e.target.value)}

@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+input[type='search'][data-form-type='other'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type='search'][data-form-type='other']::-webkit-search-cancel-button,
+input[type='search'][data-form-type='other']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
+}
+
 :root {
   --bg: #1b1a17;
   --surface: #24221e;

@@ -88,7 +88,7 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
   throw lastError ?? new Error(`Failed to fetch ${url}`)
 }
 
-function extractPgnHeader(pgn: string, key: string): string | null {
+export function extractPgnHeader(pgn: string, key: string): string | null {
   const match = pgn.match(new RegExp(`\\[${key} "(.+?)"\\]`))
   return match ? match[1] : null
 }

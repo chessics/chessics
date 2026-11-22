@@ -20,7 +20,7 @@ import {
   type Speed,
 } from '@/lib/games/player-lookup'
 import { RESULT_BADGE } from '@/components/workbench/GamesLibraryClient'
-import { CHESS_USERNAME_FIELD } from '@/lib/forms/chess-username-field'
+import { CHESS_USERNAME_FIELD, chessUsernameText } from '@/lib/forms/chess-username-field'
 
 export interface LookupResult {
   platform: LookupPlatform
@@ -249,8 +249,8 @@ export default function PlayerLookup({ bare = false }: { bare?: boolean }) {
         <input
           ref={input}
           {...CHESS_USERNAME_FIELD}
-          aria-label="Username"
-          placeholder="Username"
+          aria-label={chessUsernameText('Username')}
+          placeholder={chessUsernameText('Username')}
           maxLength={50}
           value={username}
           onChange={(e) => setUsername(e.target.value)}

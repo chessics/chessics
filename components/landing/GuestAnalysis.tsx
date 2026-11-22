@@ -7,7 +7,7 @@ import { DAILY_CAP_CODE } from '@/lib/ratelimit-message'
 import { landingPlan } from '@/lib/sync/resume'
 import { uuid } from '@/lib/uuid'
 import styles from './landing.module.css'
-import { CHESS_USERNAME_FIELD } from '@/lib/forms/chess-username-field'
+import { CHESS_USERNAME_FIELD, chessUsernameText } from '@/lib/forms/chess-username-field'
 
 type Platform = 'chess.com' | 'lichess'
 
@@ -164,10 +164,10 @@ export default function GuestAnalysis() {
               <input
                 ref={inputRef}
                 {...CHESS_USERNAME_FIELD}
-                placeholder={`Your ${platformName} username`}
+                placeholder={chessUsernameText(`Your ${platformName} username`)}
                 value={username}
                 onChange={handleUsernameChange}
-                aria-label={`${platformName} username`}
+                aria-label={chessUsernameText(`${platformName} username`)}
                 className={styles.username}
               />
 

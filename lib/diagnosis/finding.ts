@@ -102,8 +102,11 @@ export function selectFindings(groups: GroupFacts[]): { ordered: GroupFacts[]; d
   const rest = sorted.filter((g) => !g.recurring)
   if (recurring.length > 0) return { ordered: [...recurring, ...rest].slice(0, MAX_FINDINGS), degraded: false }
   if (sorted.length === 0) return { ordered: [], degraded: false }
-  const costliest = sorted.reduce((a, b) => (b.exhibit.swingCp > a.exhibit.swingCp ? b : a))
-  return { ordered: [costliest, ...sorted.filter((g) => g !== costliest)].slice(0, MAX_FINDINGS), degraded: true }
+  const swing = (g: GroupFacts) => g.exhibit?.swingCp ?? 0
+  const lead = sorted.reduce((a, b) =>
+    b.frequency > a.frequency || (b.frequency === a.frequency && swing(b) > swing(a)) ? b : a
+  )
+  return { ordered: [lead, ...sorted.filter((g) => g !== lead)].slice(0, MAX_FINDINGS), degraded: true }
 }
 
 export function chronological(instances: InstanceFacts[]): InstanceFacts[] {

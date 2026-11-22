@@ -1,11 +1,11 @@
-import { sentenceCase, type GroupFacts } from './finding'
+import { selectFindings, sentenceCase, type GroupFacts } from './finding'
 import { tagSentences } from './tag-sentences'
 import { countNoun } from '../count-noun'
 
 export const ANALYZE_MORE_ID = 'analyze-more'
 
-export const NO_HABIT_VERDICT = 'Not enough games to confirm a habit yet.'
-export const MORE_GAMES_HINT = 'Analyze more games to confirm one.'
+export const NO_HABIT_VERDICT = 'No pattern came up in these games yet.'
+export const MORE_GAMES_HINT = 'Analyze more games to see what repeats.'
 
 export function withoutEmDash(text: string): string {
   return text.replace(/\s*—\s*/g, ': ').replace(/:\s*:/g, ':')
@@ -28,12 +28,26 @@ export function habitVerdict(tag: string, label: string, frequency: number, game
   return s ? `In ${frequency} of your ${games}, ${s.headline}.` : `${sentenceCase(label)} came up in ${frequency} of your ${games}.`
 }
 
+export function topFindingVerdict(recounted: readonly GroupFacts[], gameCount: number): string | null {
+  const top = selectFindings([...recounted]).ordered[0]
+  if (!top) return null
+  const s = tagSentences(top.tag)
+  const games = countNoun(gameCount, 'game')
+  return s
+    ? `Your top pattern so far: in ${top.frequency} of your ${games}, ${s.headline}.`
+    : `Your top pattern so far: ${sentenceCase(top.label).toLowerCase()} came up in ${top.frequency} of your ${games}.`
+}
+
+export function noHabitVerdict(recounted: readonly GroupFacts[], gameCount: number): Verdict {
+  return { text: topFindingVerdict(recounted, gameCount) ?? NO_HABIT_VERDICT, needsMoreGames: true }
+}
+
 export function reportVerdict(
   stored: string | null,
   recounted: readonly GroupFacts[],
   gameCount: number
 ): Verdict | null {
   const head = recounted.find((g) => g.recurring)
-  if (!head) return verdictFor(stored, false)
+  if (!head) return noHabitVerdict(recounted, gameCount)
   return { text: habitVerdict(head.tag, head.label, head.frequency, gameCount), needsMoreGames: false }
 }

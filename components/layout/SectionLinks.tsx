@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Crosshair, Swords, TrendingUp } from 'lucide-react'
+import { BookOpen, Crosshair, FileText, House, TrendingUp } from 'lucide-react'
 import { FLAGS } from '@/lib/flags'
 
 const sections = [
-  { href: '/workbench', label: 'Report', icon: Swords },
+  { href: '/workbench', label: 'Home', icon: House },
+  { href: '/reports', label: 'Reports', icon: FileText },
   { href: '/train', label: 'Train', icon: Crosshair },
   { href: '/games', label: 'Games', icon: BookOpen },
   { href: '/progress', label: 'Progress', icon: TrendingUp },
@@ -17,7 +18,7 @@ export default function SectionLinks() {
 
   return sections.map(({ href, label, icon: Icon }) => {
     if (href === '/progress' && !FLAGS.progressPage) return null
-    const current = pathname === href || pathname.startsWith(href + '/')
+    const current = isCurrent(href, pathname)
     return (
       <Link
         key={href}
@@ -35,4 +36,10 @@ export default function SectionLinks() {
       </Link>
     )
   })
+}
+
+export function isCurrent(href: string, pathname: string): boolean {
+  if (href === '/workbench') return pathname === '/workbench'
+  if (href === '/reports') return pathname === '/reports' || pathname.startsWith('/reports/') || pathname.startsWith('/workbench/batch/')
+  return pathname === href || pathname.startsWith(href + '/')
 }

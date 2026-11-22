@@ -9,12 +9,24 @@ import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
 import SignedOut from '@/components/layout/SignedOut'
 import LoadFailed from '@/components/layout/LoadFailed'
 import { trajectoriesWithHistory } from '@/lib/workbench/trajectory'
-import { accountScope } from '@/lib/accounts/active'
+import { accountScope, scopeAccountId } from '@/lib/accounts/active'
 import { batchReportsForAccount } from '@/lib/accounts/batches'
 import { earlierReports, headlineReport, trendReports, type ReportRow } from '@/lib/workbench/report-choice'
 import EarlierReports from '@/components/workbench/EarlierReports'
+import { cookies } from 'next/headers'
+import { loadHome, HOME_SEEN_COOKIE, type HomeData } from '@/lib/home/load'
+import HomeView from '@/components/home/HomeView'
 
 export const metadata: Metadata = { title: 'Report' }
+
+function lastSeen(): number | null {
+  try {
+    const n = Number(cookies().get(HOME_SEEN_COOKIE)?.value)
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
+  }
+}
 
 export default async function WorkbenchPage() {
   const supabase = await createClient()
@@ -30,6 +42,7 @@ export default async function WorkbenchPage() {
   let results: Record<string, 'win' | 'loss' | 'draw' | null> | undefined
   let recounted: BatchPatternGroup[] | undefined
   let loadFailed = false
+  let home: HomeData | null = null
 
   if (session) {
     const userId = session.user.id
@@ -100,15 +113,34 @@ export default async function WorkbenchPage() {
         )
       ).groups
     }
+
+    if (!loadFailed && scope !== null) {
+      const groups = [...(recounted ?? latestBatch?.pattern_groups ?? [])].sort((a, b) => b.score - a.score)
+      const top = groups.find((g) => g.recurring) ?? null
+      const seen = lastSeen()
+      home = await loadHome({
+        supabase,
+        userId,
+        accountId: scopeAccountId(scope),
+        accountName: scope.scoped ? scope.active?.username ?? null : null,
+        headline: top ? { tag: top.tag, label: top.label, gameIds: top.gameIds ?? [] } : null,
+        batchId: latestBatch?.id ?? null,
+        lastSeen: seen,
+        now: Date.now(),
+      }).catch((err) => {
+        console.error('[workbench] home:', err)
+        return null
+      })
+    }
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 max-w-screen-xl mx-auto w-full">
       <GuestTransferRetry signedIn={!!session} />
       <AutoImport signedIn={!!session} enabled={autoImportEnabled()} />
       <div>
-        <h1 className="text-2xl font-headline" style={{ color: 'var(--text)' }}>
-          Report
+        <h1 className="font-headline" style={{ color: 'var(--text)', fontSize: 30, lineHeight: 1.15 }}>
+          {home?.name ?? 'Report'}
         </h1>
       </div>
       {!session ? (
@@ -116,6 +148,16 @@ export default async function WorkbenchPage() {
       ) : loadFailed ? (
         <LoadFailed what="Your report" href="/workbench" />
       ) : (
+        <>
+          {home && <HomeView data={home} />}
+          {home && latestBatch && (
+            <h2
+              className="font-headline"
+              style={{ color: 'var(--text)', fontSize: 22, lineHeight: 1.2, fontWeight: 500, borderTop: '1px solid var(--border)', paddingTop: 20, marginTop: 16 }}
+            >
+              Latest report
+            </h2>
+          )}
         <BatchReportSummary
           latestBatch={latestBatch}
           trajectories={trajectories}
@@ -123,6 +165,7 @@ export default async function WorkbenchPage() {
           results={results}
           recounted={recounted}
         />
+        </>
       )}
       {session && !loadFailed && <EarlierReports reports={earlier} />}
     </div>

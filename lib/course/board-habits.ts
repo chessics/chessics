@@ -53,7 +53,9 @@ export function boardHabit(row: EvaluatedRow, previous?: PlayedRow): BoardHabit 
 
   const move = replay(row)
   if (!move || move.color !== (color === 'white' ? 'w' : 'b') || new Chess(move.after).isGameOver()) return null
-  const loose = losablePieces(move.after)
+  const won = (move.captured ? CAPTURE_PIECES[move.captured][1] : 0)
+    + (move.promotion ? CAPTURE_PIECES[move.promotion][1] - 1 : 0)
+  const loose = new Set(Array.from(losablePieces(move.after)).filter(s => staticExchange(move.after, s) - won >= 2))
   if (loose.has(move.to)) return 'a piece you just moved'
   if (!loose.size || previous?.ply_number !== row.ply_number - 1 || previous.fen_after !== move.before) return null
   if (!replay(previous)) return null

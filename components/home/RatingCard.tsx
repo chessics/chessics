@@ -70,24 +70,24 @@ export default function RatingCard({ series }: { series: RatingSeries[] }) {
         </span>
         <svg
           className="home-chart"
-        data-still={switched || undefined}
+          data-switched={switched || undefined}
           viewBox={`0 0 ${W} ${H}`}
           role="img"
           aria-label={`${label(s)} rating over ${n} games, from ${s.points[0].rating} to ${s.now}.`}
         >
           <line x1={PAD_X} x2={W} y1={y(hi)} y2={y(hi)} stroke="var(--border)" strokeWidth="1" />
           <line x1={PAD_X} x2={W} y1={y(lo)} y2={y(lo)} stroke="var(--border)" strokeWidth="1" />
-          <polyline className="home-line" pathLength={1} points={line} fill="none" stroke="var(--text)" strokeWidth="1.5" />
+          <polyline key={`${s.platform}:${s.speed}`} className="home-line" pathLength={1} points={line} fill="none" stroke="var(--text)" strokeWidth="1.5" />
           {habits.map(({ p, i }) => {
             const dot = <rect className="home-mark" x={x(i) - 4} y={y(p.rating) - 4} width="8" height="8" fill="var(--blunder)" />
             const what = `${p.result === 'win' ? 'Win' : p.result === 'loss' ? 'Loss' : 'Draw'}${p.opponent ? ` against ${p.opponent}` : ''}, ${shortDate(p.at)}, rating ${p.rating}`
             return p.analysed ? (
-              <a key={p.id} href={`/games/${p.id}/review`} aria-label={`${what}. Open the review.`}>
+              <a key={`${s.speed}:${p.id}`} href={`/games/${p.id}/review`} aria-label={`${what}. Open the review.`}>
                 <title>{what}</title>
                 {dot}
               </a>
             ) : (
-              <g key={p.id}>
+              <g key={`${s.speed}:${p.id}`}>
                 <title>{what}</title>
                 {dot}
               </g>

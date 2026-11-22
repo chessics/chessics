@@ -96,7 +96,8 @@
   @keyframes home-fade { from { opacity: 0; } }
   .home-chart .home-line { stroke-dasharray: 1; animation: home-draw 900ms cubic-bezier(0.2, 0, 0, 1) 250ms both; }
   .home-chart .home-mark { animation: home-fade 200ms ease-out 1100ms both; }
-  .home-chart[data-still] .home-line, .home-chart[data-still] .home-mark { animation: none; }
+  .home-chart[data-switched] .home-line { animation-delay: 0ms; }
+  .home-chart[data-switched] .home-mark { animation-delay: 850ms; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -37,8 +37,8 @@ const config: Config = {
         full: '0',
       },
       fontFamily: {
-        sans: ['DM Sans', 'sans-serif'],
-        logo: ['Cormorant Garamond', 'serif'],
+        sans: ['Geist', 'sans-serif'],
+        logo: ['Newsreader', 'serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
     },

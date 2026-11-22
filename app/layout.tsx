@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 }
 
 const FONTS_URL =
-  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Geist:wght@400;500;600&display=swap'
+  'https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400..600&family=JetBrains+Mono:wght@400;500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Geist:wght@400;500;600&display=swap'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

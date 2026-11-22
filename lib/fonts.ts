@@ -1,5 +1,5 @@
 export const fonts = {
-  logo: "'Cormorant Garamond', serif",
-  body: "'DM Sans', sans-serif",
+  logo: "'Newsreader', serif",
+  body: "'Geist', sans-serif",
   mono: "'JetBrains Mono', monospace",
 } as const

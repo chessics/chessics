@@ -22,15 +22,15 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           minHeight: '100vh',
           background: ESPRESSO,
           color: CREAM,
-          fontFamily: "'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif",
+          fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
           colorScheme: 'dark',
         }}
       >
         <main style={{ padding: '80px 24px 64px', maxWidth: 448 }}>
-          <a href="/" style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, color: CREAM, textDecoration: 'none' }}>
+          <a href="/" style={{ fontFamily: 'Georgia, serif', fontSize: 28, color: CREAM, textDecoration: 'none' }}>
             chess<span style={{ color: BRASS }}>ics</span>
           </a>
-          <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 34, lineHeight: 1.2, fontWeight: 500, margin: '24px 0 12px' }}>
+          <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 34, lineHeight: 1.2, fontWeight: 500, margin: '24px 0 12px' }}>
             Something went wrong
           </h1>
           <p style={{ fontSize: 14, color: MUTED, margin: 0 }}>The site could not be shown just now.</p>

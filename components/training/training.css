@@ -13,7 +13,7 @@
 }
 
 .training-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
   font-size: 40px;
   font-weight: 500;
   line-height: 1.05;
@@ -58,7 +58,8 @@
 }
 
 .training-instructions-main {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
+  font-weight: 500;
   font-size: 28px;
   line-height: 1.15;
   color: var(--text);
@@ -107,14 +108,15 @@
 }
 
 .training-intro-num {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
   font-size: 26px;
   color: var(--brass);
   line-height: 1;
 }
 
 .training-verdict {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
+  font-weight: 500;
   font-size: 34px;
   line-height: 1.1;
   margin: 0;
@@ -254,7 +256,7 @@
 }
 
 .training-btn {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Geist', sans-serif;
   font-size: 15px;
   padding: 10px 18px;
   border: 1px solid var(--border-strong);
@@ -389,7 +391,8 @@
 }
 
 .training-open-loop {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
+  font-weight: 500;
   font-size: 30px;
   line-height: 1.2;
   color: var(--text);
@@ -422,7 +425,7 @@
 }
 
 .session-section-title {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
   font-size: 28px;
   font-weight: 500;
   color: var(--text);
@@ -600,7 +603,7 @@
 }
 
 .replay-status-word {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
   font-size: 30px;
   line-height: 1.1;
   transition: color 300ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -752,7 +755,7 @@
 }
 
 .training-chip {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Geist', sans-serif;
   font-size: 15px;
   padding: 8px 12px;
   border: 1px solid var(--border-strong);

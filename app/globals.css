@@ -107,7 +107,7 @@ input[type='search'][data-form-type='other']::-webkit-search-decoration {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Geist', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
@@ -139,7 +139,10 @@ body::after {
 
 .font-logo,
 .font-headline {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: 'Newsreader', serif;
+}
+.font-headline {
+  font-weight: 500;
 }
 
 .font-mono {
@@ -305,8 +308,9 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   padding: 0 0 14px;
 }
 .review-header h1, .editorial-title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: clamp(1.85rem, 3vw, 2.8rem);
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: clamp(1.75rem, 2.8vw, 2.5rem);
+  font-weight: 500;
   line-height: 1;
   overflow-wrap: anywhere;
 }

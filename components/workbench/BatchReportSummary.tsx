@@ -28,6 +28,7 @@ interface BatchReportSummaryProps {
   recounted?: BatchPatternGroup[]
   outOfNowhere?: number | null
   chainGames?: number | null
+  suddenGameIds?: string[] | null
 }
 
 function formatDate(dateStr: string): string {
@@ -100,6 +101,7 @@ export default function BatchReportSummary({
   recounted,
   outOfNowhere,
   chainGames,
+  suddenGameIds,
 }: BatchReportSummaryProps) {
   if (!latestBatch) {
     return (
@@ -129,10 +131,7 @@ export default function BatchReportSummary({
   const groups = recounted ? byScore(recounted) : storedGroups
   const storedHeadline = storedGroups.find((g) => g.recurring) ?? null
   const headline = groups.find((g) => g.recurring) ?? null
-  const affected = new Set(headline?.gameIds ?? [])
-  const bars = (latestBatch.game_ids ?? []).map((id) =>
-    affected.has(id) ? ('affected' as const) : ('quiet' as const)
-  )
+
   const storedVerdict = storedHeadline?.insight ?? (latestBatch.claude_narrative ? firstSentence(latestBatch.claude_narrative) : null)
   const verdict = checkBatchProse({
     storedVerdict,
@@ -145,6 +144,10 @@ export default function BatchReportSummary({
     outOfNowhere,
     chainGames,
   }).verdict
+  const affected = new Set(verdict?.suddenLeads && suddenGameIds ? suddenGameIds : (headline?.gameIds ?? []))
+  const bars = (latestBatch.game_ids ?? []).map((id) =>
+    affected.has(id) ? ('affected' as const) : ('quiet' as const)
+  )
 
   return (
     <div

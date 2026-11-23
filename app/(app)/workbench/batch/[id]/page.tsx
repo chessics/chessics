@@ -8,6 +8,7 @@ import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
+import { suddenBlunderFinding, withSuddenFinding } from '@/lib/diagnosis/out-of-nowhere'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { userNameFromGames } from '@/lib/sync/user-from-games'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
@@ -76,7 +77,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
     .map((id) => gamesById.get(id))
     .filter((g): g is Game => !!g)
 
-  const { groups, instances, outOfNowhere, chainGames } = await loadBatchDiagnosis(
+  const { groups, instances, outOfNowhere, chainGames, suddenBlunders } = await loadBatchDiagnosis(
     supabase,
     storedGroups,
     gameIds,
@@ -87,13 +88,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
     ),
     ((analysesResult.data as GameAnalysis[] | null) ?? []).map((a) => ({ id: a.id, game_id: a.game_id }))
   )
-  const stripGroup = selectFindings(groups).ordered[0] ?? null
-  const findings = buildFindings(groups, instances, batch.game_count)
-
   const fatigue = await fatigueRead
-
-  const affected = new Set(stripGroup?.gameIds ?? [])
-  const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
 
   const syncedRating =
     orderedGames
@@ -122,6 +117,12 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
     chainGames,
   })
   const verdict = prose.verdict
+
+  const sudden = suddenBlunderFinding(suddenBlunders, batch.game_count)
+  const findings = withSuddenFinding(buildFindings(groups, instances, batch.game_count), sudden, !!verdict?.suddenLeads)
+  const stripGroup = selectFindings(groups).ordered[0] ?? null
+  const affected = new Set(verdict?.suddenLeads ? suddenBlunders.map((i) => i.gameId) : (stripGroup?.gameIds ?? []))
+  const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
 
   return (
     <div className={`flex flex-col gap-10 ${REPORT_COLUMN}`}>

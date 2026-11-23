@@ -4,18 +4,21 @@ import type { GroupFacts, InstanceFacts } from './finding'
 import { mergeEvidence, type StandAloneByTag } from './instance'
 import { chainGameIds, recountGroups } from './recount'
 import { SUPABASE_MAX_ROWS, allRows, gamesByPliesQueries } from '@/lib/supabase/row-cap'
-import { outOfNowhereGames } from './out-of-nowhere'
+import { suddenBlunderInstances } from './out-of-nowhere'
 
 export interface BatchDiagnosis<G extends GroupFacts> {
   groups: G[]
   instances: Map<string, InstanceFacts[]>
   chainGames: number
   outOfNowhere: string[] | null
+  suddenBlunders: InstanceFacts[]
 }
 
 interface BlunderRow {
   game_id: string
   ply_number: number
+  san: string
+  fen_before: string
   eval_before: number | string | null
   eval_after: number | string | null
 }
@@ -44,7 +47,7 @@ export async function loadBatchDiagnosis<G extends GroupFacts>(
           (from, to) =>
             supabase
               .from('moves')
-              .select('game_id, ply_number, eval_before, eval_after')
+              .select('game_id, ply_number, san, fen_before, eval_before, eval_after')
               .in('game_id', [...gameIds])
               .eq('classification', 'blunder')
               .order('id', { ascending: true })
@@ -75,18 +78,25 @@ export async function loadBatchDiagnosis<G extends GroupFacts>(
   const standAlone: StandAloneByTag = new Map()
   const notOnBoard: StandAloneByTag = new Map()
   const instances = accountInstances({ ...rows, moves }, standAlone, notOnBoard)
-  const outOfNowhere = blunderResult.error
-    ? null
-    : Array.from(
-        outOfNowhereGames(
-          games,
-          blunderResult.data.map((m) => ({ gameId: m.game_id, ply: m.ply_number, evalBefore: num(m.eval_before), evalAfter: num(m.eval_after) }))
-        )
+  const suddenBlunders = blunderResult.error
+    ? []
+    : suddenBlunderInstances(
+        games,
+        blunderResult.data.map((m) => ({
+          gameId: m.game_id,
+          ply: m.ply_number,
+          san: m.san,
+          fenBefore: m.fen_before,
+          evalBefore: num(m.eval_before),
+          evalAfter: num(m.eval_after),
+        }))
       )
+  const outOfNowhere = blunderResult.error ? null : suddenBlunders.map((i) => i.gameId)
   return {
     groups: recountGroups(storedGroups, instances, mergeEvidence(standAlone, notOnBoard)),
     instances,
     chainGames: chainGameIds(storedGroups, instances, standAlone, notOnBoard).size,
     outOfNowhere,
+    suddenBlunders,
   }
 }

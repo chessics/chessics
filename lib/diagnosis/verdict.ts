@@ -16,6 +16,7 @@ export interface Verdict {
   text: string
   needsMoreGames: boolean
   also?: string
+  suddenLeads?: true
 }
 
 const withAlso = (v: Verdict, also: string | null): Verdict => (also ? { ...v, also } : v)
@@ -47,14 +48,14 @@ export function noHabitVerdict(
   const chainGames = chainCount ?? new Set(recounted.flatMap((g) => g.gameIds)).size
   const chain = earlierMistakeVerdict(recounted, gameCount, chainGames)
   const nowhere = outOfNowhere == null ? null : outOfNowhereSentence(outOfNowhere, gameCount)
-  if (nowhere && outOfNowhere! > chainGames) return withAlso({ text: nowhere, needsMoreGames: true }, chain)
+  if (nowhere && outOfNowhere! > chainGames) return withAlso({ text: nowhere, needsMoreGames: true, suddenLeads: true }, chain)
   return withAlso({ text: chain ?? NO_HABIT_VERDICT, needsMoreGames: true }, nowhere)
 }
 
 export function habitHeadline(head: GroupFacts, gameCount: number, outOfNowhere?: number | null): Verdict {
   const nowhere = outOfNowhere == null ? null : outOfNowhereSentence(outOfNowhere, gameCount)
   const habit = habitVerdict(head.tag, head.label, head.frequency, gameCount)
-  if (nowhere && outOfNowhere! > head.frequency) return { text: nowhere, needsMoreGames: false, also: habit }
+  if (nowhere && outOfNowhere! > head.frequency) return { text: nowhere, needsMoreGames: false, also: habit, suddenLeads: true }
   return withAlso({ text: habit, needsMoreGames: false }, nowhere)
 }
 

@@ -463,14 +463,17 @@ export default function GameReviewClient({
   const openChainAt = useCallback(
     (rootPly: number) => {
       const chain = chainAtRoot(causalChains, rootPly, standAloneIds)
-      if (!chain) return
+      if (!chain) {
+        if (moves.some((m) => m.ply_number === rootPly)) showPositionBefore(rootPly, 'chain_blunder')
+        return
+      }
       const alone = standAloneIds.has(chain.id)
       const ply = alone ? chain.terminal_blunder_ply : chain.root_move_ply
       showPositionBefore(ply, alone ? 'chain_blunder' : 'chain_root')
       setActiveChainId(chain.id)
       setActiveNodePly(ply)
     },
-    [causalChains, standAloneIds, showPositionBefore]
+    [causalChains, standAloneIds, showPositionBefore, moves]
   )
 
   useEffect(() => {

@@ -12,7 +12,8 @@ import { guestGameRows, turningMoveTimes } from '@/lib/report/game-moments'
 import GuestGameMoment from '@/components/report/GuestGameMoment'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
-import { guestFatigue, guestInstances, guestOutOfNowhere } from '@/lib/diagnosis/guest'
+import { guestFatigue, guestInstances, guestSuddenBlunders } from '@/lib/diagnosis/guest'
+import { suddenBlunderFinding, withSuddenFinding } from '@/lib/diagnosis/out-of-nowhere'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { checkBatchProse } from '@/lib/prose/check'
 import { chainGameIds, recountGroups } from '@/lib/diagnosis/recount'
@@ -104,8 +105,7 @@ export default function GuestReportPage() {
   }
 
   const gameIds = result.batch_report.game_ids ?? []
-  const affected = new Set(stripGroup?.gameIds ?? [])
-  const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
+  const sudden = guestSuddenBlunders(result)
   const prose = checkBatchProse({
     storedVerdict: result.batch_report.verdict,
     narrative: result.batch_report.claude_narrative,
@@ -114,10 +114,13 @@ export default function GuestReportPage() {
     storedGroups: result.pattern_groups ?? [],
     recounted: groups,
     results: new Map(result.games.map((g) => [g.analysis_data.gameId, g.result])),
-    outOfNowhere: guestOutOfNowhere(result),
+    outOfNowhere: sudden.length,
     chainGames,
   })
   const verdict = prose.verdict
+  const shownFindings = withSuddenFinding(findings, suddenBlunderFinding(sudden, result.batch_report.game_count), !!verdict?.suddenLeads)
+  const affected = new Set(verdict?.suddenLeads ? sudden.map((i) => i.gameId) : (stripGroup?.gameIds ?? []))
+  const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
 
   return (
     <main className="min-h-screen px-4 sm:px-8 lg:px-12 py-12" style={{ background: 'var(--bg)' }}>
@@ -171,7 +174,7 @@ export default function GuestReportPage() {
         </div>
 
         <Diagnosis
-          findings={findings}
+          findings={shownFindings}
           reviewLinks={false}
           sourcesNote="Sign up to open full game reviews with every chain."
         />

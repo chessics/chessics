@@ -16,6 +16,7 @@ export interface WorkbenchReport {
   recounted: BatchPatternGroup[] | undefined
   outOfNowhere: number | null
   chainGames: number | null
+  suddenGameIds: string[] | null
   loadFailed: boolean
 }
 
@@ -28,6 +29,7 @@ export async function loadWorkbenchReport(supabase: SupabaseClient, userId: stri
   let recounted: BatchPatternGroup[] | undefined
   let outOfNowhere: number | null = null
   let chainGames: number | null = null
+  let suddenGameIds: string[] | null = null
   let loadFailed = false
 
   const scope = await accountScope(supabase, userId).catch((err) => {
@@ -96,7 +98,8 @@ export async function loadWorkbenchReport(supabase: SupabaseClient, userId: stri
     recounted = diagnosis.groups
     outOfNowhere = diagnosis.outOfNowhere?.length ?? null
     chainGames = diagnosis.chainGames
+    suddenGameIds = diagnosis.outOfNowhere
   }
 
-  return { scope, latestBatch, trajectories, allBatches, earlier, results, recounted, outOfNowhere, chainGames, loadFailed }
+  return { scope, latestBatch, trajectories, allBatches, earlier, results, recounted, outOfNowhere, chainGames, suddenGameIds, loadFailed }
 }

@@ -142,7 +142,7 @@ function resultList(lost: number, drew: number, won: number): string {
   return parts.length === 3 ? `${parts[0]}, ${parts[1]} and ${parts[2]}` : `${parts[0]} and ${parts[1]}`
 }
 
-function resultsSentence(games: { result: GameResult | null }[], times: number): string | null {
+export function resultsSentence(games: { result: GameResult | null }[], times: number): string | null {
   if (games.length === 0 || games.some((g) => g.result === null)) return null
   const n = games.length
   const lost = games.filter((g) => g.result === 'loss').length
@@ -161,7 +161,7 @@ function resultsSentence(games: { result: GameResult | null }[], times: number):
   return same ? `They came in ${n} games, and you ${same} ${allOf}.` : `They came in ${n} games: you ${resultList(lost, drew, won)}.`
 }
 
-function countPhrase(counted: number, total: number): string {
+export function countPhrase(counted: number, total: number): string {
   if (counted < total) return `${counted} of the ${total} times`
   if (total === 1) return 'Once'
   if (total === 2) return 'Both times'

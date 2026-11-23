@@ -37,6 +37,7 @@ export default async function ReportsPage() {
             recounted={report.recounted}
             outOfNowhere={report.outOfNowhere}
             chainGames={report.chainGames}
+            suddenGameIds={report.suddenGameIds}
           />
           <EarlierReports reports={report.earlier} />
         </>

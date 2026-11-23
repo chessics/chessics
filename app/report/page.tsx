@@ -15,8 +15,8 @@ import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
 import { guestFatigue, guestInstances, guestOutOfNowhere } from '@/lib/diagnosis/guest'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { checkBatchProse } from '@/lib/prose/check'
-import { recountGroups } from '@/lib/diagnosis/recount'
-import type { StandAloneByTag } from '@/lib/diagnosis/instance'
+import { chainGameIds, recountGroups } from '@/lib/diagnosis/recount'
+import { mergeEvidence, type StandAloneByTag } from '@/lib/diagnosis/instance'
 import type { GuestSessionResult } from '@/types/guest'
 import { reportLoadState, type ReportLoadState } from '@/lib/report/load-state'
 import { countNoun } from '@/lib/count-noun'
@@ -61,12 +61,18 @@ export default function GuestReportPage() {
       .catch(() => setState(reportLoadState(null)))
   }, [router])
 
-  const { groups, findings } = useMemo(() => {
-    if (!result) return { groups: [], findings: [] }
+  const { groups, findings, chainGames } = useMemo(() => {
+    if (!result) return { groups: [], findings: [], chainGames: 0 }
     const standAlone: StandAloneByTag = new Map()
-    const instances = guestInstances(result, standAlone)
-    const recounted = recountGroups(result.pattern_groups ?? [], instances, standAlone)
-    return { groups: recounted, findings: buildFindings(recounted, instances, result.batch_report.game_count) }
+    const notOnBoard: StandAloneByTag = new Map()
+    const instances = guestInstances(result, standAlone, notOnBoard)
+    const stored = result.pattern_groups ?? []
+    const recounted = recountGroups(stored, instances, mergeEvidence(standAlone, notOnBoard))
+    return {
+      groups: recounted,
+      findings: buildFindings(recounted, instances, result.batch_report.game_count),
+      chainGames: chainGameIds(stored, instances, standAlone, notOnBoard).size,
+    }
   }, [result])
   const fatigue = useMemo(() => (result ? guestFatigue(result) : null), [result])
   const rows = useMemo(() => result ? guestGameRows(result.games, result.batch_report.game_ids ?? []) : [], [result])
@@ -109,6 +115,7 @@ export default function GuestReportPage() {
     recounted: groups,
     results: new Map(result.games.map((g) => [g.analysis_data.gameId, g.result])),
     outOfNowhere: guestOutOfNowhere(result),
+    chainGames,
   })
   const verdict = prose.verdict
 

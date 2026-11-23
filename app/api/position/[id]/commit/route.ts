@@ -6,7 +6,7 @@ import { loadPositionHistory } from '@/lib/training/position-history'
 import { positionReturn } from '@/lib/training/summary'
 import { gamesWithTag, type RecurrenceRow } from '@/lib/training/recurrence'
 import { allRows } from '@/lib/supabase/row-cap'
-import { positionAnswer, sanToUci, type AnswerRow } from '@/lib/training/position-answer'
+import { positionAnswer, sanToUci, shownTag, type AnswerRow } from '@/lib/training/position-answer'
 import { createClient } from '@/lib/supabase/server'
 import { NO_STORE_HEADERS } from '@/lib/training/position-payload'
 import { isUnderFloor } from '@/lib/training/timing'
@@ -281,7 +281,7 @@ export async function POST(
 
   const [history, recurrence] = await Promise.all([
     loadPositionHistory(supabase, user.id, params.id),
-    position.tag && position.span_plies !== 0
+    shownTag(position) && position.span_plies !== 0
       ? buildRecurrence(supabase, user.id, position.tag, priorExposures).catch((err) => {
           console.error('[commit] recurrence:', err)
           return null
@@ -320,7 +320,7 @@ export async function POST(
   )
 }
 
-const RECURRENCE_SELECT = 'game_id, tag, span_plies, refutation_evals'
+const RECURRENCE_SELECT = 'game_id, tag, span_plies, refutation_evals, fen, root_move_san'
 
 async function buildRecurrence(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

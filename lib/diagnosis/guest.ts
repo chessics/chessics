@@ -1,10 +1,10 @@
 import type { GuestSessionResult } from '@/types/guest'
 import type { InstanceFacts } from './finding'
-import { makeInstance, noteStandAlone, terminalStoodAlone, type MoveFacts, type StandAloneByTag } from './instance'
+import { boardRejects, makeInstance, noteStandAlone, terminalStoodAlone, type MoveFacts, type StandAloneByTag } from './instance'
 import { outOfNowhereGames } from './out-of-nowhere'
 import { hasEngineEvals, sittingReport, type BlunderMove, type HistoryGame, type ScopeGame, type SittingReport } from './sittings'
 
-export function guestInstances(result: GuestSessionResult, standAlone?: StandAloneByTag): Map<string, InstanceFacts[]> {
+export function guestInstances(result: GuestSessionResult, standAlone?: StandAloneByTag, notOnBoard?: StandAloneByTag): Map<string, InstanceFacts[]> {
   const out = new Map<string, InstanceFacts[]>()
   const groupGames = new Map(result.pattern_groups.map((g) => [g.tag, new Set(g.gameIds)]))
   for (const game of result.games) {
@@ -28,6 +28,10 @@ export function guestInstances(result: GuestSessionResult, standAlone?: StandAlo
       if (terminalStoodAlone(facts, movesByPly, terminal)) noteStandAlone(standAlone, tag, gameId)
       const instance = makeInstance(facts, movesByPly, rootPly, terminal)
       if (!instance) continue
+      if (boardRejects(tag, instance)) {
+        noteStandAlone(notOnBoard ?? standAlone, tag, gameId)
+        continue
+      }
       out.set(tag, [...(out.get(tag) ?? []), instance])
     }
   }

@@ -76,7 +76,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
     .map((id) => gamesById.get(id))
     .filter((g): g is Game => !!g)
 
-  const { groups, instances, outOfNowhere } = await loadBatchDiagnosis(
+  const { groups, instances, outOfNowhere, chainGames } = await loadBatchDiagnosis(
     supabase,
     storedGroups,
     gameIds,
@@ -119,6 +119,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
     recounted: groups,
     results: new Map(orderedGames.map((g) => [g.id, g.result])),
     outOfNowhere: outOfNowhere?.length ?? null,
+    chainGames,
   })
   const verdict = prose.verdict
 

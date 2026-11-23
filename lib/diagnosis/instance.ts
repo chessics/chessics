@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js'
 import { userCp, type GameResult, type InstanceFacts } from './finding'
 import { blunderStandsAlone } from '@/lib/chains/stands-alone'
+import { boardConfirmsTag } from '@/lib/board/board-tags'
 
 export interface MoveFacts {
   ply_number: number
@@ -38,6 +39,17 @@ export function terminalStoodAlone(
 }
 
 export type StandAloneByTag = Map<string, Set<string>>
+
+export function boardRejects(tag: string, instance: InstanceFacts): boolean {
+  return boardConfirmsTag(tag, instance.fenBefore, instance.rootSan) === false
+}
+
+export function mergeEvidence(a: StandAloneByTag, b: StandAloneByTag): StandAloneByTag {
+  const out: StandAloneByTag = new Map()
+  for (const m of [a, b])
+    for (const [tag, games] of Array.from(m)) out.set(tag, new Set([...Array.from(out.get(tag) ?? []), ...Array.from(games)]))
+  return out
+}
 
 export function noteStandAlone(out: StandAloneByTag | undefined, tag: string, gameId: string): void {
   if (!out) return

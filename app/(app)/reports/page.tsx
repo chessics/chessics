@@ -36,6 +36,7 @@ export default async function ReportsPage() {
             results={report.results}
             recounted={report.recounted}
             outOfNowhere={report.outOfNowhere}
+            chainGames={report.chainGames}
           />
           <EarlierReports reports={report.earlier} />
         </>

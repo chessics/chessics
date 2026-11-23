@@ -3,6 +3,7 @@ import { qualityFilter, type QueueCandidate, type ServedPosition } from './queue
 import { nextSessionStep, openLoopSentence, orderPoolForSession, type HistoryRow } from './session'
 import type { NextResponse } from './api-types'
 import { asksForReason } from './reason'
+import { shownTag } from './position-answer'
 import { one, type OneOrMany } from '@/lib/supabase/embed'
 import { gamesByPliesQueries } from '@/lib/supabase/row-cap'
 import { preTerminalEvalFromRow, toUserEval } from '@/lib/chains/stands-alone'
@@ -16,6 +17,7 @@ export interface NextStepRow {
   fen: string
   side_to_move: string
   tag: string | null
+  root_move_san?: string | null
   eval_cp: number | null
   best_move: string | null
   refutation_line: string[] | null
@@ -28,7 +30,7 @@ export interface NextStepRow {
 }
 
 export const TRAINING_QUEUE_SELECT =
-  'id, game_id, root_ply, fen, side_to_move, tag, eval_cp, best_move, refutation_line, refutation_evals, span_plies, time_floor_ms, games(played_at, game_analyses(causal_chains(root_move_ply)))'
+  'id, game_id, root_ply, fen, side_to_move, tag, root_move_san, eval_cp, best_move, refutation_line, refutation_evals, span_plies, time_floor_ms, games(played_at, game_analyses(causal_chains(root_move_ply)))'
 
 type EmbeddedAnalysis = { causal_chains?: { root_move_ply: number }[] | null }
 type EmbeddedGame = { played_at: string | null; game_analyses?: OneOrMany<EmbeddedAnalysis> }
@@ -192,7 +194,10 @@ export function nextStepBody(
       sessionRows.map(i => ({
         position_id: i.position_id,
         correct: i.correct,
-        tag: byId.get(i.position_id)?.tag ?? null,
+        tag: (() => {
+          const row = byId.get(i.position_id)
+          return row ? shownTag(row) : null
+        })(),
         root_ply: byId.get(i.position_id)?.root_ply ?? 1,
       }))
     ),

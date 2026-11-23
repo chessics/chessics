@@ -27,6 +27,7 @@ interface BatchReportSummaryProps {
   results?: Record<string, 'win' | 'loss' | 'draw' | null>
   recounted?: BatchPatternGroup[]
   outOfNowhere?: number | null
+  chainGames?: number | null
 }
 
 function formatDate(dateStr: string): string {
@@ -98,6 +99,7 @@ export default function BatchReportSummary({
   results,
   recounted,
   outOfNowhere,
+  chainGames,
 }: BatchReportSummaryProps) {
   if (!latestBatch) {
     return (
@@ -141,6 +143,7 @@ export default function BatchReportSummary({
     recounted: groups,
     results: results ? new Map(Object.entries(results)) : null,
     outOfNowhere,
+    chainGames,
   }).verdict
 
   return (

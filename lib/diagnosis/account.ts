@@ -1,5 +1,5 @@
 import type { GroupFacts, InstanceFacts } from './finding'
-import { makeInstance, noteStandAlone, terminalStoodAlone, type GameFacts, type MoveFacts, type StandAloneByTag } from './instance'
+import { boardRejects, makeInstance, noteStandAlone, terminalStoodAlone, type GameFacts, type MoveFacts, type StandAloneByTag } from './instance'
 
 export interface AccountRows {
   groups: GroupFacts[]
@@ -43,7 +43,7 @@ function earliestTerminals(
   return out
 }
 
-export function accountInstances(rows: AccountRows, standAlone?: StandAloneByTag): Map<string, InstanceFacts[]> {
+export function accountInstances(rows: AccountRows, standAlone?: StandAloneByTag, notOnBoard?: StandAloneByTag): Map<string, InstanceFacts[]> {
   const terminals = earliestTerminals(rows.analyses, rows.chains)
   const gamesById = new Map(rows.games.map((g) => [g.id, g]))
   const movesByGame = new Map<string, Map<number, MoveFacts>>()
@@ -75,6 +75,10 @@ export function accountInstances(rows: AccountRows, standAlone?: StandAloneByTag
       const byPly = movesByGame.get(r.gameId) ?? new Map<number, MoveFacts>()
       if (terminalStoodAlone(game, byPly, terminal)) noteStandAlone(standAlone, g.tag, r.gameId)
       const instance = makeInstance(game, byPly, r.rootPly, terminal)
+      if (instance && boardRejects(g.tag, instance)) {
+        noteStandAlone(notOnBoard ?? standAlone, g.tag, r.gameId)
+        continue
+      }
       if (instance) instances.push(instance)
     }
     out.set(g.tag, instances)

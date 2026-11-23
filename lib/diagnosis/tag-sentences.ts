@@ -13,8 +13,8 @@ export const TAG_SENTENCES: Readonly<Record<string, TagSentences>> = {
     headline: 'a bishop capture led to a later blunder',
   },
   pawn_structure_weakness: {
-    finding: 'Each board shows a pawn move that led to a later blunder.',
-    headline: 'a pawn move led to a later blunder',
+    finding: 'Each board shows a pawn move that left you with a doubled, isolated or backward pawn.',
+    headline: 'a pawn move left you with a weak pawn, and a blunder followed',
   },
   premature_piece_exchange: {
     finding: 'Each board shows a capture that led to a later blunder.',
@@ -36,9 +36,13 @@ export const TAG_SENTENCES: Readonly<Record<string, TagSentences>> = {
     finding: 'Each board shows a mistake in the opening that led to a later blunder.',
     headline: 'a mistake in the opening led to a later blunder',
   },
-  king_safety: {
+  middlegame_slip: {
     finding: 'Each board shows a mistake in the middlegame that led to a later blunder.',
     headline: 'a mistake in the middlegame led to a later blunder',
+  },
+  king_safety: {
+    finding: 'Each board shows a pawn move in front of your castled king.',
+    headline: 'a pawn move in front of your castled king led to a later blunder',
   },
   passive_rook_endgame: {
     finding: 'Each board shows a small slip late in the game.',

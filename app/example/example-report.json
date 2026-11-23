@@ -1,89 +1,7 @@
 {
   "gameCount": 10,
-  "verdict": "In 3 of your 10 games, a mistake in the middlegame led to a later blunder.",
+  "verdict": "In 5 of your 10 games, an earlier mistake led to your blunder.",
   "findings": [
-    {
-      "tag": "king_safety",
-      "label": "Moves 15 to 35",
-      "checked": "Each board shows a mistake in the middlegame that led to a later blunder.",
-      "frequency": 3,
-      "gameCount": 10,
-      "recurring": true,
-      "status": "3 of 10 games",
-      "note": null,
-      "claim": [
-        {
-          "text": "1 of the 3 times, you were about equal before this move and losing after the blunder that ended its slide.",
-          "door": "1 of the 3 times"
-        },
-        {
-          "text": "You lost that game."
-        }
-      ],
-      "rule": "Counted when the engine had you ahead before this move and behind after the blunder that ended its slide.",
-      "boards": [
-        {
-          "key": "example-5:43",
-          "label": "Move 22: Nd4",
-          "fen": "3q2k1/5ppp/pp2p3/2n5/7P/2P1QN2/PP3PP1/2K5 w - - 0 22",
-          "orientation": "white",
-          "from": "f3",
-          "to": "d4",
-          "caption": "Game 5 · White · Move 22: Nd4"
-        },
-        {
-          "key": "example-7:61",
-          "label": "Move 31: Nxc6",
-          "fen": "6k1/p5pp/bpp1p3/4N3/2pPN1P1/8/PPK3P1/6r1 w - - 2 31",
-          "orientation": "white",
-          "from": "e5",
-          "to": "c6",
-          "caption": "Game 7 · White · Move 31: Nxc6"
-        },
-        {
-          "key": "example-10:40",
-          "label": "Move 20: Rhf8",
-          "fen": "1k1r3r/p1p1b2p/1p3np1/3p2B1/3P4/1NP2R2/PP4PP/R5K1 b - - 1 20",
-          "orientation": "black",
-          "from": "h8",
-          "to": "f8",
-          "caption": "Game 10 · Black · Move 20: Rhf8"
-        }
-      ],
-      "shownNote": null,
-      "sources": [
-        {
-          "key": "example-5:43",
-          "gameId": "example-5",
-          "rootPly": 43,
-          "playedAt": "2026-10-05T12:00:00Z",
-          "opponent": null,
-          "moveNumber": 22,
-          "result": "loss",
-          "counted": true
-        },
-        {
-          "key": "example-7:61",
-          "gameId": "example-7",
-          "rootPly": 61,
-          "playedAt": "2026-10-05T12:00:00Z",
-          "opponent": null,
-          "moveNumber": 31,
-          "result": "loss",
-          "counted": false
-        },
-        {
-          "key": "example-10:40",
-          "gameId": "example-10",
-          "rootPly": 40,
-          "playedAt": "2026-10-07T12:00:00Z",
-          "opponent": null,
-          "moveNumber": 20,
-          "result": "win",
-          "counted": false
-        }
-      ]
-    },
     {
       "tag": "hanging_piece",
       "label": "Hanging piece",
@@ -246,9 +164,9 @@
       ]
     },
     {
-      "tag": "pawn_structure_weakness",
-      "label": "Pawn structure weakness",
-      "checked": "Each board shows a pawn move that led to a later blunder.",
+      "tag": "passive_rook_endgame",
+      "label": "Passive rook in endgame",
+      "checked": "Each board shows a small slip late in the game.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,
@@ -256,36 +174,74 @@
       "note": null,
       "claim": [
         {
-          "text": "Once, you were about equal before this move and losing after the blunder that ended its slide.",
-          "door": "Once"
-        },
-        {
-          "text": "You lost that game."
+          "text": "This came up in 1 of your 10 games.",
+          "door": true
         }
       ],
-      "rule": "Counted when the engine had you ahead before this move and behind after the blunder that ended its slide.",
+      "rule": "Every game where this pattern started a slide.",
       "boards": [
         {
-          "key": "example-4:34",
-          "label": "Move 17: g4",
-          "fen": "2krr3/pppq3p/2n5/4ppp1/2Q5/2BP1P2/PPP2P1P/2KR2R1 b - - 1 17",
-          "orientation": "black",
-          "from": "g5",
-          "to": "g4",
-          "caption": "Game 4 · Black · Move 17: g4"
+          "key": "example-7:75",
+          "label": "Move 38: Nc6+",
+          "fen": "8/N3k1p1/1p2p3/7p/2KP4/6r1/PP6/8 w - - 0 38",
+          "orientation": "white",
+          "from": "a7",
+          "to": "c6",
+          "caption": "Game 7 · White · Move 38: Nc6+"
         }
       ],
       "shownNote": null,
       "sources": [
         {
-          "key": "example-4:34",
-          "gameId": "example-4",
-          "rootPly": 34,
+          "key": "example-7:75",
+          "gameId": "example-7",
+          "rootPly": 75,
           "playedAt": "2026-10-05T12:00:00Z",
           "opponent": null,
-          "moveNumber": 17,
+          "moveNumber": 38,
           "result": "loss",
-          "counted": true
+          "counted": false
+        }
+      ]
+    },
+    {
+      "tag": "bad_bishop_trade",
+      "label": "Bad bishop trade",
+      "checked": "Each board shows a bishop capture that led to a later blunder.",
+      "frequency": 1,
+      "gameCount": 10,
+      "recurring": false,
+      "status": "1 of 10 games, not yet a habit",
+      "note": null,
+      "claim": [
+        {
+          "text": "This came up in 1 of your 10 games.",
+          "door": true
+        }
+      ],
+      "rule": "Every game where this pattern started a slide.",
+      "boards": [
+        {
+          "key": "example-7:41",
+          "label": "Move 21: Bxe4",
+          "fen": "r1b2rk1/pp4pp/2p1p3/2NpNp2/3Pn3/2PB2PR/PP4P1/2K5 w - - 1 21",
+          "orientation": "white",
+          "from": "d3",
+          "to": "e4",
+          "caption": "Game 7 · White · Move 21: Bxe4"
+        }
+      ],
+      "shownNote": null,
+      "sources": [
+        {
+          "key": "example-7:41",
+          "gameId": "example-7",
+          "rootPly": 41,
+          "playedAt": "2026-10-05T12:00:00Z",
+          "opponent": null,
+          "moveNumber": 21,
+          "result": "loss",
+          "counted": false
         }
       ]
     }

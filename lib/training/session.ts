@@ -187,6 +187,7 @@ const TAG_LABELS: Record<string, string> = {
   failed_endgame_conversion: 'failed endgame conversion',
   premature_piece_exchange: 'premature piece exchange',
   king_safety: 'king safety issue',
+  middlegame_slip: 'middlegame mistake',
   poor_piece_coordination: 'poor piece coordination',
   missed_mating_pattern: 'missed mating pattern',
   pawn_structure_weakness: 'pawn structure weakness',

@@ -1,5 +1,6 @@
 import type { EvaluatedMove } from './stockfish.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { boardFacts } from './board-tags.js'
 
 export interface DetectedPattern {
   patternType: string
@@ -125,12 +126,21 @@ export function detectGamePatterns(
       })
     }
 
-    if (move.ply >= 30 && move.ply <= 70 && move.classification === 'blunder') {
+    if (move.classification === 'blunder' && boardFacts(move.fen_before, move.san)?.weakensKingShield === true) {
       patterns.push({
         patternType: 'king_safety',
         patternLabel: 'King Safety Issue',
         movesPly: [move.ply],
-        context: `King exposed at move ${Math.ceil(move.ply / 2)}`,
+        context: `Pawn move ${move.san} in front of the king at move ${Math.ceil(move.ply / 2)}`,
+      })
+    }
+
+    if (move.ply >= 30 && move.ply <= 70 && move.classification === 'blunder') {
+      patterns.push({
+        patternType: 'middlegame_slip',
+        patternLabel: 'Middlegame Mistake',
+        movesPly: [move.ply],
+        context: `Middlegame blunder at move ${Math.ceil(move.ply / 2)}`,
       })
     }
 
@@ -163,7 +173,8 @@ export function detectGamePatterns(
     }
 
     const isPawnMove = /^[a-h]/.test(move.san)
-    if (isPawnMove && move.ply >= 10 && move.ply <= 80 && effDelta >= 80 && effDelta <= 150) {
+    if (isPawnMove && move.ply >= 10 && move.ply <= 80 && effDelta >= 80 && effDelta <= 150 &&
+        (boardFacts(move.fen_before, move.san)?.pawnWeaknesses.length ?? 0) > 0) {
       patterns.push({
         patternType: 'pawn_structure_weakness',
         patternLabel: 'Pawn Structure Weakness',
@@ -231,15 +242,16 @@ export interface RootCauseRecord {
 }
 
 const TAG_PRIORITY = [
+  'king_safety',
+  'pawn_structure_weakness',
   'missed_knight_fork',
   'bad_bishop_trade',
-  'pawn_structure_weakness',
   'premature_piece_exchange',
   'missed_tactical_shot',
   'missed_mating_pattern',
   'hanging_piece',
   'opening_preparation_gap',
-  'king_safety',
+  'middlegame_slip',
   'passive_rook_endgame',
   'poor_piece_coordination',
   'failed_endgame_conversion',
@@ -293,8 +305,12 @@ export function detectChainRootPatterns(
   if (root.san.startsWith('B') && root.san.includes('x') && root.ply >= 20 && root.ply <= 80 && root.eval_delta <= 180) {
     add('bad_bishop_trade', 'Bad Bishop Trade', `Bishop capture ${root.san} at move ${moveNum} started a losing sequence`)
   }
-  if (/^[a-h]/.test(root.san) && root.ply >= 10 && root.ply <= 80 && root.eval_delta <= 150) {
-    add('pawn_structure_weakness', 'Pawn Structure Weakness', `Pawn move ${root.san} at move ${moveNum} weakened the structure`)
+  const board = boardFacts(root.fen_before, root.san)
+  if (/^[a-h]/.test(root.san) && root.ply >= 10 && root.ply <= 80 && root.eval_delta <= 150 && (board?.pawnWeaknesses.length ?? 0) > 0) {
+    add('pawn_structure_weakness', 'Pawn Structure Weakness', `Pawn move ${root.san} at move ${moveNum} left a ${board!.pawnWeaknesses.join(', ')} pawn`)
+  }
+  if (board?.weakensKingShield) {
+    add('king_safety', 'King Safety Issue', `Pawn move ${root.san} at move ${moveNum} weakened the pawns in front of the king`)
   }
   if (root.ply >= 20 && root.ply <= 60 && next && next.eval_delta < -200) {
     add('missed_knight_fork', 'Missed Knight Fork', `Possible fork opportunity missed at move ${moveNum}`)
@@ -314,7 +330,7 @@ export function detectChainRootPatterns(
       add('weak_back_rank', 'Weak Back Rank', `Late-game decline began at move ${moveNum}`)
     }
     if (root.ply >= 30 && root.ply <= 70) {
-      add('king_safety', 'King Safety Issue', `King exposed at move ${moveNum}`)
+      add('middlegame_slip', 'Middlegame Mistake', `Middlegame decline began at move ${moveNum}`)
     }
     if (root.ply > 60) {
       add('time_pressure_blunder', 'Time Pressure Blunder', `Decline from move ${moveNum} — likely time pressure`)

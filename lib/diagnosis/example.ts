@@ -1,7 +1,7 @@
 import { accountInstances, type AccountRows } from './account'
 import { buildFindings, type Finding } from './finding'
-import type { StandAloneByTag } from './instance'
-import { recountGroups } from './recount'
+import { mergeEvidence, type StandAloneByTag } from './instance'
+import { chainGameIds, recountGroups } from './recount'
 import { reportVerdict } from './verdict'
 
 export const EXAMPLE_INTRO =
@@ -17,10 +17,12 @@ export interface ExampleReport {
 
 export function exampleReport(rows: AccountRows, gameCount: number): ExampleReport {
   const standAlone: StandAloneByTag = new Map()
-  const instances = accountInstances(rows, standAlone)
-  const recounted = recountGroups(rows.groups, instances, standAlone)
+  const notOnBoard: StandAloneByTag = new Map()
+  const instances = accountInstances(rows, standAlone, notOnBoard)
+  const recounted = recountGroups(rows.groups, instances, mergeEvidence(standAlone, notOnBoard))
   const findings = buildFindings(recounted, instances, gameCount)
-  const verdict = reportVerdict(null, recounted, gameCount)?.text ?? null
+  const chainGames = chainGameIds(rows.groups, instances, standAlone, notOnBoard).size
+  const verdict = reportVerdict(null, recounted, gameCount, null, chainGames)?.text ?? null
 
   const order = [...rows.games].sort((a, b) =>
     (a.played_at ?? '') === (b.played_at ?? '') ? (a.id < b.id ? -1 : 1) : (a.played_at ?? '') < (b.played_at ?? '') ? -1 : 1
@@ -37,7 +39,6 @@ export function exampleReport(rows: AccountRows, gameCount: number): ExampleRepo
     verdict,
     findings: findings.map((f) => ({
       ...f,
-      label: f.tag === 'king_safety' ? 'Moves 15 to 35' : f.label,
       boards: f.boards.map((b) => {
         const game = gameNumbers.get(b.key.split(':')[0])
         const side = b.orientation === 'white' ? 'White' : 'Black'

@@ -213,6 +213,7 @@ export interface BatchProseInput {
   recounted: readonly GroupFacts[]
   results: ReadonlyMap<string, Result | null> | null
   outOfNowhere?: number | null
+  chainGames?: number | null
 }
 
 export interface BatchProse {
@@ -235,7 +236,7 @@ export function checkBatchProse(input: BatchProseInput): BatchProse {
   const ctxFor = (ids: readonly string[] | null): SentenceContext => ({ sans, userColor: null, results: ids ? resultsOf(ids) : null })
 
   let verdict: Verdict | null
-  if (!head) verdict = noHabitVerdict(input.recounted, input.gameCount, input.outOfNowhere)
+  if (!head) verdict = noHabitVerdict(input.recounted, input.gameCount, input.outOfNowhere, input.chainGames)
   else {
     verdict = habitHeadline(head, input.gameCount, input.outOfNowhere)
     if (storedHead && storedHead.tag === head.tag && !groupChanged(storedHead, head) && input.storedVerdict) {

@@ -1,14 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { accountInstances, pliesNeeded, type AccountRows } from './account'
 import type { GroupFacts, InstanceFacts } from './finding'
-import type { StandAloneByTag } from './instance'
-import { recountGroups } from './recount'
+import { mergeEvidence, type StandAloneByTag } from './instance'
+import { chainGameIds, recountGroups } from './recount'
 import { SUPABASE_MAX_ROWS, allRows, gamesByPliesQueries } from '@/lib/supabase/row-cap'
 import { outOfNowhereGames } from './out-of-nowhere'
 
 export interface BatchDiagnosis<G extends GroupFacts> {
   groups: G[]
   instances: Map<string, InstanceFacts[]>
+  chainGames: number
   outOfNowhere: string[] | null
 }
 
@@ -72,7 +73,8 @@ export async function loadBatchDiagnosis<G extends GroupFacts>(
   )
   const moves = moveReads.flatMap((r) => r.data ?? []) as AccountRows['moves']
   const standAlone: StandAloneByTag = new Map()
-  const instances = accountInstances({ ...rows, moves }, standAlone)
+  const notOnBoard: StandAloneByTag = new Map()
+  const instances = accountInstances({ ...rows, moves }, standAlone, notOnBoard)
   const outOfNowhere = blunderResult.error
     ? null
     : Array.from(
@@ -81,5 +83,10 @@ export async function loadBatchDiagnosis<G extends GroupFacts>(
           blunderResult.data.map((m) => ({ gameId: m.game_id, ply: m.ply_number, evalBefore: num(m.eval_before), evalAfter: num(m.eval_after) }))
         )
       )
-  return { groups: recountGroups(storedGroups, instances, standAlone), instances, outOfNowhere }
+  return {
+    groups: recountGroups(storedGroups, instances, mergeEvidence(standAlone, notOnBoard)),
+    instances,
+    chainGames: chainGameIds(storedGroups, instances, standAlone, notOnBoard).size,
+    outOfNowhere,
+  }
 }

@@ -20,5 +20,5 @@ export function outOfNowhereGames(
 
 export function outOfNowhereSentence(games: number, gameCount: number): string | null {
   if (!(games > 0)) return null
-  return `In ${games} of your ${countNoun(gameCount, 'game')}, one sudden blunder wrecked a solid position.`
+  return `In ${games} of your ${countNoun(gameCount, 'game')}, you threw away a good position with one sudden blunder.`
 }

@@ -26,6 +26,7 @@ interface BatchReportSummaryProps {
   allBatches: Array<{ overall_accuracy: number | null; generated_at: string }>
   results?: Record<string, 'win' | 'loss' | 'draw' | null>
   recounted?: BatchPatternGroup[]
+  outOfNowhere?: number | null
 }
 
 function formatDate(dateStr: string): string {
@@ -96,6 +97,7 @@ export default function BatchReportSummary({
   allBatches,
   results,
   recounted,
+  outOfNowhere,
 }: BatchReportSummaryProps) {
   if (!latestBatch) {
     return (
@@ -138,6 +140,7 @@ export default function BatchReportSummary({
     storedGroups,
     recounted: groups,
     results: results ? new Map(Object.entries(results)) : null,
+    outOfNowhere,
   }).verdict
 
   return (
@@ -148,6 +151,11 @@ export default function BatchReportSummary({
       {verdict && (
         <p className="font-headline" style={{ fontSize: 24, lineHeight: 1.3, color: 'var(--text)' }}>
           {verdict.text}
+        </p>
+      )}
+      {verdict?.also && (
+        <p className="text-base" style={{ lineHeight: 1.45, color: 'var(--text)' }}>
+          {verdict.also}
         </p>
       )}
       {verdict?.needsMoreGames && (

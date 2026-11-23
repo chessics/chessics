@@ -1,6 +1,7 @@
 import type { GuestSessionResult } from '@/types/guest'
 import type { InstanceFacts } from './finding'
 import { makeInstance, noteStandAlone, terminalStoodAlone, type MoveFacts, type StandAloneByTag } from './instance'
+import { outOfNowhereGames } from './out-of-nowhere'
 import { hasEngineEvals, sittingReport, type BlunderMove, type HistoryGame, type ScopeGame, type SittingReport } from './sittings'
 
 export function guestInstances(result: GuestSessionResult, standAlone?: StandAloneByTag): Map<string, InstanceFacts[]> {
@@ -55,4 +56,14 @@ export function guestFatigue(result: GuestSessionResult): SittingReport | null {
       .map((m) => ({ gameId: g.analysis_data.gameId, ply: m.ply_number, evalBefore: m.eval_before, evalAfter: m.eval_after }))
   )
   return sittingReport(history, scope, blunders, 'report')
+}
+
+export function guestOutOfNowhere(result: GuestSessionResult): number {
+  const games = result.games.map((g) => ({ id: g.analysis_data.gameId, user_color: g.user_color }))
+  const blunders: BlunderMove[] = result.games.flatMap((g) =>
+    g.analysis_data.moves
+      .filter((m) => m.classification === 'blunder')
+      .map((m) => ({ gameId: g.analysis_data.gameId, ply: m.ply_number, evalBefore: m.eval_before, evalAfter: m.eval_after }))
+  )
+  return outOfNowhereGames(games, blunders).size
 }

@@ -14,6 +14,7 @@ export interface WorkbenchReport {
   earlier: ReportRow[]
   results: Record<string, 'win' | 'loss' | 'draw' | null> | undefined
   recounted: BatchPatternGroup[] | undefined
+  outOfNowhere: number | null
   loadFailed: boolean
 }
 
@@ -24,6 +25,7 @@ export async function loadWorkbenchReport(supabase: SupabaseClient, userId: stri
   let earlier: ReportRow[] = []
   let results: Record<string, 'win' | 'loss' | 'draw' | null> | undefined
   let recounted: BatchPatternGroup[] | undefined
+  let outOfNowhere: number | null = null
   let loadFailed = false
 
   const scope = await accountScope(supabase, userId).catch((err) => {
@@ -82,16 +84,16 @@ export async function loadWorkbenchReport(supabase: SupabaseClient, userId: stri
     ])
     const games = (gamesRead.data ?? []) as Array<Pick<Game, 'id' | 'result' | 'played_at' | 'opponent_username' | 'user_color'>>
     if (!gamesRead.error && gamesRead.data) results = Object.fromEntries(games.map((g) => [g.id, g.result]))
-    recounted = (
-      await loadBatchDiagnosis(
+    const diagnosis = await loadBatchDiagnosis(
         supabase,
         latestBatch.pattern_groups ?? [],
         ids,
         games.flatMap((g) => (g.user_color ? [{ ...g, user_color: g.user_color }] : [])),
         (analysesRead.data ?? []) as Array<{ id: string; game_id: string }>
       )
-    ).groups
+    recounted = diagnosis.groups
+    outOfNowhere = diagnosis.outOfNowhere?.length ?? null
   }
 
-  return { scope, latestBatch, trajectories, allBatches, earlier, results, recounted, loadFailed }
+  return { scope, latestBatch, trajectories, allBatches, earlier, results, recounted, outOfNowhere, loadFailed }
 }

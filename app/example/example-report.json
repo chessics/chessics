@@ -1,11 +1,11 @@
 {
   "gameCount": 10,
-  "verdict": "In 3 of your 10 games, a move between moves 15 and 35 cost you ground, and you blundered after it.",
+  "verdict": "In 3 of your 10 games, a mistake in the middlegame led to a later blunder.",
   "findings": [
     {
       "tag": "king_safety",
       "label": "Moves 15 to 35",
-      "checked": "Each board shows a move between moves 15 and 35.",
+      "checked": "Each board shows a mistake in the middlegame that led to a later blunder.",
       "frequency": 3,
       "gameCount": 10,
       "recurring": true,
@@ -147,7 +147,7 @@
     {
       "tag": "poor_piece_coordination",
       "label": "Poor piece coordination",
-      "checked": "Each board shows one of three small slips in a row, or the first of several small losses in a row.",
+      "checked": "Each board shows the first of several small slips in a row.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,
@@ -207,7 +207,7 @@
     {
       "tag": "failed_endgame_conversion",
       "label": "Failed endgame conversion",
-      "checked": "Each board shows a move after move 35.",
+      "checked": "Each board shows a mistake late in the game that led to a blunder.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,
@@ -248,7 +248,7 @@
     {
       "tag": "pawn_structure_weakness",
       "label": "Pawn structure weakness",
-      "checked": "Each board shows a pawn move between moves 5 and 40 that cost you ground, but less than a blunder.",
+      "checked": "Each board shows a pawn move that led to a later blunder.",
       "frequency": 1,
       "gameCount": 10,
       "recurring": false,

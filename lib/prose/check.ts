@@ -10,7 +10,7 @@ import { standAloneExplanation } from '../review/chain-roots'
 import { sentenceCase, type GroupFacts } from '../diagnosis/finding'
 import { groupChanged } from '../diagnosis/recount'
 import { countNoun } from '../count-noun'
-import { habitVerdict, noHabitVerdict, withoutEmDash, type Verdict } from '../diagnosis/verdict'
+import { habitHeadline, noHabitVerdict, withoutEmDash, type Verdict } from '../diagnosis/verdict'
 
 type Color = 'white' | 'black'
 type Result = 'win' | 'loss' | 'draw'
@@ -212,6 +212,7 @@ export interface BatchProseInput {
   storedGroups: readonly StoredGroup[]
   recounted: readonly GroupFacts[]
   results: ReadonlyMap<string, Result | null> | null
+  outOfNowhere?: number | null
 }
 
 export interface BatchProse {
@@ -234,9 +235,9 @@ export function checkBatchProse(input: BatchProseInput): BatchProse {
   const ctxFor = (ids: readonly string[] | null): SentenceContext => ({ sans, userColor: null, results: ids ? resultsOf(ids) : null })
 
   let verdict: Verdict | null
-  if (!head) verdict = noHabitVerdict(input.recounted, input.gameCount)
+  if (!head) verdict = noHabitVerdict(input.recounted, input.gameCount, input.outOfNowhere)
   else {
-    verdict = { text: habitVerdict(head.tag, head.label, head.frequency, input.gameCount), needsMoreGames: false }
+    verdict = habitHeadline(head, input.gameCount, input.outOfNowhere)
     if (storedHead && storedHead.tag === head.tag && !groupChanged(storedHead, head) && input.storedVerdict) {
       const { rules } = checkSentence(input.storedVerdict, ctxFor(storedHead.gameIds))
       changes.push({ old: input.storedVerdict, new: verdict.text, rules: [...rules, 'category_headline'] })

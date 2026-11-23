@@ -12,7 +12,7 @@ import { guestGameRows, turningMoveTimes } from '@/lib/report/game-moments'
 import GuestGameMoment from '@/components/report/GuestGameMoment'
 import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
 import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
-import { guestFatigue, guestInstances } from '@/lib/diagnosis/guest'
+import { guestFatigue, guestInstances, guestOutOfNowhere } from '@/lib/diagnosis/guest'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { checkBatchProse } from '@/lib/prose/check'
 import { recountGroups } from '@/lib/diagnosis/recount'
@@ -108,6 +108,7 @@ export default function GuestReportPage() {
     storedGroups: result.pattern_groups ?? [],
     recounted: groups,
     results: new Map(result.games.map((g) => [g.analysis_data.gameId, g.result])),
+    outOfNowhere: guestOutOfNowhere(result),
   })
   const verdict = prose.verdict
 
@@ -139,6 +140,11 @@ export default function GuestReportPage() {
             <h1 className="font-headline" style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
               {verdict.text}
             </h1>
+          )}
+          {verdict?.also && (
+            <p className="font-headline" style={{ fontSize: 22, lineHeight: 1.35, color: 'var(--text)' }}>
+              {verdict.also}
+            </p>
           )}
           {verdict?.needsMoreGames && (
             <a

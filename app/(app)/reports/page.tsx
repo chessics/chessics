@@ -35,6 +35,7 @@ export default async function ReportsPage() {
             allBatches={report.allBatches}
             results={report.results}
             recounted={report.recounted}
+            outOfNowhere={report.outOfNowhere}
           />
           <EarlierReports reports={report.earlier} />
         </>

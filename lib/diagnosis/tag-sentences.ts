@@ -5,60 +5,60 @@ export interface TagSentences {
 
 export const TAG_SENTENCES: Readonly<Record<string, TagSentences>> = {
   missed_knight_fork: {
-    finding: 'Each board shows a move between moves 10 and 30 that let your opponent hit back hard.',
-    headline: 'a move between moves 10 and 30 let your opponent hit back hard, and you blundered after it',
+    finding: 'Each board shows a move that let your opponent hit back hard.',
+    headline: 'a move let your opponent hit back hard, and a blunder followed',
   },
   bad_bishop_trade: {
-    finding: 'Each board shows a bishop capture between moves 10 and 40 that cost you ground, but less than a blunder.',
-    headline: 'a bishop capture between moves 10 and 40 cost you ground, and you blundered after it',
+    finding: 'Each board shows a bishop capture that led to a later blunder.',
+    headline: 'a bishop capture led to a later blunder',
   },
   pawn_structure_weakness: {
-    finding: 'Each board shows a pawn move between moves 5 and 40 that cost you ground, but less than a blunder.',
-    headline: 'a pawn move between moves 5 and 40 cost you ground, and you blundered after it',
+    finding: 'Each board shows a pawn move that led to a later blunder.',
+    headline: 'a pawn move led to a later blunder',
   },
   premature_piece_exchange: {
-    finding: 'Each board shows a capture between moves 10 and 25.',
-    headline: 'a capture between moves 10 and 25 cost you ground, and you blundered after it',
+    finding: 'Each board shows a capture that led to a later blunder.',
+    headline: 'a capture led to a later blunder',
   },
   missed_tactical_shot: {
     finding: 'Each board shows a move that let your opponent hit back hard.',
-    headline: 'one of your moves let your opponent hit back hard, and you blundered after it',
+    headline: 'a move let your opponent hit back hard, and a blunder followed',
   },
   missed_mating_pattern: {
-    finding: "After the move on each board you were winning, and your opponent's reply took most of that away.",
-    headline: "you were winning, your opponent's reply took most of that away, and you blundered after it",
+    finding: 'After the move on each board you were winning, and then your opponent hit back.',
+    headline: 'you were winning, your opponent hit back, and a blunder followed',
   },
   hanging_piece: {
     finding: 'Each board shows a blunder that led to a second one.',
     headline: 'one blunder led to a second one',
   },
   opening_preparation_gap: {
-    finding: 'Each board shows a move from the first 15 moves of the game.',
-    headline: 'a move in the first 15 cost you ground, and you blundered after it',
+    finding: 'Each board shows a mistake in the opening that led to a later blunder.',
+    headline: 'a mistake in the opening led to a later blunder',
   },
   king_safety: {
-    finding: 'Each board shows a move between moves 15 and 35.',
-    headline: 'a move between moves 15 and 35 cost you ground, and you blundered after it',
+    finding: 'Each board shows a mistake in the middlegame that led to a later blunder.',
+    headline: 'a mistake in the middlegame led to a later blunder',
   },
   passive_rook_endgame: {
-    finding: 'Each board shows a small slip after move 30.',
-    headline: 'a small slip after move 30 led to a blunder',
+    finding: 'Each board shows a small slip late in the game.',
+    headline: 'a small slip late in the game led to a blunder',
   },
   poor_piece_coordination: {
-    finding: 'Each board shows one of three small slips in a row, or the first of several small losses in a row.',
+    finding: 'Each board shows the first of several small slips in a row.',
     headline: 'several small slips added up to a blunder',
   },
   failed_endgame_conversion: {
-    finding: 'Each board shows a move after move 35.',
-    headline: 'a move after move 35 cost you ground, and you blundered after it',
+    finding: 'Each board shows a mistake late in the game that led to a blunder.',
+    headline: 'a mistake late in the game led to a blunder',
   },
   time_pressure_blunder: {
-    finding: 'Each board shows a move after move 30.',
-    headline: 'a move after move 30 cost you ground, and you blundered after it',
+    finding: 'Each board shows a mistake late in the game that led to a blunder.',
+    headline: 'a mistake late in the game led to a blunder',
   },
   weak_back_rank: {
-    finding: 'Each board shows a move after move 15.',
-    headline: 'a move after move 15 cost you ground, and you blundered after it',
+    finding: 'Each board shows a mistake after the opening that led to a later blunder.',
+    headline: 'a mistake after the opening led to a later blunder',
   },
 }
 

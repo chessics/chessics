@@ -1,6 +1,7 @@
-import { selectFindings, sentenceCase, type GroupFacts } from './finding'
+import { sentenceCase, type GroupFacts } from './finding'
 import { tagSentences } from './tag-sentences'
 import { countNoun } from '../count-noun'
+import { outOfNowhereSentence } from './out-of-nowhere'
 
 export const ANALYZE_MORE_ID = 'analyze-more'
 
@@ -14,7 +15,10 @@ export function withoutEmDash(text: string): string {
 export interface Verdict {
   text: string
   needsMoreGames: boolean
+  also?: string
 }
+
+const withAlso = (v: Verdict, also: string | null): Verdict => (also ? { ...v, also } : v)
 
 export function verdictFor(stored: string | null, recurring: boolean): Verdict | null {
   if (!recurring) return { text: NO_HABIT_VERDICT, needsMoreGames: true }
@@ -28,26 +32,32 @@ export function habitVerdict(tag: string, label: string, frequency: number, game
   return s ? `In ${frequency} of your ${games}, ${s.headline}.` : `${sentenceCase(label)} came up in ${frequency} of your ${games}.`
 }
 
-export function topFindingVerdict(recounted: readonly GroupFacts[], gameCount: number): string | null {
-  const top = selectFindings([...recounted]).ordered[0]
-  if (!top) return null
-  const s = tagSentences(top.tag)
-  const games = countNoun(gameCount, 'game')
-  return s
-    ? `Your top pattern so far: in ${top.frequency} of your ${games}, ${s.headline}.`
-    : `Your top pattern so far: ${sentenceCase(top.label).toLowerCase()} came up in ${top.frequency} of your ${games}.`
+export function earlierMistakeVerdict(recounted: readonly GroupFacts[], gameCount: number): string | null {
+  const games = new Set(recounted.flatMap((g) => g.gameIds))
+  if (games.size === 0) return null
+  return `In ${games.size} of your ${countNoun(gameCount, 'game')}, an earlier mistake led to your blunder.`
 }
 
-export function noHabitVerdict(recounted: readonly GroupFacts[], gameCount: number): Verdict {
-  return { text: topFindingVerdict(recounted, gameCount) ?? NO_HABIT_VERDICT, needsMoreGames: true }
+export function noHabitVerdict(recounted: readonly GroupFacts[], gameCount: number, outOfNowhere?: number | null): Verdict {
+  const chainGames = new Set(recounted.flatMap((g) => g.gameIds)).size
+  const chain = earlierMistakeVerdict(recounted, gameCount)
+  const nowhere = outOfNowhere == null ? null : outOfNowhereSentence(outOfNowhere, gameCount)
+  if (nowhere && outOfNowhere! > chainGames) return withAlso({ text: nowhere, needsMoreGames: true }, chain)
+  return withAlso({ text: chain ?? NO_HABIT_VERDICT, needsMoreGames: true }, nowhere)
+}
+
+export function habitHeadline(head: GroupFacts, gameCount: number, outOfNowhere?: number | null): Verdict {
+  const nowhere = outOfNowhere == null ? null : outOfNowhereSentence(outOfNowhere, gameCount)
+  return withAlso({ text: habitVerdict(head.tag, head.label, head.frequency, gameCount), needsMoreGames: false }, nowhere)
 }
 
 export function reportVerdict(
   stored: string | null,
   recounted: readonly GroupFacts[],
-  gameCount: number
+  gameCount: number,
+  outOfNowhere?: number | null
 ): Verdict | null {
   const head = recounted.find((g) => g.recurring)
-  if (!head) return noHabitVerdict(recounted, gameCount)
-  return { text: habitVerdict(head.tag, head.label, head.frequency, gameCount), needsMoreGames: false }
+  if (!head) return noHabitVerdict(recounted, gameCount, outOfNowhere)
+  return habitHeadline(head, gameCount, outOfNowhere)
 }

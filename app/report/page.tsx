@@ -3,15 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import RecurrenceStrip from '@/components/workbench/RecurrenceStrip'
+import GameStrip from '@/components/report/GameStrip'
 import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
 import TurningMoveTimes from '@/components/report/TurningMoveTimes'
 import { guestGameRows, turningMoveTimes } from '@/lib/report/game-moments'
 import GuestGameMoment from '@/components/report/GuestGameMoment'
-import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
-import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
+import { PROSE_MEASURE, REPORT_COLUMN } from '@/components/report/column'
+import { buildFindings } from '@/lib/diagnosis/finding'
+import { headlineGameIds, withoutStripResults } from '@/lib/report/game-strip'
 import { guestFatigue, guestInstances, guestSuddenBlunders } from '@/lib/diagnosis/guest'
 import { suddenBlunderFinding, withSuddenFinding } from '@/lib/diagnosis/out-of-nowhere'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
@@ -62,23 +63,24 @@ export default function GuestReportPage() {
       .catch(() => setState(reportLoadState(null)))
   }, [router])
 
-  const { groups, findings, chainGames } = useMemo(() => {
-    if (!result) return { groups: [], findings: [], chainGames: 0 }
+  const { groups, findings, chainGames, chainIds } = useMemo(() => {
+    if (!result) return { groups: [], findings: [], chainGames: 0, chainIds: [] as string[] }
     const standAlone: StandAloneByTag = new Map()
     const notOnBoard: StandAloneByTag = new Map()
     const instances = guestInstances(result, standAlone, notOnBoard)
     const stored = result.pattern_groups ?? []
     const recounted = recountGroups(stored, instances, mergeEvidence(standAlone, notOnBoard))
+    const chains = chainGameIds(stored, instances, standAlone, notOnBoard)
     return {
       groups: recounted,
       findings: buildFindings(recounted, instances, result.batch_report.game_count),
-      chainGames: chainGameIds(stored, instances, standAlone, notOnBoard).size,
+      chainGames: chains.size,
+      chainIds: Array.from(chains),
     }
   }, [result])
   const fatigue = useMemo(() => (result ? guestFatigue(result) : null), [result])
   const rows = useMemo(() => result ? guestGameRows(result.games, result.batch_report.game_ids ?? []) : [], [result])
   const times = useMemo(() => turningMoveTimes(rows), [rows])
-  const stripGroup = useMemo(() => selectFindings(groups).ordered[0] ?? null, [groups])
 
   if (state === 'loading') return null
 
@@ -118,9 +120,21 @@ export default function GuestReportPage() {
     chainGames,
   })
   const verdict = prose.verdict
-  const shownFindings = withSuddenFinding(findings, suddenBlunderFinding(sudden, result.batch_report.game_count), !!verdict?.suddenLeads)
-  const affected = new Set(verdict?.suddenLeads ? sudden.map((i) => i.gameId) : (stripGroup?.gameIds ?? []))
-  const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
+  const affected = headlineGameIds({
+    suddenLeads: !!verdict?.suddenLeads,
+    suddenGameIds: sudden.map((i) => i.gameId),
+    recounted: groups,
+    chainGameIds: chainIds,
+  })
+  const shownFindings = withoutStripResults(
+    withSuddenFinding(findings, suddenBlunderFinding(sudden, result.batch_report.game_count), !!verdict?.suddenLeads),
+    affected
+  )
+  const byGameId = new Map(result.games.map((g) => [g.analysis_data.gameId, g]))
+  const stripGames = gameIds.flatMap((id) => {
+    const g = byGameId.get(id)
+    return g ? [{ id, result: g.result, opponent: g.opponent_username, playedAt: g.played_at ?? null }] : []
+  })
 
   return (
     <main className="min-h-screen px-4 sm:px-8 lg:px-12 py-12" style={{ background: 'var(--bg)' }}>
@@ -146,16 +160,14 @@ export default function GuestReportPage() {
               </>
             )}
           </p>
-          {verdict && (
-            <h1 className="font-headline" style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}>
-              {verdict.text}
-            </h1>
-          )}
-          {verdict?.also && (
-            <p className="font-headline" style={{ fontSize: 22, lineHeight: 1.35, color: 'var(--text)' }}>
-              {verdict.also}
-            </p>
-          )}
+          <GameStrip
+            reportId={`guest:${result.sessionToken}`}
+            verdict={verdict?.text ?? null}
+            games={stripGames}
+            headlineIds={Array.from(affected)}
+            reviewLinks={false}
+            restTarget="games-in-batch"
+          >
           {verdict?.needsMoreGames && (
             <a
               href={`#${ANALYZE_MORE_ID}`}
@@ -165,7 +177,7 @@ export default function GuestReportPage() {
               {MORE_GAMES_HINT} ↓
             </a>
           )}
-          <RecurrenceStrip bars={bars} />
+          </GameStrip>
           {prose.tail && (
             <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
               {prose.tail}
@@ -195,7 +207,7 @@ export default function GuestReportPage() {
 
         <div className="flex flex-col gap-1">
           <hr className="hairline" />
-          <h2 className="text-base font-medium py-3" style={{ color: 'var(--text)' }}>Games in this batch</h2>
+          <h2 id="games-in-batch" className="text-base font-medium py-3" style={{ color: 'var(--text)', scrollMarginTop: 24 }}>Games in this batch</h2>
           <TurningMoveTimes times={times} />
           {rows.map(({ game, preview }) => {
             const id = game.analysis_data.gameId

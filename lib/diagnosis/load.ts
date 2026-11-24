@@ -10,6 +10,7 @@ export interface BatchDiagnosis<G extends GroupFacts> {
   groups: G[]
   instances: Map<string, InstanceFacts[]>
   chainGames: number
+  chainGameIds: string[]
   outOfNowhere: string[] | null
   suddenBlunders: InstanceFacts[]
 }
@@ -92,10 +93,12 @@ export async function loadBatchDiagnosis<G extends GroupFacts>(
         }))
       )
   const outOfNowhere = blunderResult.error ? null : suddenBlunders.map((i) => i.gameId)
+  const chains = chainGameIds(storedGroups, instances, standAlone, notOnBoard)
   return {
     groups: recountGroups(storedGroups, instances, mergeEvidence(standAlone, notOnBoard)),
     instances,
-    chainGames: chainGameIds(storedGroups, instances, standAlone, notOnBoard).size,
+    chainGames: chains.size,
+    chainGameIds: Array.from(chains),
     outOfNowhere,
     suddenBlunders,
   }

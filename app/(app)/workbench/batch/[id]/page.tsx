@@ -2,14 +2,15 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import RecurrenceStrip from '@/components/workbench/RecurrenceStrip'
+import GameStrip from '@/components/report/GameStrip'
 import BatchControls from '@/components/workbench/BatchControls'
 import Diagnosis from '@/components/diagnosis/Diagnosis'
 import SittingLine from '@/components/diagnosis/SittingLine'
-import { PROSE_MEASURE, REPORT_COLUMN, VERDICT_FONT_SIZE } from '@/components/report/column'
+import { PROSE_MEASURE, REPORT_COLUMN } from '@/components/report/column'
+import { headlineGameIds, withoutStripResults } from '@/lib/report/game-strip'
 import { loadBatchDiagnosis } from '@/lib/diagnosis/load'
 import { suddenBlunderFinding, withSuddenFinding } from '@/lib/diagnosis/out-of-nowhere'
-import { buildFindings, selectFindings } from '@/lib/diagnosis/finding'
+import { buildFindings } from '@/lib/diagnosis/finding'
 import { userNameFromGames } from '@/lib/sync/user-from-games'
 import { ANALYZE_MORE_ID, MORE_GAMES_HINT } from '@/lib/diagnosis/verdict'
 import { checkBatchProse } from '@/lib/prose/check'
@@ -77,7 +78,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
     .map((id) => gamesById.get(id))
     .filter((g): g is Game => !!g)
 
-  const { groups, instances, outOfNowhere, chainGames, suddenBlunders } = await loadBatchDiagnosis(
+  const { groups, instances, outOfNowhere, chainGames, chainGameIds, suddenBlunders } = await loadBatchDiagnosis(
     supabase,
     storedGroups,
     gameIds,
@@ -119,10 +120,17 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
   const verdict = prose.verdict
 
   const sudden = suddenBlunderFinding(suddenBlunders, batch.game_count)
-  const findings = withSuddenFinding(buildFindings(groups, instances, batch.game_count), sudden, !!verdict?.suddenLeads)
-  const stripGroup = selectFindings(groups).ordered[0] ?? null
-  const affected = new Set(verdict?.suddenLeads ? suddenBlunders.map((i) => i.gameId) : (stripGroup?.gameIds ?? []))
-  const bars = gameIds.map((id) => (affected.has(id) ? ('affected' as const) : ('quiet' as const)))
+  const affected = headlineGameIds({
+    suddenLeads: !!verdict?.suddenLeads,
+    suddenGameIds: suddenBlunders.map((i) => i.gameId),
+    recounted: groups,
+    chainGameIds,
+  })
+  const findings = withoutStripResults(
+    withSuddenFinding(buildFindings(groups, instances, batch.game_count), sudden, !!verdict?.suddenLeads),
+    affected
+  )
+  const stripGames = orderedGames.map((g) => ({ id: g.id, result: g.result, opponent: g.opponent_username, playedAt: g.played_at }))
 
   return (
     <div className={`flex flex-col gap-10 ${REPORT_COLUMN}`}>
@@ -140,19 +148,14 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
       </div>
 
       <div className="flex flex-col gap-6">
-        {verdict && (
-          <h1
-            className="font-headline"
-            style={{ fontSize: VERDICT_FONT_SIZE, lineHeight: 1.25, color: 'var(--text)', fontWeight: 500 }}
-          >
-            {verdict.text}
-          </h1>
-        )}
-        {verdict?.also && (
-          <p className="font-headline" style={{ fontSize: 22, lineHeight: 1.35, color: 'var(--text)' }}>
-            {verdict.also}
-          </p>
-        )}
+        <GameStrip
+          reportId={batch.id}
+          verdict={verdict?.text ?? null}
+          games={stripGames}
+          headlineIds={Array.from(affected)}
+          reviewLinks
+          restTarget="games-in-batch"
+        >
         {verdict?.needsMoreGames && (
           <a
             href={`#${ANALYZE_MORE_ID}`}
@@ -162,7 +165,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
             {MORE_GAMES_HINT} ↓
           </a>
         )}
-        <RecurrenceStrip bars={bars} />
+        </GameStrip>
         {prose.tail && (
           <p className="text-base" style={{ color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: PROSE_MEASURE }}>
             {prose.tail}
@@ -212,7 +215,7 @@ export default async function BatchReportPage({ params, searchParams }: BatchPag
 
       <div className="flex flex-col gap-1">
         <hr className="hairline" />
-        <h2 className="text-base font-medium py-3" style={{ color: 'var(--text)' }}>
+        <h2 id="games-in-batch" className="text-base font-medium py-3" style={{ color: 'var(--text)', scrollMarginTop: 24 }}>
           Games in this batch
         </h2>
         {orderedGames.map((game) => {

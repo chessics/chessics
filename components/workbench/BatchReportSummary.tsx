@@ -159,11 +159,6 @@ export default function BatchReportSummary({
           {verdict.text}
         </p>
       )}
-      {verdict?.also && (
-        <p className="text-base" style={{ lineHeight: 1.45, color: 'var(--text)' }}>
-          {verdict.also}
-        </p>
-      )}
       {verdict?.needsMoreGames && (
         <Link
           href="/analyze"
